@@ -1,0 +1,120 @@
+[package]
+name = "rightclick"
+version = "0.1.0"
+edition = "2024"
+authors = ["RightClick Contributors"]
+description = "A TUI dashboard for AI coding agents - puts your entire development workflow in one shell"
+license = "MIT"
+repository = "https://github.com/guyghost/rightclick"
+keywords = ["tui", "ai", "developer-tools", "git", "terminal"]
+categories = ["command-line-utilities", "development-tools"]
+rust-version = "1.85"
+
+[[bin]]
+name = "rightclick"
+path = "src/main.rs"
+
+[dependencies]
+# Core async runtime
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros", "sync", "time", "process", "fs"] }
+
+# TUI framework
+crossterm = "0.28"
+ratatui = "0.29"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async traits
+async-trait = "0.1"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# File system watching (without heavy deps)
+notify = { version = "6.1", default-features = false, features = ["macos_fsevent"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# CLI parsing
+clap = { version = "4.5", features = ["derive"] }
+
+# Directories
+directories = "6.0"
+
+# TOML parsing
+toml = "0.8"
+dirs = "6.0"
+
+# Colors
+colored = "3.0"
+
+# Fuzzy matching (lightweight)
+nucleo = "0.5"
+
+# SQLite
+rusqlite = { version = "0.34", features = ["bundled", "chrono"] }
+
+# Regex
+regex = "1.11"
+
+# Hashing
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
+# UUID
+uuid = { version = "1.13", features = ["v4", "serde"] }
+
+# Synchronization
+parking_lot = "0.12"
+
+# Ordered maps
+indexmap = "2.7"
+
+# OnceCell
+once_cell = "1.20"
+
+# String utilities
+unicode-width = "0.2"
+unicode-segmentation = "1.12"
+
+# Path utilities
+path-absolutize = "3.1"
+
+# Temp file
+tempfile = "3.16"
+
+# HTTP client (optional)
+reqwest = { version = "0.12", features = ["json"], optional = true }
+
+# Process execution
+tokio-process = "0.2"
+
+# Syntax highlighting
+syntect = "5.2"
+
+# Git operations
+gix = "0.70"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[features]
+default = []
+check-updates = ["reqwest"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

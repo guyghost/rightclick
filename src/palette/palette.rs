@@ -1,0 +1,849 @@
+//! Command palette widget for RightClick.
+//!
+//! This module provides a TUI component for displaying and interacting
+//! with a searchable command palette using fuzzy matching.
+
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{
+    Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Widget, StatefulWidget,
+};
+
+use crate::core::models::Theme;
+use crate::keymap::FocusContext;
+use crate::palette::entries::{Category, PaletteEntry};
+use crate::palette::fuzzy::{FuzzyMatcher, MatchResult};
+use crate::theme::style_for_ui_element;
+use crate::theme::UiElement;
+
+/// Actions that can be returned from handling key events.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PaletteAction {
+    /// Select an entry
+    Select(PaletteEntry),
+    /// Close the palette
+    Close,
+    /// Toggle showing all contexts
+    ToggleContextMode,
+}
+
+/// The command palette widget.
+#[derive(Debug, Clone)]
+pub struct Palette {
+    /// Current input text
+    pub input: String,
+    /// Cursor position in the input (byte index)
+    pub cursor_pos: usize,
+    /// All available entries
+    pub all_entries: Vec<PaletteEntry>,
+    /// Currently filtered (matched) entries
+    pub filtered: Vec<MatchResult>,
+    /// Index of the currently selected entry
+    pub selected: usize,
+    /// Scroll offset for the results list
+    pub scroll_offset: usize,
+    /// Maximum number of visible entries
+    pub max_visible: usize,
+    /// Whether to show entries from all contexts
+    pub show_all_contexts: bool,
+    /// Current focus context
+    pub current_context: FocusContext,
+    /// Fuzzy matcher
+    matcher: FuzzyMatcher,
+    /// Whether the palette is active/focused
+    pub active: bool,
+}
+
+impl Default for Palette {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Palette {
+    /// Creates a new empty palette.
+    pub fn new() -> Self {
+        Self {
+            input: String::new(),
+            cursor_pos: 0,
+            all_entries: Vec::new(),
+            filtered: Vec::new(),
+            selected: 0,
+            scroll_offset: 0,
+            max_visible: 10,
+            show_all_contexts: false,
+            current_context: FocusContext::Global,
+            matcher: FuzzyMatcher::new(),
+            active: true,
+        }
+    }
+
+    /// Creates a new palette with the given entries.
+    pub fn with_entries(entries: Vec<PaletteEntry>) -> Self {
+        let mut palette = Self::new();
+        palette.set_entries(entries);
+        palette
+    }
+
+    /// Sets the entries and re-filters.
+    pub fn set_entries(&mut self, entries: Vec<PaletteEntry>) {
+        self.all_entries = entries;
+        self.filter(&self.input.clone());
+    }
+
+    /// Sets the current focus context and re-filters.
+    pub fn set_context(&mut self, context: FocusContext) {
+        self.current_context = context;
+        self.filter(&self.input.clone());
+    }
+
+    /// Sets whether to show all contexts.
+    pub fn set_show_all_contexts(&mut self, show_all: bool) {
+        self.show_all_contexts = show_all;
+        self.filter(&self.input.clone());
+    }
+
+    /// Toggles showing all contexts.
+    pub fn toggle_context_mode(&mut self) {
+        self.show_all_contexts = !self.show_all_contexts;
+        self.filter(&self.input.clone());
+    }
+
+    /// Filters entries based on the query.
+    pub fn filter(&mut self, query: &str) {
+        self.input = query.to_string();
+        self.cursor_pos = self.input.len();
+
+        self.filtered = self.matcher.match_entries_with_context(
+            &self.all_entries,
+            query,
+            self.current_context,
+            self.show_all_contexts,
+        );
+
+        // Reset selection and scroll
+        self.selected = 0;
+        self.scroll_offset = 0;
+    }
+
+    /// Updates the filter with the current input.
+    fn update_filter(&mut self) {
+        self.filtered = self.matcher.match_entries_with_context(
+            &self.all_entries,
+            &self.input,
+            self.current_context,
+            self.show_all_contexts,
+        );
+        self.selected = self.selected.min(self.filtered.len().saturating_sub(1));
+    }
+
+    /// Moves the selection up.
+    pub fn move_up(&mut self) {
+        if self.selected > 0 {
+            self.selected -= 1;
+            self.adjust_scroll();
+        }
+    }
+
+    /// Moves the selection down.
+    pub fn move_down(&mut self) {
+        if self.selected + 1 < self.filtered.len() {
+            self.selected += 1;
+            self.adjust_scroll();
+        }
+    }
+
+    /// Adjusts the scroll offset to keep the selected item visible.
+    fn adjust_scroll(&mut self) {
+        if self.selected < self.scroll_offset {
+            self.scroll_offset = self.selected;
+        } else if self.selected >= self.scroll_offset + self.max_visible {
+            self.scroll_offset = self.selected.saturating_sub(self.max_visible - 1);
+        }
+    }
+
+    /// Returns the currently selected entry, if any.
+    pub fn select(&self) -> Option<&PaletteEntry> {
+        self.filtered.get(self.selected).map(|r| &r.entry)
+    }
+
+    /// Returns the currently selected match result, if any.
+    pub fn selected_match(&self) -> Option<&MatchResult> {
+        self.filtered.get(self.selected)
+    }
+
+    /// Clears the input and resets the filter.
+    pub fn clear(&mut self) {
+        self.input.clear();
+        self.cursor_pos = 0;
+        self.filter("");
+    }
+
+    /// Handles a key event and returns an action if applicable.
+    pub fn handle_key(&mut self, key: KeyEvent) -> Option<PaletteAction> {
+        match key.code {
+            KeyCode::Enter => {
+                return self.select().cloned().map(PaletteAction::Select);
+            }
+            KeyCode::Esc => {
+                return Some(PaletteAction::Close);
+            }
+            KeyCode::Up => {
+                self.move_up();
+            }
+            KeyCode::Down => {
+                self.move_down();
+            }
+            KeyCode::PageUp => {
+                for _ in 0..self.max_visible {
+                    self.move_up();
+                }
+            }
+            KeyCode::PageDown => {
+                for _ in 0..self.max_visible {
+                    self.move_down();
+                }
+            }
+            KeyCode::Home => {
+                self.selected = 0;
+                self.scroll_offset = 0;
+            }
+            KeyCode::End => {
+                self.selected = self.filtered.len().saturating_sub(1);
+                self.adjust_scroll();
+            }
+            KeyCode::Tab => {
+                self.toggle_context_mode();
+                return Some(PaletteAction::ToggleContextMode);
+            }
+            KeyCode::Backspace => {
+                if self.cursor_pos > 0 {
+                    let char_before = self.input[..self.cursor_pos].chars().last();
+                    if let Some(ch) = char_before {
+                        self.input.remove(self.cursor_pos - ch.len_utf8());
+                        self.cursor_pos -= ch.len_utf8();
+                        self.update_filter();
+                    }
+                }
+            }
+            KeyCode::Delete => {
+                if self.cursor_pos < self.input.len() {
+                    let _ch = self.input[self.cursor_pos..].chars().next();
+                    self.input.remove(self.cursor_pos);
+                    // cursor_pos stays the same since we removed the character at current position
+                    self.update_filter();
+                }
+            }
+            KeyCode::Left => {
+                if self.cursor_pos > 0 {
+                    let char_before = self.input[..self.cursor_pos].chars().last();
+                    if let Some(ch) = char_before {
+                        self.cursor_pos -= ch.len_utf8();
+                    }
+                }
+            }
+            KeyCode::Right => {
+                if self.cursor_pos < self.input.len() {
+                    let ch = self.input[self.cursor_pos..].chars().next();
+                    if let Some(ch) = ch {
+                        self.cursor_pos += ch.len_utf8();
+                    }
+                }
+            }
+            KeyCode::Char(c) => {
+                // Check for Ctrl+U to clear input
+                if key.modifiers.contains(KeyModifiers::CONTROL) && c == 'u' {
+                    self.clear();
+                } else if key.modifiers.contains(KeyModifiers::CONTROL) && c == 'n' {
+                    self.move_down();
+                } else if key.modifiers.contains(KeyModifiers::CONTROL) && c == 'p' {
+                    self.move_up();
+                } else {
+                    self.input.insert(self.cursor_pos, c);
+                    self.cursor_pos += c.len_utf8();
+                    self.update_filter();
+                }
+            }
+            _ => {}
+        }
+
+        None
+    }
+
+    /// Renders the palette to the buffer.
+    pub fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
+        if area.width < 10 || area.height < 5 {
+            return;
+        }
+
+        // Clear the area first
+        Clear.render(area, buf);
+
+        // Create a centered popup
+        let popup_width = (area.width * 4 / 5).max(40).min(area.width - 4);
+        let popup_height = (self.max_visible as u16 + 4).min(area.height - 2);
+
+        let popup_area = Rect {
+            x: area.x + (area.width - popup_width) / 2,
+            y: area.y + (area.height - popup_height) / 2,
+            width: popup_width,
+            height: popup_height,
+        };
+
+        // Draw the main block
+        let block_style = style_for_ui_element(theme, UiElement::Popup);
+        let block = Block::default()
+            .title(self.build_title(theme))
+            .borders(Borders::ALL)
+            .border_style(block_style);
+
+        let inner = block.inner(popup_area);
+        block.render(popup_area, buf);
+
+        // Split into input and results areas
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(1)])
+            .split(inner);
+
+        // Render input field
+        self.render_input(chunks[0], buf, theme);
+
+        // Render results
+        self.render_results(chunks[1], buf, theme);
+    }
+
+    /// Builds the title for the palette.
+    fn build_title(&self, theme: &Theme) -> Line<'_> {
+        let context_text = if self.show_all_contexts {
+            " (all contexts)"
+        } else {
+            ""
+        };
+
+        Line::from(vec![
+            Span::styled(
+                "Command Palette",
+                style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                context_text,
+                style_for_ui_element(theme, UiElement::MutedText),
+            ),
+            Span::styled(
+                " (Tab: toggle contexts)",
+                style_for_ui_element(theme, UiElement::MutedText),
+            ),
+        ])
+    }
+
+    /// Renders the input field.
+    fn render_input(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
+        let input_style = style_for_ui_element(theme, UiElement::Input);
+        let placeholder_style = style_for_ui_element(theme, UiElement::InputPlaceholder);
+
+        // Draw input background
+        for y in area.y..area.y + area.height {
+            for x in area.x..area.x + area.width {
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.set_style(input_style);
+                    cell.set_symbol(" ");
+                }
+            }
+        }
+
+        // Draw the input text or placeholder
+        let display_text = if self.input.is_empty() {
+            "Type to search commands..."
+        } else {
+            &self.input
+        };
+
+        let text_style = if self.input.is_empty() {
+            placeholder_style
+        } else {
+            input_style
+        };
+
+        // Render the text
+        let text_area = area.inner(Margin::new(1, 1));
+        let text = Paragraph::new(display_text).style(text_style);
+        text.render(text_area, buf);
+
+        // Draw cursor if active
+        if self.active && !self.input.is_empty() {
+            let cursor_x = text_area.x + self.cursor_pos as u16;
+            if cursor_x < text_area.x + text_area.width {
+                if let Some(cell) = buf.cell_mut((cursor_x, text_area.y)) {
+                    let cursor_style = style_for_ui_element(theme, UiElement::Text)
+                        .bg(Color::from_str(&theme.colors.cursor).unwrap_or(Color::White));
+                    cell.set_style(cursor_style);
+                }
+            }
+        }
+    }
+
+    /// Renders the results list.
+    fn render_results(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
+        if self.filtered.is_empty() {
+            self.render_empty_state(area, buf, theme);
+            return;
+        }
+
+        let visible_count = self.max_visible.min(self.filtered.len());
+        let item_height = 2u16; // Each item takes 2 rows
+
+        // Calculate visible range
+        let start_idx = self.scroll_offset;
+        let end_idx = (start_idx + visible_count).min(self.filtered.len());
+
+        // Render visible items
+        for (i, match_result) in self.filtered[start_idx..end_idx].iter().enumerate() {
+            let item_idx = start_idx + i;
+            let is_selected = item_idx == self.selected;
+
+            let item_area = Rect {
+                x: area.x,
+                y: area.y + (i as u16 * item_height),
+                width: area.width,
+                height: item_height,
+            };
+
+            self.render_entry(item_area, buf, theme, match_result, is_selected);
+        }
+
+        // Render scrollbar if needed
+        if self.filtered.len() > self.max_visible {
+            let scrollbar_area = Rect {
+                x: area.x + area.width - 1,
+                y: area.y,
+                width: 1,
+                height: area.height,
+            };
+
+            let mut scrollbar_state = ScrollbarState::new(self.filtered.len())
+                .position(self.selected)
+                .viewport_content_length(self.max_visible);
+
+            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+            scrollbar.render(scrollbar_area, buf, &mut scrollbar_state);
+        }
+    }
+
+    /// Renders a single entry.
+    fn render_entry(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &Theme,
+        match_result: &MatchResult,
+        is_selected: bool,
+    ) {
+        let entry = &match_result.entry;
+
+        // Determine styles
+        let bg_style = if is_selected {
+            style_for_ui_element(theme, UiElement::ActiveItem)
+        } else {
+            style_for_ui_element(theme, UiElement::InactiveItem)
+        };
+
+        // Fill background
+        for y in area.y..area.y + area.height {
+            for x in area.x..area.x + area.width {
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.set_style(bg_style);
+                    cell.set_symbol(" ");
+                }
+            }
+        }
+
+        // Category color
+        let category_color = self.category_color(&entry.category, theme);
+        let category_style = Style::default().fg(category_color);
+
+        // Build the first line: [CATEGORY] Name with highlights
+        let mut first_line_spans = Vec::new();
+
+        // Category prefix
+        first_line_spans.push(Span::styled(
+            format!("[{:>4}] ", entry.category.prefix()),
+            category_style,
+        ));
+
+        // Name with match highlighting
+        let name_spans =
+            self.highlight_matches(&entry.name, &match_result.match_ranges, theme, is_selected);
+        first_line_spans.extend(name_spans);
+
+        // Key binding (right-aligned)
+        if !entry.key.is_empty() {
+            let key_style = style_for_ui_element(theme, UiElement::Secondary);
+            first_line_spans.push(Span::raw(" "));
+            first_line_spans.push(Span::styled(format!("({})", entry.key), key_style));
+        }
+
+        // Render first line
+        let first_line = Line::from(first_line_spans);
+        let first_line_area = Rect {
+            x: area.x + 1,
+            y: area.y,
+            width: area.width.saturating_sub(2),
+            height: 1,
+        };
+        Paragraph::new(Text::from(vec![first_line])).render(first_line_area, buf);
+
+        // Render description on second line (if present)
+        if !entry.description.is_empty() {
+            let desc_style = style_for_ui_element(theme, UiElement::MutedText);
+            let desc_line = Line::from(vec![
+                Span::raw("      "), // Align with name
+                Span::styled(entry.description.clone(), desc_style),
+            ]);
+            let desc_area = Rect {
+                x: area.x + 1,
+                y: area.y + 1,
+                width: area.width.saturating_sub(2),
+                height: 1,
+            };
+            Paragraph::new(Text::from(vec![desc_line])).render(desc_area, buf);
+        }
+    }
+
+    /// Renders the empty state when no results are found.
+    fn render_empty_state(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
+        let text_style = style_for_ui_element(theme, UiElement::MutedText);
+        let message = if self.input.is_empty() {
+            "No commands available"
+        } else {
+            "No matching commands"
+        };
+
+        let text = Paragraph::new(message)
+            .style(text_style)
+            .alignment(Alignment::Center);
+
+        text.render(area, buf);
+    }
+
+    /// Highlights matched characters in the text.
+    fn highlight_matches(
+        &self,
+        text: &str,
+        match_ranges: &[(usize, usize)],
+        theme: &Theme,
+        is_selected: bool,
+    ) -> Vec<Span<'_>> {
+        if match_ranges.is_empty() {
+            return vec![Span::raw(text.to_string())];
+        }
+
+        let highlight_style = if is_selected {
+            Style::default()
+                .fg(Color::from_str(&theme.colors.highlight).unwrap_or(Color::Yellow))
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+                .fg(Color::from_str(&theme.colors.primary).unwrap_or(Color::Cyan))
+                .add_modifier(Modifier::BOLD)
+        };
+
+        let normal_style = if is_selected {
+            style_for_ui_element(theme, UiElement::ActiveItem)
+        } else {
+            style_for_ui_element(theme, UiElement::Text)
+        };
+
+        let mut spans = Vec::new();
+        let mut last_end = 0;
+
+        for &(start, end) in match_ranges {
+            // Add text before the match
+            if start > last_end {
+                spans.push(Span::styled(
+                    text[last_end..start].to_string(),
+                    normal_style,
+                ));
+            }
+
+            // Add the matched text with highlight
+            spans.push(Span::styled(text[start..end].to_string(), highlight_style));
+            last_end = end;
+        }
+
+        // Add remaining text after the last match
+        if last_end < text.len() {
+            spans.push(Span::styled(text[last_end..].to_string(), normal_style));
+        }
+
+        spans
+    }
+
+    /// Returns the color for a category.
+    fn category_color(&self, category: &Category, theme: &Theme) -> Color {
+        match category {
+            Category::Navigation => Color::from_str(&theme.colors.info).unwrap_or(Color::Cyan),
+            Category::Actions => Color::from_str(&theme.colors.primary).unwrap_or(Color::Blue),
+            Category::View => Color::from_str(&theme.colors.secondary).unwrap_or(Color::Magenta),
+            Category::Search => Color::from_str(&theme.colors.warning).unwrap_or(Color::Yellow),
+            Category::Edit => Color::from_str(&theme.colors.success).unwrap_or(Color::Green),
+            Category::Git => Color::from_str(&theme.colors.added).unwrap_or(Color::Green),
+            Category::System => Color::from_str(&theme.colors.error).unwrap_or(Color::Red),
+        }
+    }
+
+    /// Returns the number of filtered results.
+    pub fn result_count(&self) -> usize {
+        self.filtered.len()
+    }
+
+    /// Returns true if the palette has any results.
+    pub fn has_results(&self) -> bool {
+        !self.filtered.is_empty()
+    }
+
+    /// Sets the maximum number of visible entries.
+    pub fn set_max_visible(&mut self, max_visible: usize) {
+        self.max_visible = max_visible;
+        self.adjust_scroll();
+    }
+
+    /// Sets whether the palette is active.
+    pub fn set_active(&mut self, active: bool) {
+        self.active = active;
+    }
+}
+
+impl Widget for &Palette {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        // Use default theme if none provided
+        let default_theme = Theme::default();
+        self.render(area, buf, &default_theme);
+    }
+}
+
+use std::str::FromStr;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_palette() -> Palette {
+        let entries = vec![
+            PaletteEntry::minimal("file.open", "Open File", Category::Navigation)
+                .with_description("Open a file in the editor"),
+            PaletteEntry::minimal("file.save", "Save File", Category::Actions)
+                .with_description("Save the current file"),
+            PaletteEntry::minimal("git.commit", "Git Commit", Category::Git)
+                .with_description("Create a git commit"),
+        ];
+
+        Palette::with_entries(entries)
+    }
+
+    #[test]
+    fn test_palette_new() {
+        let palette = Palette::new();
+        assert!(palette.input.is_empty());
+        assert_eq!(palette.cursor_pos, 0);
+        assert!(palette.all_entries.is_empty());
+        assert!(palette.filtered.is_empty());
+        assert_eq!(palette.selected, 0);
+        assert!(!palette.show_all_contexts);
+    }
+
+    #[test]
+    fn test_palette_with_entries() {
+        let entries = vec![PaletteEntry::minimal("test", "Test", Category::Actions)];
+
+        let palette = Palette::with_entries(entries);
+        assert_eq!(palette.all_entries.len(), 1);
+        assert_eq!(palette.filtered.len(), 1);
+    }
+
+    #[test]
+    fn test_set_entries() {
+        let mut palette = Palette::new();
+        let entries = vec![PaletteEntry::minimal("test", "Test", Category::Actions)];
+
+        palette.set_entries(entries);
+        assert_eq!(palette.all_entries.len(), 1);
+        assert_eq!(palette.filtered.len(), 1);
+    }
+
+    #[test]
+    fn test_filter() {
+        let mut palette = test_palette();
+        palette.filter("open");
+
+        assert_eq!(palette.input, "open");
+        // Should match "Open File"
+        assert!(palette.filtered.iter().any(|r| r.entry.name == "Open File"));
+    }
+
+    #[test]
+    fn test_move_up_down() {
+        let mut palette = test_palette();
+
+        assert_eq!(palette.selected, 0);
+
+        palette.move_down();
+        assert_eq!(palette.selected, 1);
+
+        palette.move_down();
+        assert_eq!(palette.selected, 2);
+
+        palette.move_down(); // Should not go past end
+        assert_eq!(palette.selected, 2);
+
+        palette.move_up();
+        assert_eq!(palette.selected, 1);
+
+        palette.move_up();
+        assert_eq!(palette.selected, 0);
+
+        palette.move_up(); // Should not go below 0
+        assert_eq!(palette.selected, 0);
+    }
+
+    #[test]
+    fn test_select() {
+        let mut palette = test_palette();
+
+        let selected = palette.select();
+        assert!(selected.is_some());
+        assert_eq!(selected.unwrap().name, "Open File");
+
+        palette.move_down();
+        let selected = palette.select();
+        assert_eq!(selected.unwrap().name, "Save File");
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut palette = test_palette();
+        palette.filter("test");
+        palette.move_down();
+
+        palette.clear();
+
+        assert!(palette.input.is_empty());
+        assert_eq!(palette.cursor_pos, 0);
+        assert_eq!(palette.selected, 0);
+    }
+
+    #[test]
+    fn test_context_filtering() {
+        let entries = vec![
+            PaletteEntry::minimal("file.open", "Open File", Category::Navigation)
+                .with_context(FocusContext::Global),
+            PaletteEntry::minimal("git.commit", "Git Commit", Category::Git)
+                .with_context(FocusContext::GitStatus),
+        ];
+
+        let mut palette = Palette::with_entries(entries);
+        palette.set_context(FocusContext::Workspace);
+
+        // Without show_all, only global entries should be visible
+        assert_eq!(palette.filtered.len(), 1);
+        assert_eq!(palette.filtered[0].entry.name, "Open File");
+
+        // With show_all, all entries should be visible
+        palette.set_show_all_contexts(true);
+        assert_eq!(palette.filtered.len(), 2);
+    }
+
+    #[test]
+    fn test_handle_key_typing() {
+        let mut palette = Palette::new();
+
+        palette.handle_key(KeyEvent::from(KeyCode::Char('h')));
+        palette.handle_key(KeyEvent::from(KeyCode::Char('i')));
+
+        assert_eq!(palette.input, "hi");
+        assert_eq!(palette.cursor_pos, 2);
+    }
+
+    #[test]
+    fn test_handle_key_backspace() {
+        let mut palette = Palette::new();
+        palette.input = "hi".to_string();
+        palette.cursor_pos = 2;
+
+        palette.handle_key(KeyEvent::from(KeyCode::Backspace));
+
+        assert_eq!(palette.input, "h");
+        assert_eq!(palette.cursor_pos, 1);
+    }
+
+    #[test]
+    fn test_handle_key_enter() {
+        let mut palette = test_palette();
+
+        let action = palette.handle_key(KeyEvent::from(KeyCode::Enter));
+
+        assert!(matches!(action, Some(PaletteAction::Select(_))));
+    }
+
+    #[test]
+    fn test_handle_key_esc() {
+        let mut palette = test_palette();
+
+        let action = palette.handle_key(KeyEvent::from(KeyCode::Esc));
+
+        assert_eq!(action, Some(PaletteAction::Close));
+    }
+
+    #[test]
+    fn test_handle_key_tab() {
+        let mut palette = test_palette();
+
+        let action = palette.handle_key(KeyEvent::from(KeyCode::Tab));
+
+        assert_eq!(action, Some(PaletteAction::ToggleContextMode));
+        assert!(palette.show_all_contexts);
+    }
+
+    #[test]
+    fn test_toggle_context_mode() {
+        let mut palette = test_palette();
+
+        assert!(!palette.show_all_contexts);
+        palette.toggle_context_mode();
+        assert!(palette.show_all_contexts);
+        palette.toggle_context_mode();
+        assert!(!palette.show_all_contexts);
+    }
+
+    #[test]
+    fn test_max_visible() {
+        let mut palette = test_palette();
+
+        palette.set_max_visible(2);
+        assert_eq!(palette.max_visible, 2);
+    }
+
+    #[test]
+    fn test_result_count() {
+        let palette = test_palette();
+
+        assert_eq!(palette.result_count(), 3);
+        assert!(palette.has_results());
+    }
+
+    #[test]
+    fn test_selected_match() {
+        let mut palette = test_palette();
+
+        let match_result = palette.selected_match();
+        assert!(match_result.is_some());
+        assert_eq!(match_result.unwrap().entry.name, "Open File");
+
+        palette.move_down();
+        let match_result = palette.selected_match();
+        assert_eq!(match_result.unwrap().entry.name, "Save File");
+    }
+}

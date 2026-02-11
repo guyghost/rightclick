@@ -1,0 +1,665 @@
+//! Git Status Plugin Rendering
+//!
+//! This module handles all rendering logic for the Git Status plugin,
+//! including the sidebar, diff view, and history view.
+
+use ratatui::{
+    buffer::Buffer,
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph, Widget},
+};
+
+use crate::core::models::Theme;
+use crate::core::models::{ChangeType, Diff, FileStatus, FileChange};
+use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
+
+use super::state::{FocusPane, PluginState, ViewMode};
+
+/// Render the git status plugin
+pub fn render_git_status(
+    state: &PluginState,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+    focused: bool,
+) {
+    let main_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(state.sidebar_width), Constraint::Min(20)])
+        .split(area);
+
+    let sidebar_area = main_layout[0];
+    let main_area = main_layout[1];
+
+    // Render sidebar
+    render_sidebar(state, state.focus_pane, focused, sidebar_area, buf, theme);
+
+    // Render main content based on view mode
+    match state.view_mode {
+        ViewMode::Status | ViewMode::Diff => {
+            render_diff_view(state, state.focus_pane, focused, main_area, buf, theme);
+        }
+        ViewMode::History => {
+            render_history_view(state, state.focus_pane, focused, main_area, buf, theme);
+        }
+    }
+}
+
+/// Render the sidebar with file list
+fn render_sidebar(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    focused: bool,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let is_sidebar_focused = focus_pane == FocusPane::Sidebar;
+    let border_style = if is_sidebar_focused && focused {
+        style_for_ui_element(theme, UiElement::Primary)
+    } else {
+        style_for_ui_element(theme, UiElement::Border)
+    };
+
+    // Build title with branch info
+    let title = if state.branch.is_empty() {
+        " Files ".to_string()
+    } else {
+        format!(" {} ", state.branch)
+    };
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let inner = block.inner(area);
+    block.render(area, buf);
+
+    // Calculate available height
+    let available_height = inner.height as usize;
+    if available_height == 0 {
+        return;
+    }
+
+    // Collect all file sections
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Staged section
+    let staged = state.staged_files();
+    if !staged.is_empty() {
+        lines.push(build_section_header("Staged", theme, &theme.colors.added));
+        for file in staged.iter() {
+            let is_selected = state
+                .selected_file
+                .and_then(|idx| state.files.get(idx))
+                .map(|f| f.path == file.path)
+                .unwrap_or(false);
+            lines.push(build_file_line(file, is_selected, theme));
+        }
+        lines.push(Line::raw(""));
+    }
+
+    // Unstaged section
+    let unstaged = state.unstaged_files();
+    if !unstaged.is_empty() {
+        lines.push(build_section_header(
+            "Unstaged",
+            theme,
+            &theme.colors.modified,
+        ));
+        for file in unstaged.iter() {
+            let is_selected = state
+                .selected_file
+                .and_then(|idx| state.files.get(idx))
+                .map(|f| f.path == file.path)
+                .unwrap_or(false);
+            lines.push(build_file_line(file, is_selected, theme));
+        }
+        lines.push(Line::raw(""));
+    }
+
+    // Untracked section
+    let untracked = state.untracked_files();
+    if !untracked.is_empty() {
+        lines.push(build_section_header(
+            "Untracked",
+            theme,
+            &theme.colors.untracked,
+        ));
+        for file in untracked.iter() {
+            let is_selected = state
+                .selected_file
+                .and_then(|idx| state.files.get(idx))
+                .map(|f| f.path == file.path)
+                .unwrap_or(false);
+            lines.push(build_file_line(file, is_selected, theme));
+        }
+    }
+
+    if lines.is_empty() {
+        let empty_text = Paragraph::new("Working directory clean")
+            .alignment(Alignment::Center)
+            .style(style_for_ui_element(theme, UiElement::MutedText));
+        empty_text.render(inner, buf);
+        return;
+    }
+
+    // Calculate scroll offset to keep selection visible
+    let scroll_offset = calculate_scroll_offset(&lines, available_height, state.selected_file);
+
+    // Render visible lines
+    let visible_lines: Vec<Line> = lines
+        .iter()
+        .skip(scroll_offset)
+        .take(available_height)
+        .cloned()
+        .collect();
+
+    let text = Paragraph::new(visible_lines);
+    text.render(inner, buf);
+}
+
+/// Render the diff view
+fn render_diff_view(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    _focused: bool,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let is_main_focused = focus_pane == FocusPane::Main;
+    let border_style = if is_main_focused {
+        style_for_ui_element(theme, UiElement::Primary)
+    } else {
+        style_for_ui_element(theme, UiElement::Border)
+    };
+
+    // Build title
+    let title = if let Some(file) = state.selected_file() {
+        format!(" {} ", file.path)
+    } else {
+        " Diff ".to_string()
+    };
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let inner = block.inner(area);
+    block.render(area, buf);
+
+    if let Some(diff) = &state.diff {
+        render_diff_content(diff, inner, buf, theme);
+    } else if let Some(file) = state.selected_file() {
+        let no_diff = Paragraph::new(format!("No diff available for {}", file.path))
+            .alignment(Alignment::Center)
+            .style(style_for_ui_element(theme, UiElement::MutedText));
+        no_diff.render(inner, buf);
+    } else {
+        let empty = Paragraph::new("Select a file to view diff")
+            .alignment(Alignment::Center)
+            .style(style_for_ui_element(theme, UiElement::MutedText));
+        empty.render(inner, buf);
+    }
+}
+
+/// Render diff content
+fn render_diff_content(diff: &Diff, area: Rect, buf: &mut Buffer, theme: &Theme) {
+    let mut lines: Vec<Line> = Vec::new();
+
+    for file_diff in &diff.files {
+        // File header
+        let file_style =
+            style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
+        lines.push(Line::from(vec![
+            Span::styled("File: ", file_style),
+            Span::styled(
+                &file_diff.path,
+                style_for_ui_element(theme, UiElement::Text),
+            ),
+        ]));
+
+        if file_diff.is_binary {
+            lines.push(Line::from(vec![Span::styled(
+                "Binary file",
+                style_for_ui_element(theme, UiElement::MutedText),
+            )]));
+            continue;
+        }
+
+        // Hunks
+        for hunk in &file_diff.hunks {
+            // Hunk header
+            let header_style = style_for_ui_element(theme, UiElement::Secondary);
+            lines.push(Line::from(vec![Span::styled(&hunk.header, header_style)]));
+
+            // Lines
+            for line in &hunk.lines {
+                let (prefix, style) = match line.change_type {
+                    ChangeType::Added => ("+", style_for_git_status(theme, "added")),
+                    ChangeType::Deleted => ("-", style_for_git_status(theme, "deleted")),
+                    ChangeType::Context => (" ", style_for_ui_element(theme, UiElement::Text)),
+                    ChangeType::Message => ("", style_for_ui_element(theme, UiElement::MutedText)),
+                };
+
+                lines.push(Line::from(vec![
+                    Span::styled(prefix, style),
+                    Span::styled(&line.content, style),
+                ]));
+            }
+        }
+
+        lines.push(Line::raw(""));
+    }
+
+    // Render with scroll handling
+    let text = Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false });
+    text.render(area, buf);
+}
+
+/// Render the commit history view (lazygit-style)
+fn render_history_view(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    focused: bool,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let main_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(area);
+
+    let sidebar_area = main_layout[0];
+    let main_area = main_layout[1];
+
+    // Render commit list on the left
+    render_commit_list(state, focus_pane, focused, sidebar_area, buf, theme);
+
+    // Render commit details on the right
+    render_commit_details(state, focus_pane, focused, main_area, buf, theme);
+}
+
+/// Render the commit list sidebar
+fn render_commit_list(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    focused: bool,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let is_sidebar_focused = focus_pane == FocusPane::Sidebar;
+    let border_style = if is_sidebar_focused && focused {
+        style_for_ui_element(theme, UiElement::Primary)
+    } else {
+        style_for_ui_element(theme, UiElement::Border)
+    };
+
+    let title = if state.commits.is_empty() {
+        " Commits ".to_string()
+    } else {
+        format!(" Recent Commits ({}) ", state.commits.len())
+    };
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let inner = block.inner(area);
+    block.render(area, buf);
+
+    if state.commits.is_empty() {
+        let empty = Paragraph::new("No commits")
+            .alignment(Alignment::Center)
+            .style(style_for_ui_element(theme, UiElement::MutedText));
+        empty.render(inner, buf);
+        return;
+    }
+
+    let available_height = inner.height as usize;
+    if available_height == 0 {
+        return;
+    }
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    for (idx, commit) in state.commits.iter().enumerate() {
+        let is_selected = state.selected_commit == Some(idx);
+
+        let hash_style = if is_selected {
+            style_for_ui_element(theme, UiElement::ActiveItem)
+        } else {
+            style_for_ui_element(theme, UiElement::Secondary)
+        };
+
+        let message_style = if is_selected {
+            style_for_ui_element(theme, UiElement::ActiveItem)
+        } else {
+            style_for_ui_element(theme, UiElement::Text)
+        };
+
+        let arrow = if is_selected { "▸ " } else { "  " };
+
+        lines.push(Line::from(vec![
+            Span::styled(arrow, hash_style),
+            Span::styled(format!("{} ", commit.short_hash), hash_style),
+            Span::styled(commit.subject.clone(), message_style),
+        ]));
+    }
+
+    let scroll_offset = calculate_scroll_offset(&lines, available_height, state.selected_commit);
+    let visible_lines: Vec<Line> = lines
+        .iter()
+        .skip(scroll_offset)
+        .take(available_height)
+        .cloned()
+        .collect();
+
+    let text = Paragraph::new(visible_lines);
+    text.render(inner, buf);
+}
+
+/// Format relative time (e.g., "18 mins ago")
+fn format_relative_time(date: &chrono::DateTime<chrono::Utc>) -> String {
+    let now = chrono::Utc::now();
+    let duration = now.signed_duration_since(*date);
+
+    if duration.num_minutes() < 1 {
+        "just now".to_string()
+    } else if duration.num_minutes() < 60 {
+        format!("{} mins ago", duration.num_minutes())
+    } else if duration.num_hours() < 24 {
+        format!("{} hours ago", duration.num_hours())
+    } else if duration.num_days() < 7 {
+        format!("{} days ago", duration.num_days())
+    } else {
+        date.format("%Y-%m-%d").to_string()
+    }
+}
+
+/// Render commit details panel
+fn render_commit_details(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    _focused: bool,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let is_main_focused = focus_pane == FocusPane::Main;
+    let border_style = if is_main_focused {
+        style_for_ui_element(theme, UiElement::Primary)
+    } else {
+        style_for_ui_element(theme, UiElement::Border)
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let inner = block.inner(area);
+    block.render(area, buf);
+
+    let Some(commit) = state.selected_commit() else {
+        let empty = Paragraph::new("Select a commit to view details")
+            .alignment(Alignment::Center)
+            .style(style_for_ui_element(theme, UiElement::MutedText));
+        empty.render(inner, buf);
+        return;
+    };
+
+    let mut lines: Vec<Line> = Vec::new();
+    let text_style = style_for_ui_element(theme, UiElement::Text);
+    let muted_style = style_for_ui_element(theme, UiElement::MutedText);
+    let primary_style = style_for_ui_element(theme, UiElement::Primary);
+    let added_style = style_for_git_status(theme, "added");
+    let deleted_style = style_for_git_status(theme, "deleted");
+
+    // Commit hash header
+    lines.push(Line::from(vec![
+        Span::styled("Commit ", text_style),
+        Span::styled(commit.short_hash.clone(), primary_style.add_modifier(Modifier::BOLD)),
+    ]));
+    lines.push(Line::raw(""));
+
+    // Author and date
+    lines.push(Line::from(vec![
+        Span::styled("👤 ", text_style),
+        Span::styled(commit.author.clone(), text_style.add_modifier(Modifier::BOLD)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled("🕐 ", text_style),
+        Span::styled(format_relative_time(&commit.date), muted_style),
+    ]));
+    lines.push(Line::raw(""));
+
+    // Commit message
+    if let Some(msg) = &commit.message {
+        for line in msg.lines() {
+            lines.push(Line::styled(line.to_string(), text_style));
+        }
+    } else {
+        lines.push(Line::styled(commit.subject.clone(), text_style));
+    }
+    lines.push(Line::raw(""));
+
+    // Files section
+    if !state.commit_files.is_empty() {
+        let total_additions: usize = state.commit_files.iter().map(|f| f.additions).sum();
+        let total_deletions: usize = state.commit_files.iter().map(|f| f.deletions).sum();
+
+        lines.push(Line::from(vec![
+            Span::styled("Files (", text_style.add_modifier(Modifier::BOLD)),
+            Span::styled(state.commit_files.len().to_string(), text_style.add_modifier(Modifier::BOLD)),
+            Span::styled(") ", text_style.add_modifier(Modifier::BOLD)),
+            Span::styled(format!("+{}", total_additions), added_style),
+            Span::styled(format!(" -{}", total_deletions), deleted_style),
+        ]));
+
+        for file in &state.commit_files {
+            let status_char = if file.is_renamed {
+                'R'
+            } else if file.is_created {
+                'A'
+            } else if file.is_deleted {
+                'D'
+            } else {
+                'M'
+            };
+
+            let mut spans = vec![
+                Span::styled(format!("{} ", status_char), muted_style),
+                Span::styled(file.path.clone(), text_style),
+            ];
+
+            if file.additions > 0 || file.deletions > 0 {
+                spans.push(Span::raw(" "));
+                if file.additions > 0 {
+                    spans.push(Span::styled(format!("+{}", file.additions), added_style));
+                }
+                if file.deletions > 0 {
+                    spans.push(Span::styled(format!("-{}", file.deletions), deleted_style));
+                }
+            }
+
+            lines.push(Line::from(spans));
+        }
+    }
+
+    let text = Paragraph::new(lines);
+    text.render(inner, buf);
+}
+
+/// Build a section header line
+fn build_section_header<'a>(name: &'a str, _theme: &'a Theme, color: &'a str) -> Line<'a> {
+    use ratatui::style::Color;
+    use std::str::FromStr;
+
+    let color = Color::from_str(color).unwrap_or(ratatui::style::Color::Gray);
+    let style = Style::default().fg(color).add_modifier(Modifier::BOLD);
+
+    Line::from(vec![Span::styled(
+        format!("{} ({})", name, name.to_lowercase()),
+        style,
+    )])
+}
+
+/// Build a line for a file entry
+fn build_file_line<'a>(file: &'a FileChange, is_selected: bool, theme: &'a Theme) -> Line<'a> {
+    let status_char = match file.status {
+        FileStatus::Staged => "S",
+        FileStatus::Modified => "M",
+        FileStatus::Untracked => "?",
+        FileStatus::Deleted => "D",
+        FileStatus::Renamed => "R",
+        FileStatus::Conflicted => "!",
+        _ => " ",
+    };
+
+    let status_style = match file.status {
+        FileStatus::Staged => style_for_git_status(theme, "staged"),
+        FileStatus::Modified => style_for_git_status(theme, "modified"),
+        FileStatus::Untracked => style_for_git_status(theme, "untracked"),
+        FileStatus::Deleted => style_for_git_status(theme, "deleted"),
+        FileStatus::Renamed => style_for_git_status(theme, "modified"),
+        FileStatus::Conflicted => style_for_ui_element(theme, UiElement::Error),
+        _ => style_for_ui_element(theme, UiElement::Text),
+    };
+
+    let path_style = if is_selected {
+        style_for_ui_element(theme, UiElement::ActiveItem)
+    } else {
+        style_for_ui_element(theme, UiElement::Text)
+    };
+
+    let mut spans = vec![
+        Span::styled(format!(" {} ", status_char), status_style),
+        Span::styled(file.path.clone(), path_style),
+    ];
+
+    // Add change counts if available
+    if let (Some(adds), Some(dels)) = (file.additions, file.deletions) {
+        if adds > 0 || dels > 0 {
+            spans.push(Span::raw(" "));
+            if adds > 0 {
+                spans.push(Span::styled(
+                    format!("+{}", adds),
+                    style_for_git_status(theme, "added"),
+                ));
+            }
+            if dels > 0 {
+                spans.push(Span::styled(
+                    format!("-{}", dels),
+                    style_for_git_status(theme, "deleted"),
+                ));
+            }
+        }
+    }
+
+    Line::from(spans)
+}
+
+/// Calculate scroll offset to keep selection visible
+fn calculate_scroll_offset(
+    _lines: &[Line],
+    _visible_height: usize,
+    _selected_file: Option<usize>,
+) -> usize {
+    // For now, simple implementation - always start from top
+    // A more sophisticated implementation would track the selected item's position
+    0
+}
+
+/// Render the status bar info
+pub fn render_status_info(state: &PluginState) -> String {
+    let mut parts = Vec::new();
+
+    // Branch status
+    if !state.branch.is_empty() {
+        parts.push(state.branch.clone());
+    }
+
+    // Ahead/behind
+    if state.ahead > 0 || state.behind > 0 {
+        let mut sync_parts = Vec::new();
+        if state.ahead > 0 {
+            sync_parts.push(format!("↑{}", state.ahead));
+        }
+        if state.behind > 0 {
+            sync_parts.push(format!("↓{}", state.behind));
+        }
+        parts.push(format!("[{}]", sync_parts.join(",")));
+    }
+
+    // File counts
+    let staged = state.staged_files().len();
+    let unstaged = state.unstaged_files().len();
+    let untracked = state.untracked_files().len();
+
+    if staged > 0 {
+        parts.push(format!("{} staged", staged));
+    }
+    if unstaged > 0 {
+        parts.push(format!("{} unstaged", unstaged));
+    }
+    if untracked > 0 {
+        parts.push(format!("{} untracked", untracked));
+    }
+
+    if staged == 0 && unstaged == 0 && untracked == 0 {
+        parts.push("clean".to_string());
+    }
+
+    parts.join(" | ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_file_line() {
+        let theme = Theme::default();
+        let file = FileChange::new("test.rs", FileStatus::Modified);
+        let line = build_file_line(&file, false, &theme);
+        assert!(!line.spans.is_empty());
+    }
+
+    #[test]
+    fn test_build_section_header() {
+        let theme = Theme::default();
+        let line = build_section_header("Staged", &theme, &theme.colors.added);
+        assert!(!line.spans.is_empty());
+    }
+
+    #[test]
+    fn test_render_status_info() {
+        let mut state = PluginState::new();
+        state.branch = "main".to_string();
+        state.ahead = 1;
+        state.behind = 0;
+        state
+            .files
+            .push(FileChange::new("test.rs", FileStatus::Modified));
+
+        let info = render_status_info(&state);
+        assert!(!info.is_empty());
+        assert!(info.contains("main"));
+        assert!(info.contains("↑1"));
+    }
+
+    #[test]
+    fn test_render_status_info_clean() {
+        let state = PluginState::new();
+        let info = render_status_info(&state);
+        assert!(info.contains("clean"));
+    }
+}
