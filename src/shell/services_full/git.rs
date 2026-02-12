@@ -573,38 +573,37 @@ impl GitService for CliGitService {
         }
 
         // Now get the diff stats to populate additions/deletions
+        // Use --numstat which gives exact line counts: "<additions>\t<deletions>\t<file>"
         if !file_diffs.is_empty() {
             if let Ok(stats_output) = self
-                .run_git(repo_path, &["show", "--stat", "--format=", commit_hash])
+                .run_git(repo_path, &["show", "--numstat", "--format=", commit_hash])
                 .await
             {
                 let stats_stdout = String::from_utf8_lossy(&stats_output.stdout);
                 for line in stats_stdout.lines() {
-                    if line.contains('|') && !line.starts_with(' ') {
-                        let parts: Vec<&str> = line.split('|').collect();
-                        if parts.len() >= 2 {
-                            let file_path = parts[0].trim();
-                            let stats = parts[1].trim();
-                            
-                            let mut additions = 0usize;
-                            let mut deletions = 0usize;
-                            
-                            for ch in stats.chars() {
-                                if ch == '+' {
-                                    additions += 1;
-                                } else if ch == '-' {
-                                    deletions += 1;
-                                }
+                    // Format: "10\t5\tfile.txt" (10 additions, 5 deletions)
+                    // Binary files: "-\t-\tfile.bin"
+                    let parts: Vec<&str> = line.split('\t').collect();
+                    if parts.len() >= 3 {
+                        let additions_str = parts[0].trim();
+                        let deletions_str = parts[1].trim();
+                        let file_path = parts[2].trim();
+                        
+                        // Check for binary files (-\t-\tfile)
+                        if additions_str == "-" && deletions_str == "-" {
+                            if let Some(fd) = file_diffs.iter_mut().find(|fd| fd.path == file_path) {
+                                fd.is_binary = true;
+                                fd.additions = 0;
+                                fd.deletions = 0;
                             }
-
-                            // Update the corresponding file_diff
-                            for fd in &mut file_diffs {
-                                if fd.path == file_path {
-                                    fd.additions = additions;
-                                    fd.deletions = deletions;
-                                    fd.is_binary = stats.contains("Bin");
-                                    break;
-                                }
+                            continue;
+                        }
+                        
+                        // Parse additions and deletions
+                        if let (Ok(additions), Ok(deletions)) = (additions_str.parse::<usize>(), deletions_str.parse::<usize>()) {
+                            if let Some(fd) = file_diffs.iter_mut().find(|fd| fd.path == file_path) {
+                                fd.additions = additions;
+                                fd.deletions = deletions;
                             }
                         }
                     }
