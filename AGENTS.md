@@ -1,5 +1,10 @@
 # RightClick - Agent Context
 
+## MANDATORY: Use td for Task Management
+
+You must run td usage --new-session at conversation start (or after /clear) to see current work.
+Use td usage -q for subsequent reads.
+
 RightClick is a TUI dashboard for AI coding agents. This document provides context for AI agents working on the codebase.
 
 ## Architecture: Functional Core & Imperative Shell
