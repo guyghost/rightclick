@@ -95,6 +95,8 @@ pub struct GitStatusPlugin {
     git_service: CliGitService,
     /// Plugin configuration
     config: Option<Config>,
+    /// Hash of commit to load details for
+    pending_commit_hash: Option<String>,
 }
 
 impl GitStatusPlugin {
@@ -102,6 +104,7 @@ impl GitStatusPlugin {
     pub fn new() -> Self {
         Self {
             state: PluginState::default(),
+            pending_commit_hash: None,
             repo_path: PathBuf::new(),
             focused: false,
             git_service: CliGitService::new(),
@@ -113,6 +116,7 @@ impl GitStatusPlugin {
     pub fn with_git_service(git_service: CliGitService) -> Self {
         Self {
             state: PluginState::default(),
+            pending_commit_hash: None,
             repo_path: PathBuf::new(),
             focused: false,
             git_service,
@@ -232,7 +236,12 @@ impl GitStatusPlugin {
         match key {
             "j" | "Down" => {
                 if self.state.view_mode == ViewMode::History {
-                    commands.push(Command::NextCommit);
+                    self.state.select_next_commit();
+                    // Mark commit hash to load details for
+                    if let Some(commit) = self.state.selected_commit() {
+                        self.pending_commit_hash = Some(commit.hash.clone());
+                    }
+                    commands.push(Command::Refresh);
                 } else {
                     self.state.next_file();
                     commands.push(Command::Refresh);
@@ -240,7 +249,12 @@ impl GitStatusPlugin {
             }
             "k" | "Up" => {
                 if self.state.view_mode == ViewMode::History {
-                    commands.push(Command::PrevCommit);
+                    self.state.select_prev_commit();
+                    // Mark commit hash to load details for
+                    if let Some(commit) = self.state.selected_commit() {
+                        self.pending_commit_hash = Some(commit.hash.clone());
+                    }
+                    commands.push(Command::Refresh);
                 } else {
                     self.state.prev_file();
                     commands.push(Command::Refresh);
@@ -511,35 +525,25 @@ impl Plugin for GitStatusPlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::with_context(
-                "stage",
-                "Stage",
-                's',
-                FocusContext::GitStatus,
-            ),
-            crate::plugin::PluginCommand::with_context(
-                "unstage",
-                "Unstage",
-                'u',
-                FocusContext::GitStatus,
-            ),
-            crate::plugin::PluginCommand::with_context(
-                "diff",
-                "Diff",
-                'd',
-                FocusContext::GitStatus,
-            ),
-            crate::plugin::PluginCommand::with_context(
-                "commit",
-                "Commit",
-                'c',
-                FocusContext::GitStatus,
-            ),
+            crate::plugin::PluginCommand::with_context("stage", "Stage", 's', FocusContext::GitStatus),
+            crate::plugin::PluginCommand::with_context("unstage", "Unstage", 'u', FocusContext::GitStatus),
+            crate::plugin::PluginCommand::with_context("diff", "Diff", 'd', FocusContext::GitStatus),
+            crate::plugin::PluginCommand::with_context("commit", "Commit", 'c', FocusContext::GitStatus),
         ]
     }
 
     fn focus_context(&self) -> FocusContext {
         self.focus_context()
+    }
+
+    async fn update(&mut self) -> Result<()> {
+        // Load commit details if there's a pending hash
+        if let Some(hash) = self.pending_commit_hash.take() {
+            if let Err(e) = self.load_commit_details(&hash).await {
+                tracing::warn!("Failed to load commit details: {}", e);
+            }
+        }
+        Ok(())
     }
 }
 

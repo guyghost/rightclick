@@ -782,12 +782,12 @@ impl Plugin for TDMonitorPlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::new("new", "New Task", 'n'),
-            crate::plugin::PluginCommand::new("edit", "Edit Task", 'e'),
-            crate::plugin::PluginCommand::new("review", "Review", 'r'),
-            crate::plugin::PluginCommand::new("filter", "Filter", '/'),
-            crate::plugin::PluginCommand::new("toggle-view", "Toggle View", 'v'),
-            crate::plugin::PluginCommand::new("refresh", "Refresh", 'R'),
+            crate::plugin::PluginCommand::with_context("new", "New Task", 'n', crate::keymap::FocusContext::TDMonitor),
+            crate::plugin::PluginCommand::with_context("edit", "Edit Task", 'e', crate::keymap::FocusContext::TDMonitor),
+            crate::plugin::PluginCommand::with_context("review", "Review", 'r', crate::keymap::FocusContext::TDMonitor),
+            crate::plugin::PluginCommand::with_context("filter", "Filter", '/', crate::keymap::FocusContext::TDMonitor),
+            crate::plugin::PluginCommand::with_context("toggle-view", "Toggle View", 'v', crate::keymap::FocusContext::TDMonitor),
+            crate::plugin::PluginCommand::with_context("refresh", "Refresh", 'R', crate::keymap::FocusContext::TDMonitor),
         ]
     }
 

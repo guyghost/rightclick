@@ -808,13 +808,13 @@ impl Plugin for WorkspacePlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::new("create", "Create", 'n'),
-            crate::plugin::PluginCommand::new("delete", "Delete", 'D'),
-            crate::plugin::PluginCommand::new("link", "Link Task", 't'),
-            crate::plugin::PluginCommand::new("agent", "Launch Agent", 'a'),
-            crate::plugin::PluginCommand::new("merge", "Merge", 'm'),
-            crate::plugin::PluginCommand::new("diff", "Diff", 'd'),
-            crate::plugin::PluginCommand::new("refresh", "Refresh", 'r'),
+            crate::plugin::PluginCommand::with_context("create", "Create", 'n', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context("delete", "Delete", 'D', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context("link", "Link Task", 't', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context("agent", "Launch Agent", 'a', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context("merge", "Merge", 'm', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context("diff", "Diff", 'd', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context("refresh", "Refresh", 'r', crate::keymap::FocusContext::Workspace),
         ]
     }
 

@@ -651,11 +651,11 @@ impl Plugin for ConversationsPlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::new("refresh", "Refresh", 'r'),
-            crate::plugin::PluginCommand::new("search", "Search", '/'),
-            crate::plugin::PluginCommand::new("expand", "Expand", 'e'),
-            crate::plugin::PluginCommand::new("open", "Open", 'o'),
-            crate::plugin::PluginCommand::new("back", "Back", 'h'),
+            crate::plugin::PluginCommand::with_context("refresh", "Refresh", 'r', crate::keymap::FocusContext::Conversations),
+            crate::plugin::PluginCommand::with_context("search", "Search", '/', crate::keymap::FocusContext::Conversations),
+            crate::plugin::PluginCommand::with_context("expand", "Expand", 'e', crate::keymap::FocusContext::Conversations),
+            crate::plugin::PluginCommand::with_context("open", "Open", 'o', crate::keymap::FocusContext::Conversations),
+            crate::plugin::PluginCommand::with_context("back", "Back", 'h', crate::keymap::FocusContext::Conversations),
         ]
     }
 

@@ -2,7 +2,7 @@
 //!
 //! This module provides a generic plugin system that allows dynamic registration
 //! and management of plugins. Plugins can handle events, render UI components,
-//! and expose commands to the command palette.
+//! and expose commands to command palette.
 //!
 //! # Architecture
 //!
@@ -14,7 +14,7 @@
 //! # Examples
 //!
 //! ```
-//! use rightclick::plugin::{Plugin, PluginContext, Registry, PluginCommand, Command};
+//! use rightclick::plugin::{Plugin, PluginContext, Registry, PluginCommand, Command, Category, Diagnostic};
 //! use rightclick::core::models::Theme;
 //! use rightclick::event::Event;
 //! use rightclick::keymap::FocusContext;
@@ -26,24 +26,79 @@
 //!     focused: bool,
 //! }
 //!
+//! impl ExamplePlugin {
+//!     pub fn new() -> Self {
+//!         Self {
+//!             focused: false,
+//!             name: "Example".to_string(),
+//!         }
+//!     }
+//! }
+//!
 //! #[async_trait]
-//! impl Plugin for MyPlugin {
-//!     fn id(&self) -> &str { "my-plugin" }
-//!     fn name(&self) -> &str { "My Plugin" }
-//!     fn icon(&self) -> char { '⚡' }
+//! impl Plugin for ExamplePlugin {
+//!     fn id(&self) -> &str { "example" }
+//!     fn name(&self) -> &str { &self.name }
+//!     fn icon(&self) -> char { '?' }
 //!
-//!     async fn init(&mut self, _ctx: &PluginContext) -> Result<()> { Ok(()) }
-//!     fn shutdown(&mut self) -> Result<()> { Ok(()) }
+//!     async fn init(&mut self, _ctx: &PluginContext) -> Result<()> {
+//!         // Initialize with context
+//!         tracing::info!("Initializing {} plugin", self.name);
+//!         Ok(())
+//!     }
 //!
-//!     fn handle_event(&mut self, _event: Event) -> Vec<Command> { vec![] }
-//!     fn render(&self, _area: Rect, _buf: &mut Buffer, _theme: &Theme) {}
+//!     fn shutdown(&mut self) -> Result<()> {
+//!         tracing::info!("Shutting down {} plugin", self.name);
+//!         Ok(())
+//!     }
+//!
+//!     fn handle_event(&mut self, _event: Event) -> Vec<Command> {
+//!         match event {
+//!             Event::RefreshNeeded => vec![Command::new("example", "refresh")],
+//!             _ => vec![],
+//!         }
+//!     }
+//!
+//!     fn render(&self, _area: Rect, _buf: &mut Buffer, _theme: &Theme) {
+//!         // Render plugin UI
+//!     }
 //!
 //!     fn is_focused(&self) -> bool { self.focused }
 //!     fn set_focused(&mut self, focused: bool) { self.focused = focused; }
 //!
-//!     fn commands(&self) -> Vec<PluginCommand> { vec![] }
-//!     fn focus_context(&self) -> FocusContext { FocusContext::Global }
+//!     fn commands(&self) -> Vec<PluginCommand> {
+//!         vec![
+//!             PluginCommand::minimal(
+//!                 "refresh",
+//!                 "Refresh",
+//!                 Category::System,
+//!                 '?',
+//!             ),
+//!         ]
+//!     }
+//!
+//!     fn focus_context(&self) -> FocusContext {
+//!         FocusContext::Global
+//!     }
+//!
+//!     fn start(&mut self) -> Vec<Command> {
+//!         vec![]
+//!     }
+//!
+//!     fn consumes_text_input(&self) -> bool {
+//!         false
+//!     }
+//!
+//!     fn diagnostics(&self) -> Vec<Diagnostic> {
+//!         vec![]
+//!     }
+//!
+//!     async fn update(&mut self) -> Result<()> {
+//!         Ok(())
+//!     }
 //! }
+//!
+//! ```
 //! ```
 
 use async_trait::async_trait;
@@ -70,7 +125,7 @@ pub struct Command {
     pub plugin_id: String,
     /// The command identifier
     pub command_id: String,
-    /// Optional arguments for the command
+    /// Optional arguments for command
     pub args: Option<String>,
 }
 
@@ -79,7 +134,7 @@ impl Command {
     ///
     /// # Arguments
     ///
-    /// * `plugin_id` - The ID of the plugin issuing the command
+    /// * `plugin_id` - The ID of plugin issuing command
     /// * `command_id` - The command identifier
     ///
     /// # Examples
@@ -103,9 +158,9 @@ impl Command {
     ///
     /// # Arguments
     ///
-    /// * `plugin_id` - The ID of the plugin issuing the command
+    /// * `plugin_id` - The ID of plugin issuing command
     /// * `command_id` - The command identifier
-    /// * `args` - Arguments for the command
+    /// * `args` - Arguments for command
     ///
     /// # Examples
     ///
@@ -128,6 +183,166 @@ impl Command {
     }
 }
 
+/// Category represents a logical grouping of commands for the command palette.
+///
+/// Categories allow the command palette to organize commands into sections
+/// for better discoverability and user experience.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum Category {
+    /// Navigation commands (up, down, left, right, page up/down, etc.)
+    Navigation = 0,
+    /// Action commands (open, create, delete, confirm, cancel, etc.)
+    Actions = 1,
+    /// View commands (switch view, toggle view, switch tab, etc.)
+    View = 2,
+    /// Search commands (search, filter, find next/prev, etc.)
+    Search = 3,
+    /// Edit commands (edit, copy, paste, undo/redo, etc.)
+    Edit = 4,
+    /// Git commands (stage, unstage, commit, push, pull, fetch, etc.)
+    Git = 5,
+    /// System commands (quit, refresh, help, settings, etc.)
+    System = 6,
+}
+
+impl Category {
+    /// Returns a display-friendly name for this category.
+    pub const fn display_name(&self) -> &'static str {
+        match *self {
+            Category::Navigation => "Navigation",
+            Category::Actions => "Actions",
+            Category::View => "View",
+            Category::Search => "Search",
+            Category::Edit => "Edit",
+            Category::Git => "Git",
+            Category::System => "System",
+        }
+    }
+
+    /// Returns the underlying integer representation.
+    pub const fn as_usize(&self) -> usize {
+        *self as usize
+    }
+}
+
+/// Diagnostic represents a health or status check result.
+///
+/// This allows plugins to report their current state for display
+/// in status bars or health indicators.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Diagnostic {
+    /// Unique identifier for this diagnostic
+    pub id: String,
+    /// Status indicator (e.g., "OK", "Warning", "Error", "Loading")
+    pub status: String,
+    /// Human-readable detail about what the diagnostic means
+    pub detail: String,
+}
+
+impl Diagnostic {
+    /// Create a new diagnostic.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier
+    /// * `status` - Status indicator
+    /// * `detail` - Human-readable detail
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rightclick::plugin::Diagnostic;
+    ///
+    /// let diag = Diagnostic::new(
+    ///     "plugin-state",
+    ///     "OK",
+    ///     "Plugin is running normally",
+    /// );
+    /// assert_eq!(diag.id, "plugin-state");
+    /// ```
+    pub fn new(
+        id: impl Into<String>,
+        status: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            status: status.into(),
+            detail: detail.into(),
+        }
+    }
+
+    /// Create a new diagnostic with OK status.
+    ///
+    /// This is a convenience method for creating success diagnostics.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rightclick::plugin::Diagnostic;
+    ///
+    /// let diag = Diagnostic::ok("connection", "Connected to server");
+    /// assert_eq!(diag.status, "OK");
+    /// ```
+    pub fn ok(
+        id: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            status: "OK".to_string(),
+            detail: detail.into(),
+        }
+    }
+
+    /// Create a new warning diagnostic.
+    ///
+    /// This is a convenience method for creating warning diagnostics.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rightclick::plugin::Diagnostic;
+    ///
+    /// let diag = Diagnostic::warning("data-stale", "Data may be outdated");
+    /// assert_eq!(diag.status, "Warning");
+    /// ```
+    pub fn warning(
+        id: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            status: "Warning".to_string(),
+            detail: detail.into(),
+        }
+    }
+
+    /// Create a new error diagnostic.
+    ///
+    /// This is a convenience method for creating error diagnostics.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rightclick::plugin::Diagnostic;
+    ///
+    /// let diag = Diagnostic::error("connection-failed", "Could not connect to server");
+    /// assert_eq!(diag.status, "Error");
+    /// ```
+    pub fn error(
+        id: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            status: "Error".to_string(),
+            detail: detail.into(),
+        }
+    }
+}
+
 /// A command exposed by a plugin for the command palette.
 ///
 /// These commands appear in the command palette and can be triggered
@@ -138,43 +353,166 @@ pub struct PluginCommand {
     pub id: String,
     /// Display name
     pub name: String,
+    /// Full description for palette display
+    pub description: String,
+    /// Category for organizing commands in palette
+    pub category: Category,
     /// Keyboard shortcut character
     pub key: char,
     /// Focus context where this command is available
     pub context: FocusContext,
+    /// Priority for footer display (1 = highest priority, 0 = default)
+    pub priority: u8,
 }
 
 impl PluginCommand {
-    /// Create a new plugin command.
+    /// Create a new plugin command with all fields.
     ///
     /// # Arguments
     ///
     /// * `id` - The command identifier
     /// * `name` - The display name
+    /// * `description` - Full description for palette
+    /// * `category` - Logical grouping for palette
+    /// * `key` - The keyboard shortcut character
+    /// * `context` - The focus context where this command is available
+    /// * `priority` - Footer display priority (1 = highest)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rightclick::plugin::{PluginCommand, Category};
+    /// use rightclick::keymap::FocusContext;
+    ///
+    /// let cmd = PluginCommand::new(
+    ///     "refresh",
+    ///     "Refresh",
+    ///     "Reload current view data",
+    ///     Category::System,
+    ///     'r',
+    ///     FocusContext::Global,
+    ///     0,
+    /// );
+    /// assert_eq!(cmd.id, "refresh");
+    /// assert_eq!(cmd.name, "Refresh");
+    /// ```
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        description: impl Into<String>,
+        category: Category,
+        key: char,
+        context: FocusContext,
+        priority: u8,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            description: description.into(),
+            category,
+            key,
+            context,
+            priority,
+        }
+    }
+
+    /// Create a new plugin command with minimal fields.
+    ///
+    /// This is a convenience method for creating commands without
+    /// description (empty description, default priority).
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The command identifier
+    /// * `name` - The display name
+    /// * `category` - Logical grouping for palette
     /// * `key` - The keyboard shortcut character
     ///
     /// # Examples
     ///
     /// ```
-    /// use rightclick::plugin::PluginCommand;
+    /// use rightclick::plugin::{PluginCommand, Category};
     /// use rightclick::keymap::FocusContext;
     ///
-    /// let cmd = PluginCommand::new("refresh", "Refresh View", 'r');
+    /// let cmd = PluginCommand::minimal("refresh", "Refresh", Category::System, 'r');
     /// assert_eq!(cmd.id, "refresh");
-    /// assert_eq!(cmd.name, "Refresh View");
-    /// assert_eq!(cmd.key, 'r');
-    /// assert_eq!(cmd.context, FocusContext::Global);
+    /// assert_eq!(cmd.name, "Refresh");
     /// ```
-    pub fn new(id: impl Into<String>, name: impl Into<String>, key: char) -> Self {
+    pub fn minimal(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        category: Category,
+        key: char,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
+            description: String::new(),
+            category,
             key,
             context: FocusContext::Global,
+            priority: 0,
+        }
+    }
+
+    /// Create a new plugin command with specific focus context and priority.
+    ///
+    /// This is a convenience method for creating commands with
+    /// focus-specific context and priority.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The command identifier
+    /// * `name` - The display name
+    /// * `description` - Full description for palette
+    /// * `category` - Logical grouping for palette
+    /// * `key` - The keyboard shortcut character
+    /// * `context` - The focus context where this command is available
+    /// * `priority` - Footer display priority (1 = highest)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rightclick::plugin::{PluginCommand, Category};
+    /// use rightclick::keymap::FocusContext;
+    ///
+    /// let cmd = PluginCommand::with_priority(
+    ///     "stage",
+    ///     "Stage",
+    ///     "Stage selected file",
+    ///     Category::Git,
+    ///     's',
+    ///     FocusContext::GitStatus,
+    ///     1, // High priority
+    /// );
+    /// assert_eq!(cmd.id, "stage");
+    /// assert_eq!(cmd.name, "Stage");
+    /// ```
+    pub fn with_priority(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        description: impl Into<String>,
+        category: Category,
+        key: char,
+        context: FocusContext,
+        priority: u8,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            description: description.into(),
+            category,
+            key,
+            context,
+            priority,
         }
     }
 
     /// Create a new plugin command with a specific focus context.
+    ///
+    /// This is a convenience method for creating commands with
+    /// a specific focus context. Uses empty description, System category,
+    /// and default priority.
     ///
     /// # Arguments
     ///
@@ -186,11 +524,12 @@ impl PluginCommand {
     /// # Examples
     ///
     /// ```
-    /// use rightclick::plugin::PluginCommand;
+    /// use rightclick::plugin::{PluginCommand, Category};
     /// use rightclick::keymap::FocusContext;
     ///
-    /// let cmd = PluginCommand::with_context("delete", "Delete", 'd', FocusContext::Workspace);
-    /// assert_eq!(cmd.context, FocusContext::Workspace);
+    /// let cmd = PluginCommand::with_context("refresh", "Refresh", 'r', FocusContext::Global);
+    /// assert_eq!(cmd.id, "refresh");
+    /// assert_eq!(cmd.context, FocusContext::Global);
     /// ```
     pub fn with_context(
         id: impl Into<String>,
@@ -201,16 +540,20 @@ impl PluginCommand {
         Self {
             id: id.into(),
             name: name.into(),
+            description: String::new(),
+            category: Category::System,
             key,
             context,
+            priority: 0,
         }
     }
 }
 
+/// A command exposed by a plugin for the command palette.
 /// The plugin trait that all plugins must implement.
 ///
 /// This trait defines the interface for plugins to integrate with RightClick.
-/// Plugins can handle events, render UI, and expose commands to the user.
+/// Plugins can handle events, render UI, and expose commands to user.
 ///
 /// # Implementing Plugins
 ///
@@ -220,7 +563,7 @@ impl PluginCommand {
 /// # Examples
 ///
 /// ```
-/// use rightclick::plugin::{Plugin, PluginContext, PluginCommand, Command};
+/// use rightclick::plugin::{Plugin, PluginContext, PluginCommand, Command, Category, Diagnostic};
 /// use rightclick::core::models::Theme;
 /// use rightclick::event::Event;
 /// use rightclick::keymap::FocusContext;
@@ -246,7 +589,7 @@ impl PluginCommand {
 /// impl Plugin for ExamplePlugin {
 ///     fn id(&self) -> &str { "example" }
 ///     fn name(&self) -> &str { &self.name }
-///     fn icon(&self) -> char { '📦' }
+///     fn icon(&self) -> char { '?' }
 ///
 ///     async fn init(&mut self, ctx: &PluginContext) -> Result<()> {
 ///         // Initialize with context
@@ -275,32 +618,56 @@ impl PluginCommand {
 ///
 ///     fn commands(&self) -> Vec<PluginCommand> {
 ///         vec![
-///             PluginCommand::new("refresh", "Refresh", 'r'),
+///             PluginCommand::minimal(
+///                 "refresh",
+///                 "Refresh",
+///                 Category::System,
+///                 '?',
+///             ),
 ///         ]
 ///     }
 ///
 ///     fn focus_context(&self) -> FocusContext {
 ///         FocusContext::Global
 ///     }
+///
+///     fn start(&mut self) -> Vec<Command> {
+///         vec![]
+///     }
+///
+///     fn consumes_text_input(&self) -> bool {
+///         false
+///     }
+///
+///     fn diagnostics(&self) -> Vec<Diagnostic> {
+///         vec![]
+///     }
+///
+///     async fn update(&mut self) -> Result<()> {
+///         Ok(())
+///     }
 /// }
+///
 /// ```
+/// ```
+
 #[async_trait]
 pub trait Plugin: Send + Sync + std::fmt::Debug {
-    /// Get the unique identifier for this plugin.
+    /// Get unique identifier for this plugin.
     ///
     /// This ID should be unique across all plugins and is used for
     /// routing events and commands.
     fn id(&self) -> &str;
 
-    /// Get the human-readable name for this plugin.
+    /// Get human-readable name for this plugin.
     fn name(&self) -> &str;
 
-    /// Get the icon character for this plugin.
+    /// Get icon character for this plugin.
     fn icon(&self) -> char;
 
-    /// Initialize the plugin with the given context.
+    /// Initialize plugin with the given context.
     ///
-    /// This method is called once when the plugin is registered.
+    /// This method is called once when plugin is registered.
     /// It should perform any necessary setup, such as loading state
     /// or connecting to external resources.
     ///
@@ -373,6 +740,55 @@ pub trait Plugin: Send + Sync + std::fmt::Debug {
     /// This is used to determine which keyboard shortcuts are active
     /// based on where focus is in the UI.
     fn focus_context(&self) -> FocusContext;
+
+    /// Start the plugin and return initial commands.
+    ///
+    /// This method is called after `init()` completes and allows plugins
+    /// to return commands that should be executed on startup.
+    ///
+    /// # Returns
+    ///
+    /// A vector of commands to execute after plugin starts.
+    fn start(&mut self) -> Vec<Command> {
+        vec![]
+    }
+
+    /// Check if this plugin consumes alphanumeric text input.
+    ///
+    /// Plugins that implement text input (e.g., search boxes, filter inputs)
+    /// should return `true` to receive raw character events instead of
+    /// having them intercepted as keyboard shortcuts.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this plugin wants to consume text input, `false` otherwise.
+    fn consumes_text_input(&self) -> bool {
+        false
+    }
+
+    /// Get diagnostics from this plugin.
+    ///
+    /// Plugins can implement this to report health/status information.
+    /// This allows the application to display plugin status indicators.
+    ///
+    /// # Returns
+    ///
+    /// A vector of diagnostic information about the plugin's state.
+    fn diagnostics(&self) -> Vec<Diagnostic> {
+        vec![]
+    }
+
+    /// Update the plugin state asynchronously.
+    ///
+    /// This method is called regularly by the application loop to allow
+    /// plugins to perform async operations like loading data.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, or an error if the update failed.
+    async fn update(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -397,19 +813,25 @@ mod tests {
 
     #[test]
     fn test_plugin_command_new() {
-        let cmd = PluginCommand::new("refresh", "Refresh View", 'r');
+        let cmd = PluginCommand::minimal("refresh", "Refresh View", Category::System, '?');
         assert_eq!(cmd.id, "refresh");
         assert_eq!(cmd.name, "Refresh View");
-        assert_eq!(cmd.key, 'r');
+        assert_eq!(cmd.key, '?');
         assert_eq!(cmd.context, FocusContext::Global);
     }
 
     #[test]
-    fn test_plugin_command_with_context() {
-        let cmd = PluginCommand::with_context("delete", "Delete", 'd', FocusContext::Workspace);
-        assert_eq!(cmd.id, "delete");
-        assert_eq!(cmd.name, "Delete");
-        assert_eq!(cmd.key, 'd');
-        assert_eq!(cmd.context, FocusContext::Workspace);
+    fn test_plugin_command_with_priority() {
+        let cmd = PluginCommand::with_priority(
+            "stage",
+            "Stage",
+            "Stage selected file",
+            Category::Git,
+            's',
+            FocusContext::GitStatus,
+            1,
+        );
+        assert_eq!(cmd.id, "stage");
+        assert_eq!(cmd.name, "Stage");
     }
 }

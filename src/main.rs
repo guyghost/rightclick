@@ -438,6 +438,11 @@ async fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mu
             app.handle_event(event)?;
         }
 
+        // Update active plugin for async operations
+        if let Some(plugin) = app.plugins.get_mut(app.active_plugin) {
+            let _ = plugin.update().await;
+        }
+
         if app.should_quit {
             break;
         }

@@ -516,51 +516,98 @@ impl GitService for CliGitService {
 
     #[instrument(skip(self))]
     async fn commit_details(&self, repo_path: &Path, commit_hash: &str) -> Result<Vec<FileDiff>> {
-        debug!("Getting commit details for {} in {}", commit_hash, repo_path.display());
-
+        // Use --name-status to get file status (A=Added, M=Modified, D=Deleted, R=Renamed)
         let output = self
-            .run_git(repo_path, &["show", "--stat", "--format=", commit_hash])
+            .run_git(repo_path, &["show", "--name-status", "--format=", commit_hash])
             .await?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        // Parse stat output to get file changes
+        // Parse name-status output
         let mut file_diffs = Vec::new();
 
         for line in stdout.lines() {
-            if line.contains('|') && !line.starts_with(' ') {
-                // Parse lines like "src/main.rs | 10 ++++-"
-                let parts: Vec<&str> = line.split('|').collect();
-                if parts.len() >= 2 {
-                    let path = parts[0].trim().to_string();
-                    let stats = parts[1].trim();
-                    
-                    let mut additions = 0usize;
-                    let mut deletions = 0usize;
-                    
-                    // Count '+' and '-' in stats
-                    for ch in stats.chars() {
-                        if ch == '+' {
-                            additions += 1;
-                        } else if ch == '-' {
-                            deletions += 1;
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            // Parse lines like "M	src/main.rs" or "A	new_file.txt" or "R100	old	new"
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.is_empty() {
+                continue;
+            }
+
+            let status = parts[0];
+            let is_renamed = status.starts_with('R');
+            let is_created = status == "A";
+            let is_deleted = status == "D";
+            let is_modified = status == "M";
+
+            if !is_renamed && !is_created && !is_deleted && !is_modified {
+                continue;
+            }
+
+            let (path, old_path) = if is_renamed && parts.len() >= 3 {
+                (parts[2].to_string(), Some(parts[1].to_string()))
+            } else if parts.len() >= 2 {
+                (parts[1].to_string(), None)
+            } else {
+                continue;
+            };
+
+            file_diffs.push(FileDiff {
+                path,
+                old_path,
+                is_binary: false,
+                old_mode: None,
+                new_mode: None,
+                old_hash: None,
+                new_hash: None,
+                hunks: Vec::new(),
+                additions: 0,
+                deletions: 0,
+                is_created,
+                is_deleted,
+                is_renamed,
+            });
+        }
+
+        // Now get the diff stats to populate additions/deletions
+        if !file_diffs.is_empty() {
+            if let Ok(stats_output) = self
+                .run_git(repo_path, &["show", "--stat", "--format=", commit_hash])
+                .await
+            {
+                let stats_stdout = String::from_utf8_lossy(&stats_output.stdout);
+                for line in stats_stdout.lines() {
+                    if line.contains('|') && !line.starts_with(' ') {
+                        let parts: Vec<&str> = line.split('|').collect();
+                        if parts.len() >= 2 {
+                            let file_path = parts[0].trim();
+                            let stats = parts[1].trim();
+                            
+                            let mut additions = 0usize;
+                            let mut deletions = 0usize;
+                            
+                            for ch in stats.chars() {
+                                if ch == '+' {
+                                    additions += 1;
+                                } else if ch == '-' {
+                                    deletions += 1;
+                                }
+                            }
+
+                            // Update the corresponding file_diff
+                            for fd in &mut file_diffs {
+                                if fd.path == file_path {
+                                    fd.additions = additions;
+                                    fd.deletions = deletions;
+                                    fd.is_binary = stats.contains("Bin");
+                                    break;
+                                }
+                            }
                         }
                     }
-
-                    file_diffs.push(FileDiff {
-                        path,
-                        old_path: None,
-                        is_binary: stats.contains("Bin"),
-                        old_mode: None,
-                        new_mode: None,
-                        old_hash: None,
-                        new_hash: None,
-                        hunks: Vec::new(),
-                        additions,
-                        deletions,
-                        is_created: false,
-                        is_deleted: false,
-                        is_renamed: false,
-                    });
                 }
             }
         }
