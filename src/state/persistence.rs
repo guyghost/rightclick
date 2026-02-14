@@ -170,15 +170,10 @@ mod tests {
     use std::io::Read;
     use tempfile::TempDir;
 
-    fn temp_state_path() -> PathBuf {
-        let temp_dir = TempDir::new().unwrap();
-        temp_dir.path().join("state.json")
-    }
-
     #[test]
     fn load_returns_default_when_file_missing() {
         let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path().join("nonexistent").join("state.json");
+        let _path = temp_dir.path().join("nonexistent").join("state.json");
 
         // Temporarily override the state path for testing
         // This is a simplified test - in practice we'd use dependency injection

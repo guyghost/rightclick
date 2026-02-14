@@ -432,7 +432,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_with_mapping() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
         // Create project mapping
@@ -464,7 +464,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sessions_with_data() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
         // Create project mapping
@@ -516,7 +516,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_messages() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
 
         // Create session with data
         let session_dir = adapter.session_dir("test-session");
@@ -543,7 +543,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_usage_from_metadata() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
 
         // Create session directory
         let session_dir = adapter.session_dir("test-session");

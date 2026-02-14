@@ -120,6 +120,7 @@ impl CliGitService {
     }
 
     /// Parse git log output
+    #[allow(dead_code)]
     fn parse_log_output(&self, output: &str) -> Vec<Commit> {
         let mut commits = Vec::new();
         let mut current_hash = String::new();

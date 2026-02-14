@@ -4,17 +4,20 @@
 //! implementing a two-pane layout with sessions list and conversation view.
 
 use crate::core::models::conversation::{ContentBlock, Message, Role};
+use crate::core::models::Theme;
 use crate::plugins::conversations::state::SessionInfo;
 use crate::plugins::conversations::state::{ConversationView, PluginState};
-use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
-use crate::core::models::Theme;
+use crate::theme::UiElement;
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap, Widget, StatefulWidget};
+use ratatui::widgets::{
+    Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    StatefulWidget, Widget, Wrap,
+};
 use unicode_width::UnicodeWidthStr;
 
 /// Renderer for the Conversations plugin UI
@@ -66,7 +69,14 @@ impl ConversationsRenderer {
     }
 
     /// Render the plugin UI
-    pub fn render(&self, state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme, focused: bool) {
+    pub fn render(
+        &self,
+        state: &PluginState,
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &Theme,
+        focused: bool,
+    ) {
         // Clear the area with background color
         let bg_style = style_for_ui_element(theme, UiElement::Background);
         for y in area.y..area.y + area.height {
@@ -79,10 +89,7 @@ impl ConversationsRenderer {
 
         // Split area into sidebar (sessions) and main (conversation)
         let sidebar_width = if self.compact { 30 } else { 40 };
-        let constraints = [
-            Constraint::Min(sidebar_width),
-            Constraint::Percentage(70),
-        ];
+        let constraints = [Constraint::Min(sidebar_width), Constraint::Percentage(70)];
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(constraints)
@@ -111,14 +118,22 @@ impl ConversationsRenderer {
     }
 
     /// Render the sidebar with sessions list
-    fn render_sidebar(&self, state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme, focused: bool) {
+    fn render_sidebar(
+        &self,
+        state: &PluginState,
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &Theme,
+        focused: bool,
+    ) {
         let border_style = if focused {
             style_for_ui_element(theme, UiElement::Border)
         } else {
             style_for_ui_element(theme, UiElement::MutedText)
         };
 
-        let title_style = style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
+        let title_style =
+            style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
         let text_style = style_for_ui_element(theme, UiElement::Text);
         let muted_style = style_for_ui_element(theme, UiElement::MutedText);
 
@@ -193,7 +208,10 @@ impl ConversationsRenderer {
             // Session name (truncated if needed)
             let name_width = inner_area.width.saturating_sub(6) as usize;
             let name = if session_info.title().width() > name_width {
-                format!("{}...", &session_info.title()[..name_width.saturating_sub(3)])
+                format!(
+                    "{}...",
+                    &session_info.title()[..name_width.saturating_sub(3)]
+                )
             } else {
                 session_info.title().to_string()
             };
@@ -259,13 +277,17 @@ impl ConversationsRenderer {
     /// Render the welcome/info panel when no conversation is selected
     fn render_welcome(&self, state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
         let border_style = style_for_ui_element(theme, UiElement::Border);
-        let title_style = style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
+        let title_style =
+            style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
         let text_style = style_for_ui_element(theme, UiElement::Text);
         let muted_style = style_for_ui_element(theme, UiElement::MutedText);
         let primary_style = style_for_ui_element(theme, UiElement::Primary);
 
         let block = Block::default()
-            .title(Line::from(vec![Span::styled(" Conversation ", title_style)]))
+            .title(Line::from(vec![Span::styled(
+                " Conversation ",
+                title_style,
+            )]))
             .borders(Borders::ALL)
             .border_style(border_style);
 
@@ -276,74 +298,86 @@ impl ConversationsRenderer {
         let mut text_lines = Vec::new();
 
         // Title
-        text_lines.push(Line::from(vec![
-            Span::styled("Welcome to Conversations", title_style),
-        ]));
+        text_lines.push(Line::from(vec![Span::styled(
+            "Welcome to Conversations",
+            title_style,
+        )]));
         text_lines.push(Line::from(""));
 
         // Description
-        text_lines.push(Line::from(vec![
-            Span::styled("View and search your AI coding sessions from multiple adapters.", text_style),
-        ]));
+        text_lines.push(Line::from(vec![Span::styled(
+            "View and search your AI coding sessions from multiple adapters.",
+            text_style,
+        )]));
         text_lines.push(Line::from(""));
 
         // Stats
         if !state.sessions.is_empty() {
-            text_lines.push(Line::from(vec![
-                Span::styled("📊 Statistics", primary_style.add_modifier(Modifier::BOLD)),
-            ]));
+            text_lines.push(Line::from(vec![Span::styled(
+                "📊 Statistics",
+                primary_style.add_modifier(Modifier::BOLD),
+            )]));
 
             let total_sessions = state.sessions.len();
             let total_messages = state.total_message_count();
-            text_lines.push(Line::from(vec![
-                Span::styled(format!("  Total Sessions: {}", total_sessions), text_style),
-            ]));
-            text_lines.push(Line::from(vec![
-                Span::styled(format!("  Total Messages: {}", total_messages), text_style),
-            ]));
+            text_lines.push(Line::from(vec![Span::styled(
+                format!("  Total Sessions: {}", total_sessions),
+                text_style,
+            )]));
+            text_lines.push(Line::from(vec![Span::styled(
+                format!("  Total Messages: {}", total_messages),
+                text_style,
+            )]));
 
             // Adapter breakdown
             let adapter_counts = state.adapter_counts();
             for (adapter_type, count) in adapter_counts {
-                text_lines.push(Line::from(vec![
-                    Span::styled(
-                        format!("  {} {}: {}", adapter_type.icon(), adapter_type.display_name(), count),
-                        text_style,
+                text_lines.push(Line::from(vec![Span::styled(
+                    format!(
+                        "  {} {}: {}",
+                        adapter_type.icon(),
+                        adapter_type.display_name(),
+                        count
                     ),
-                ]));
+                    text_style,
+                )]));
             }
 
             if let Some(tokens) = state.total_tokens {
-                text_lines.push(Line::from(vec![
-                    Span::styled(
-                        format!("  Total Tokens: {}K", tokens.total_tokens / 1000),
-                        text_style,
-                    ),
-                ]));
+                text_lines.push(Line::from(vec![Span::styled(
+                    format!("  Total Tokens: {}K", tokens.total_tokens / 1000),
+                    text_style,
+                )]));
             }
 
             text_lines.push(Line::from(""));
         }
 
         // Key bindings help
-        text_lines.push(Line::from(vec![
-            Span::styled("⌨️  Key Bindings", primary_style.add_modifier(Modifier::BOLD)),
-        ]));
-        text_lines.push(Line::from(vec![
-            Span::styled("  ↑/↓ or j/k  Navigate sessions", muted_style),
-        ]));
-        text_lines.push(Line::from(vec![
-            Span::styled("  Enter or l    Open session", muted_style),
-        ]));
-        text_lines.push(Line::from(vec![
-            Span::styled("  /             Search sessions", muted_style),
-        ]));
-        text_lines.push(Line::from(vec![
-            Span::styled("  r             Refresh sessions", muted_style),
-        ]));
-        text_lines.push(Line::from(vec![
-            Span::styled("  g/G           First/Last session", muted_style),
-        ]));
+        text_lines.push(Line::from(vec![Span::styled(
+            "⌨️  Key Bindings",
+            primary_style.add_modifier(Modifier::BOLD),
+        )]));
+        text_lines.push(Line::from(vec![Span::styled(
+            "  ↑/↓ or j/k  Navigate sessions",
+            muted_style,
+        )]));
+        text_lines.push(Line::from(vec![Span::styled(
+            "  Enter or l    Open session",
+            muted_style,
+        )]));
+        text_lines.push(Line::from(vec![Span::styled(
+            "  /             Search sessions",
+            muted_style,
+        )]));
+        text_lines.push(Line::from(vec![Span::styled(
+            "  r             Refresh sessions",
+            muted_style,
+        )]));
+        text_lines.push(Line::from(vec![Span::styled(
+            "  g/G           First/Last session",
+            muted_style,
+        )]));
 
         let paragraph = Paragraph::new(Text::from(text_lines))
             .style(text_style)
@@ -354,18 +388,27 @@ impl ConversationsRenderer {
     }
 
     /// Render the conversation view
-    fn render_conversation(&self, state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme, focused: bool) {
+    fn render_conversation(
+        &self,
+        state: &PluginState,
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &Theme,
+        focused: bool,
+    ) {
         let border_style = if focused {
             style_for_ui_element(theme, UiElement::Border)
         } else {
             style_for_ui_element(theme, UiElement::MutedText)
         };
 
-        let title_style = style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
+        let title_style =
+            style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
 
         // Get session info for title
         let title = if let Some(session) = state.selected_session_info() {
-            format!(" {} {} - {} msg ",
+            format!(
+                " {} {} - {} msg ",
                 session.adapter_icon,
                 truncate_string(session.title(), 30),
                 state.messages.len()
@@ -406,8 +449,10 @@ impl ConversationsRenderer {
     /// Render the list of messages
     fn render_messages(&self, state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
         let text_style = style_for_ui_element(theme, UiElement::Text);
-        let user_style = style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
-        let assistant_style = style_for_ui_element(theme, UiElement::Secondary).add_modifier(Modifier::BOLD);
+        let user_style =
+            style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
+        let assistant_style =
+            style_for_ui_element(theme, UiElement::Secondary).add_modifier(Modifier::BOLD);
         let system_style = style_for_ui_element(theme, UiElement::Warning);
         let tool_style = style_for_ui_element(theme, UiElement::Info);
         let muted_style = style_for_ui_element(theme, UiElement::MutedText);
@@ -467,7 +512,9 @@ impl ConversationsRenderer {
             // Message content
             let content = if message.content.is_empty() && !message.content_blocks.is_empty() {
                 // Build content from blocks
-                message.content_blocks.iter()
+                message
+                    .content_blocks
+                    .iter()
                     .filter_map(|block| match block {
                         ContentBlock::Text { content } => Some(content.as_str()),
                         _ => None,
@@ -499,7 +546,8 @@ impl ConversationsRenderer {
                                 Span::styled(format!("```{}", lang_str), muted_style),
                             ]));
 
-                            let code_lines = wrap_text(code.as_str(), content_width.saturating_sub(4));
+                            let code_lines =
+                                wrap_text(code.as_str(), content_width.saturating_sub(4));
                             for line in &code_lines {
                                 lines.push(Line::from(vec![
                                     Span::raw("    "),
@@ -524,7 +572,8 @@ impl ConversationsRenderer {
                                 Span::styled(id.to_string(), muted_style),
                             ]));
 
-                            let input_lines = wrap_text(input.as_str(), content_width.saturating_sub(4));
+                            let input_lines =
+                                wrap_text(input.as_str(), content_width.saturating_sub(4));
                             for line in &input_lines {
                                 lines.push(Line::from(vec![
                                     Span::raw("    "),
@@ -532,7 +581,11 @@ impl ConversationsRenderer {
                                 ]));
                             }
                         }
-                        ContentBlock::ToolResult { tool_use_id, content, is_error } => {
+                        ContentBlock::ToolResult {
+                            tool_use_id,
+                            content,
+                            is_error,
+                        } => {
                             lines.push(Line::from(""));
                             let result_style = if *is_error {
                                 style_for_ui_element(theme, UiElement::Error)
@@ -545,7 +598,8 @@ impl ConversationsRenderer {
                                 Span::styled(tool_use_id.to_string(), muted_style),
                             ]));
 
-                            let result_lines = wrap_text(content.as_str(), content_width.saturating_sub(4));
+                            let result_lines =
+                                wrap_text(content.as_str(), content_width.saturating_sub(4));
                             for line in &result_lines {
                                 lines.push(Line::from(vec![
                                     Span::raw("    "),
@@ -564,7 +618,11 @@ impl ConversationsRenderer {
                 lines.push(Line::from(vec![
                     Span::raw("  "),
                     Span::styled(
-                        format!("🔧 {} tool use{}", tool_count, if tool_count > 1 { "s" } else { "" }),
+                        format!(
+                            "🔧 {} tool use{}",
+                            tool_count,
+                            if tool_count > 1 { "s" } else { "" }
+                        ),
                         tool_style,
                     ),
                 ]));
@@ -572,9 +630,10 @@ impl ConversationsRenderer {
 
             // Separator between messages
             lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled("─".repeat(area.width as usize), muted_style),
-            ]));
+            lines.push(Line::from(vec![Span::styled(
+                "─".repeat(area.width as usize),
+                muted_style,
+            )]));
             lines.push(Line::from(""));
         }
 
@@ -610,7 +669,13 @@ impl ConversationsRenderer {
     }
 
     /// Render search overlay
-    fn render_search_overlay(&self, state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
+    fn render_search_overlay(
+        &self,
+        state: &PluginState,
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &Theme,
+    ) {
         let popup_width = 50;
         let popup_height = 3;
 
@@ -629,10 +694,14 @@ impl ConversationsRenderer {
 
         // Render border
         let border_style = style_for_ui_element(theme, UiElement::Border);
-        let title_style = style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
+        let title_style =
+            style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD);
 
         let block = Block::default()
-            .title(Line::from(vec![Span::styled(" Search Sessions ", title_style)]))
+            .title(Line::from(vec![Span::styled(
+                " Search Sessions ",
+                title_style,
+            )]))
             .borders(Borders::ALL)
             .border_style(border_style);
 
@@ -773,8 +842,6 @@ fn wrap_text(text: &str, width: usize) -> Vec<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::models::conversation::Session;
-    use crate::adapters::types::AdapterType;
 
     #[test]
     fn test_renderer_creation() {

@@ -330,7 +330,6 @@ pub fn set_last_worktree(repo: &str, worktree: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicBool, Ordering};
 
     fn setup() {
         // Reset the global state for testing

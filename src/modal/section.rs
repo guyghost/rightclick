@@ -505,11 +505,6 @@ use std::str::FromStr;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::models::Theme;
-
-    fn test_theme() -> Theme {
-        Theme::default()
-    }
 
     #[test]
     fn text_section_new() {

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use ratatui::{buffer::Buffer, layout::Rect};
 use tokio::sync::mpsc;
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 
 use crate::core::logic::{generate_default_spec, parse_spec_document, build_intent_from_spec};
 use crate::core::models::Theme;

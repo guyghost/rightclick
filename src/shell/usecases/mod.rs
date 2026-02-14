@@ -318,7 +318,7 @@ impl AppUsecase {
 mod tests {
     use super::*;
     use crate::shell::repositories::{FileConfigRepository, FileStateRepository};
-    use crate::shell::services::{CliGitService, GitService};
+    use crate::shell::services::CliGitService;
     use tempfile::TempDir;
 
     #[tokio::test]

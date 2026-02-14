@@ -3,6 +3,7 @@
 //! This module provides pure functions for calculating navigation results
 //! based on direction and current context.
 
+#[cfg(test)]
 use crate::core::models::action::ActionId;
 use crate::core::models::navigation::{NavDirection, NavRegion, NavigationResult};
 use crate::core::models::state_machine::{FocusPane, StateContext, ViewState};

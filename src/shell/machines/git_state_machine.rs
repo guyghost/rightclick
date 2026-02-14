@@ -454,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    fn test_git_handle_key_G_jumps_to_last() {
+    fn test_git_handle_key_g_upper_jumps_to_last() {
         let sm = GitStateMachine::new(PathBuf::from("."));
         sm.initialize(10, ViewMode::Status);
         sm.set_selected_index(Some(2));
@@ -513,7 +513,7 @@ mod tests {
     }
 
     #[test]
-    fn test_git_handle_key_H_switches_to_history() {
+    fn test_git_handle_key_h_upper_switches_to_history() {
         let sm = GitStateMachine::new(PathBuf::from("."));
         sm.initialize(10, ViewMode::Status);
 
@@ -525,7 +525,7 @@ mod tests {
     }
 
     #[test]
-    fn test_git_handle_key_S_switches_to_status() {
+    fn test_git_handle_key_s_upper_switches_to_status() {
         let sm = GitStateMachine::new(PathBuf::from("."));
         sm.initialize(10, ViewMode::History);
 

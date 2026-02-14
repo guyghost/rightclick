@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::core::models::intent::{Intent, IntentId, IntentStatus, Worker, WorkerId, WorkerStatus};
+use crate::core::models::intent::{Intent, IntentStatus, Worker, WorkerId, WorkerStatus};
 
 /// An intent entry with computed properties
 #[derive(Clone, Debug)]
@@ -221,7 +221,8 @@ impl PluginState {
 
     /// Get a mutable reference to the selected intent
     pub fn selected_intent_mut(&mut self) -> Option<&mut IntentEntry> {
-        self.selected_intent.and_then(|idx| self.intents.get_mut(idx))
+        self.selected_intent
+            .and_then(|idx| self.intents.get_mut(idx))
     }
 
     /// Get intent by ID
@@ -275,7 +276,8 @@ impl PluginState {
     pub fn add_worker(&mut self, worker: Worker) {
         let intent_id = worker.intent_id.clone();
         let worker_id = worker.id.clone();
-        self.workers.insert(worker_id.clone(), WorkerEntry::new(worker));
+        self.workers
+            .insert(worker_id.clone(), WorkerEntry::new(worker));
 
         // Associate with intent
         if let Some(intent) = self.get_intent_mut(&intent_id) {
@@ -350,9 +352,7 @@ impl PluginState {
     }
 
     /// Get intents grouped by status for kanban view
-    pub fn intents_by_status(
-        &self,
-    ) -> IntentGroups {
+    pub fn intents_by_status(&self) -> IntentGroups {
         let mut draft = Vec::new();
         let mut ready = Vec::new();
         let mut in_progress = Vec::new();
@@ -379,9 +379,7 @@ impl PluginState {
     }
 
     /// Get workers grouped by status
-    pub fn workers_by_status(
-        &self,
-    ) -> WorkerGroups {
+    pub fn workers_by_status(&self) -> WorkerGroups {
         let mut pending = Vec::new();
         let mut running = Vec::new();
         let mut completed = Vec::new();
@@ -443,10 +441,7 @@ impl PluginState {
     }
 
     /// Get workers for a specific intent
-    pub fn get_intent_workers(
-        &self,
-        intent_id: &str,
-    ) -> Vec<&WorkerEntry> {
+    pub fn get_intent_workers(&self, intent_id: &str) -> Vec<&WorkerEntry> {
         self.workers
             .values()
             .filter(|e| e.worker.intent_id == intent_id)
@@ -503,7 +498,7 @@ pub struct WorkerGroups {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::models::intent::{WorkerType, WorkerStatus};
+    use crate::core::models::intent::WorkerType;
 
     #[test]
     fn test_view_mode_default() {

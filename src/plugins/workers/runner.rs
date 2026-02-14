@@ -11,7 +11,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
@@ -498,7 +498,6 @@ async fn handle_output(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::models::intent::{WorkerType, WorkerStatus};
 
     #[test]
     fn test_build_investigator_prompt() {

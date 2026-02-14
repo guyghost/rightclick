@@ -334,7 +334,6 @@ fn md5_hash(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use tempfile::TempDir;
 
     fn create_test_adapter() -> (CursorAdapter, TempDir) {
@@ -380,7 +379,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_with_db() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
         // Create database
@@ -398,7 +397,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sessions_with_data() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
         // Create database with data
@@ -432,7 +431,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_messages() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
         // Create database with data

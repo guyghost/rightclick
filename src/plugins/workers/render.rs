@@ -8,12 +8,12 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Tabs, Wrap, Widget},
+    widgets::{Block, Borders, Clear, Paragraph, Tabs, Widget, Wrap},
 };
 
 use crate::core::models::Theme;
 
-use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
+use super::state::{FocusPane, ModalState, PluginState, PreviewTab};
 
 // Helper functions to get colors from theme
 fn theme_fg(theme: &Theme) -> Color {
@@ -60,10 +60,7 @@ pub fn render_workers(
     // Main layout: sidebar | preview
     let main_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(40),
-            Constraint::Percentage(60),
-        ])
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(area);
 
     // Render sidebar
@@ -88,7 +85,9 @@ fn render_sidebar(
     theme: &Theme,
 ) {
     let border_style = if focus_pane == FocusPane::Sidebar && focused {
-        Style::default().fg(theme_primary(theme)).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(theme_primary(theme))
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(theme_border(theme))
     };
@@ -175,8 +174,7 @@ fn render_sidebar(
         lines.push(Line::from(""));
     }
 
-    let content = Paragraph::new(lines)
-        .wrap(Wrap { trim: true });
+    let content = Paragraph::new(lines).wrap(Wrap { trim: true });
 
     content.render(inner, buf);
 }
@@ -191,7 +189,9 @@ fn render_preview(
     theme: &Theme,
 ) {
     let border_style = if focus_pane == FocusPane::Preview && focused {
-        Style::default().fg(theme_primary(theme)).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(theme_primary(theme))
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(theme_border(theme))
     };
@@ -208,7 +208,11 @@ fn render_preview(
     let tabs = Tabs::new(tab_titles)
         .select(selected_tab)
         .style(Style::default().fg(theme_fg(theme)))
-        .highlight_style(Style::default().fg(theme_primary(theme)).add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .fg(theme_primary(theme))
+                .add_modifier(Modifier::BOLD),
+        )
         .divider("|");
 
     let tabs_area = Rect {
@@ -243,27 +247,20 @@ fn render_preview(
 }
 
 /// Render the spec preview
-fn render_spec_preview(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_spec_preview(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     if let Some(entry) = state.selected_intent() {
         let intent = &entry.intent;
 
         let mut lines = Vec::new();
 
         // Title
-        lines.push(Line::from(vec![
-            Span::styled(
-                intent.title.clone(),
-                Style::default()
-                    .fg(theme_primary(theme))
-                    .add_modifier(Modifier::BOLD)
-                    .add_modifier(Modifier::UNDERLINED),
-            ),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            intent.title.clone(),
+            Style::default()
+                .fg(theme_primary(theme))
+                .add_modifier(Modifier::BOLD)
+                .add_modifier(Modifier::UNDERLINED),
+        )]));
         lines.push(Line::from(""));
 
         // Status
@@ -278,29 +275,28 @@ fn render_spec_preview(
 
         // Description
         if !intent.description.is_empty() {
-            lines.push(Line::from(vec![
-                Span::styled(
-                    "Description",
-                    Style::default()
-                        .fg(theme_secondary(theme))
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]));
+            lines.push(Line::from(vec![Span::styled(
+                "Description",
+                Style::default()
+                    .fg(theme_secondary(theme))
+                    .add_modifier(Modifier::BOLD),
+            )]));
             for line in intent.description.lines() {
-                lines.push(Line::from(Span::styled(line.to_string(), Style::default().fg(theme_fg(theme)))));
+                lines.push(Line::from(Span::styled(
+                    line.to_string(),
+                    Style::default().fg(theme_fg(theme)),
+                )));
             }
             lines.push(Line::from(""));
         }
 
         // Workers
-        lines.push(Line::from(vec![
-            Span::styled(
-                "Workers",
-                Style::default()
-                    .fg(theme_secondary(theme))
-                    .add_modifier(Modifier::BOLD),
-            ),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            "Workers",
+            Style::default()
+                .fg(theme_secondary(theme))
+                .add_modifier(Modifier::BOLD),
+        )]));
 
         let workers = state.get_intent_workers(&intent.id);
         if workers.is_empty() {
@@ -312,9 +308,18 @@ fn render_spec_preview(
             for worker_entry in workers {
                 let w = &worker_entry.worker;
                 lines.push(Line::from(vec![
-                    Span::styled(format!("  {} ", w.type_icon()), Style::default().fg(theme_fg(theme))),
-                    Span::styled(format!("{} ", w.status_icon()), Style::default().fg(theme_fg(theme))),
-                    Span::styled(format!("{:?}", w.worker_type), Style::default().fg(theme_fg(theme))),
+                    Span::styled(
+                        format!("  {} ", w.type_icon()),
+                        Style::default().fg(theme_fg(theme)),
+                    ),
+                    Span::styled(
+                        format!("{} ", w.status_icon()),
+                        Style::default().fg(theme_fg(theme)),
+                    ),
+                    Span::styled(
+                        format!("{:?}", w.worker_type),
+                        Style::default().fg(theme_fg(theme)),
+                    ),
                     Span::styled(
                         format!(" ({})", w.agent),
                         Style::default().fg(theme_comment(theme)),
@@ -323,8 +328,7 @@ fn render_spec_preview(
             }
         }
 
-        let content = Paragraph::new(lines)
-            .wrap(Wrap { trim: true });
+        let content = Paragraph::new(lines).wrap(Wrap { trim: true });
 
         content.render(area, buf);
     } else {
@@ -336,29 +340,25 @@ fn render_spec_preview(
 }
 
 /// Render the output preview
-fn render_output_preview(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_output_preview(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     let mut lines = Vec::new();
 
     // Show output from selected worker or all workers
     if let Some(worker_id) = &state.selected_worker {
         if let Some(entry) = state.get_worker(worker_id) {
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!("Output for {:?} worker", entry.worker.worker_type),
-                    Style::default()
-                        .fg(theme_secondary(theme))
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]));
+            lines.push(Line::from(vec![Span::styled(
+                format!("Output for {:?} worker", entry.worker.worker_type),
+                Style::default()
+                    .fg(theme_secondary(theme))
+                    .add_modifier(Modifier::BOLD),
+            )]));
             lines.push(Line::from(""));
 
             for line in &entry.output_lines {
-                lines.push(Line::from(Span::styled(line.clone(), Style::default().fg(theme_fg(theme)))));
+                lines.push(Line::from(Span::styled(
+                    line.clone(),
+                    Style::default().fg(theme_fg(theme)),
+                )));
             }
 
             if entry.streaming {
@@ -373,17 +373,18 @@ fn render_output_preview(
         let workers = state.get_intent_workers(&entry.intent.id);
 
         for worker_entry in workers {
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!("=== {:?} ===", worker_entry.worker.worker_type),
-                    Style::default()
-                        .fg(theme_secondary(theme))
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]));
+            lines.push(Line::from(vec![Span::styled(
+                format!("=== {:?} ===", worker_entry.worker.worker_type),
+                Style::default()
+                    .fg(theme_secondary(theme))
+                    .add_modifier(Modifier::BOLD),
+            )]));
 
             for line in worker_entry.last_output(20) {
-                lines.push(Line::from(Span::styled(line.clone(), Style::default().fg(theme_fg(theme)))));
+                lines.push(Line::from(Span::styled(
+                    line.clone(),
+                    Style::default().fg(theme_fg(theme)),
+                )));
             }
 
             lines.push(Line::from(""));
@@ -397,31 +398,23 @@ fn render_output_preview(
         )));
     }
 
-    let content = Paragraph::new(lines)
-        .wrap(Wrap { trim: true });
+    let content = Paragraph::new(lines).wrap(Wrap { trim: true });
 
     content.render(area, buf);
 }
 
 /// Render the criteria preview
-fn render_criteria_preview(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     if let Some(entry) = state.selected_intent() {
         let intent = &entry.intent;
         let mut lines = Vec::new();
 
-        lines.push(Line::from(vec![
-            Span::styled(
-                "Acceptance Criteria",
-                Style::default()
-                    .fg(theme_secondary(theme))
-                    .add_modifier(Modifier::BOLD),
-            ),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            "Acceptance Criteria",
+            Style::default()
+                .fg(theme_secondary(theme))
+                .add_modifier(Modifier::BOLD),
+        )]));
         lines.push(Line::from(""));
 
         if intent.acceptance_criteria.is_empty() {
@@ -446,20 +439,22 @@ fn render_criteria_preview(
             }
 
             lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!("Progress: {}/{} ({}%)",
-                        intent.acceptance_criteria.iter().filter(|c| c.completed).count(),
-                        intent.acceptance_criteria.len(),
-                        entry.completion_percentage()
-                    ),
-                    Style::default().fg(theme_primary(theme)),
+            lines.push(Line::from(vec![Span::styled(
+                format!(
+                    "Progress: {}/{} ({}%)",
+                    intent
+                        .acceptance_criteria
+                        .iter()
+                        .filter(|c| c.completed)
+                        .count(),
+                    intent.acceptance_criteria.len(),
+                    entry.completion_percentage()
                 ),
-            ]));
+                Style::default().fg(theme_primary(theme)),
+            )]));
         }
 
-        let content = Paragraph::new(lines)
-            .wrap(Wrap { trim: true });
+        let content = Paragraph::new(lines).wrap(Wrap { trim: true });
 
         content.render(area, buf);
     } else {
@@ -471,12 +466,7 @@ fn render_criteria_preview(
 }
 
 /// Render modal dialogs
-fn render_modal(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     match state.modal_state {
         ModalState::CreateIntent => {
             render_create_intent_modal(state, area, buf, theme);
@@ -489,12 +479,7 @@ fn render_modal(
 }
 
 /// Render create intent modal
-fn render_create_intent_modal(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_create_intent_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     let popup_area = centered_rect(60, 20, area);
 
     // Clear background
@@ -513,7 +498,9 @@ fn render_create_intent_modal(
         Line::from(""),
         Line::from(Span::styled(
             &state.new_intent_title,
-            Style::default().fg(theme_fg(theme)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme_fg(theme))
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(Span::styled(
@@ -527,12 +514,7 @@ fn render_create_intent_modal(
 }
 
 /// Render delete confirmation modal
-fn render_delete_confirm_modal(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_delete_confirm_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     let popup_area = centered_rect(60, 20, area);
 
     Clear.render(popup_area, buf);
@@ -569,18 +551,11 @@ fn render_progress_bar(percentage: u8, width: usize) -> String {
     let filled = (percentage as usize * width) / 100;
     let empty = width - filled;
 
-    format!(
-        "[{}{}]",
-        "█".repeat(filled),
-        "░".repeat(empty)
-    )
+    format!("[{}{}]", "█".repeat(filled), "░".repeat(empty))
 }
 
 /// Render status line for the footer
-pub fn render_workers_status<'a>(
-    state: &'a PluginState,
-    theme: &'a Theme,
-) -> Vec<Span<'a>> {
+pub fn render_workers_status<'a>(state: &'a PluginState, theme: &'a Theme) -> Vec<Span<'a>> {
     let mut spans = Vec::new();
 
     // Intent count

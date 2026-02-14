@@ -232,8 +232,6 @@ pub fn clear() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
-    use tempfile::TempDir;
 
     #[test]
     fn version_cache_new() {

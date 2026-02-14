@@ -382,7 +382,6 @@ struct ClaudeTokenUsage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use tempfile::TempDir;
 
     fn create_test_adapter() -> (ClaudeCodeAdapter, TempDir) {
@@ -402,7 +401,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_with_session() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
         // Create a session directory
@@ -426,7 +425,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sessions_with_data() {
-        let (adapter, temp) = create_test_adapter();
+        let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
         // Create a session with conversation

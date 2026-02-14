@@ -123,14 +123,18 @@ impl Intent {
         if self.acceptance_criteria.is_empty() {
             return 0;
         }
-        let completed = self.acceptance_criteria.iter().filter(|c| c.completed).count();
+        let completed = self
+            .acceptance_criteria
+            .iter()
+            .filter(|c| c.completed)
+            .count();
         ((completed as f32 / self.acceptance_criteria.len() as f32) * 100.0) as u8
     }
 
     /// Update the status based on workers and criteria.
     pub fn update_status(&mut self) {
         let all_workers_done = self.workers.is_empty()
-            || self.workers.iter().all(|w| {
+            || self.workers.iter().all(|_| {
                 // This would check worker status in real implementation
                 // For now, we assume workers are tracked separately
                 true
@@ -333,7 +337,9 @@ impl Worker {
 
     /// Check if this worker can start (all dependencies satisfied).
     pub fn can_start(&self, completed_workers: &[WorkerId]) -> bool {
-        self.depends_on.iter().all(|dep| completed_workers.contains(dep))
+        self.depends_on
+            .iter()
+            .all(|dep| completed_workers.contains(dep))
     }
 
     /// Mark as running.
@@ -571,6 +577,7 @@ pub struct SpecFrontmatter {
     pub status: Option<IntentStatus>,
     pub created: Option<String>,
     pub updated: Option<String>,
+    #[serde(default)]
     pub workers: Vec<WorkerSpec>,
     #[serde(flatten)]
     pub extra: HashMap<String, serde_yaml::Value>,
@@ -616,8 +623,12 @@ mod tests {
         let mut intent = Intent::new("Test", PathBuf::from("test.md"), "2026-02-14T10:00:00Z");
         assert_eq!(intent.completion_percentage(), 0);
 
-        intent.acceptance_criteria.push(Criterion::new("Criterion 1"));
-        intent.acceptance_criteria.push(Criterion::new("Criterion 2"));
+        intent
+            .acceptance_criteria
+            .push(Criterion::new("Criterion 1"));
+        intent
+            .acceptance_criteria
+            .push(Criterion::new("Criterion 2"));
         assert_eq!(intent.completion_percentage(), 0);
 
         intent.acceptance_criteria[0].complete();
@@ -652,7 +663,7 @@ mod tests {
         )
         .depends_on(worker1.id.clone());
 
-        assert!(worker2.can_start(&[]));
+        assert!(!worker2.can_start(&[]));
         assert!(worker2.can_start(&[worker1.id.clone()]));
     }
 

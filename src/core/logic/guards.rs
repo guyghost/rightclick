@@ -4,7 +4,9 @@
 //! is authorized to execute given the current state and context.
 
 use crate::core::models::action::{ActionContext, ActionId, GuardError, GuardResult};
-use crate::core::models::state_machine::{FocusPane, StateContext, ViewMode, ViewState};
+#[cfg(test)]
+use crate::core::models::state_machine::StateContext;
+use crate::core::models::state_machine::{FocusPane, ViewMode, ViewState};
 
 /// Check if an action is authorized (pure function)
 ///
