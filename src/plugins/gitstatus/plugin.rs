@@ -14,6 +14,7 @@ use crate::event::Event;
 use crate::keymap::registry::KeyBindingRegistry;
 use crate::keymap::FocusContext;
 use crate::plugin::{Command as PluginCommandTrait, Plugin, PluginContext};
+use crate::shell::machines::{GitCommand, GitStateMachine};
 use crate::shell::services_full::{CliGitService, GitService};
 
 use super::render::{render_git_status, render_status_info};
@@ -95,6 +96,8 @@ pub struct GitStatusPlugin {
     git_service: CliGitService,
     /// Plugin configuration
     config: Option<Config>,
+    /// State machine handling navigation and guards
+    state_machine: GitStateMachine,
     /// Hash of commit to load details for
     pending_commit_hash: Option<String>,
 }
@@ -109,6 +112,7 @@ impl GitStatusPlugin {
             focused: false,
             git_service: CliGitService::new(),
             config: None,
+            state_machine: GitStateMachine::new(PathBuf::new()),
         }
     }
 
@@ -121,6 +125,7 @@ impl GitStatusPlugin {
             focused: false,
             git_service,
             config: None,
+            state_machine: GitStateMachine::new(PathBuf::new()),
         }
     }
 
@@ -152,6 +157,7 @@ impl GitStatusPlugin {
     pub async fn init_with_context(&mut self, ctx: &GitPluginContext) -> Result<()> {
         self.repo_path = ctx.project_root.clone();
         self.config = Some(ctx.config.clone());
+        self.state_machine = GitStateMachine::new(self.repo_path.clone());
         self.refresh().await?;
         Ok(())
     }
@@ -231,81 +237,72 @@ impl GitStatusPlugin {
 
     /// Handle a key press
     fn handle_key(&mut self, key: &str) -> Vec<Command> {
+        if key == "c" {
+            return vec![Command::OpenCommitDialog];
+        }
+
+        let git_commands = self.state_machine.handle_key(key);
         let mut commands = Vec::new();
 
-        match key {
-            "j" | "Down" => {
-                if self.state.view_mode == ViewMode::History {
-                    self.state.select_next_commit();
-                    // Mark commit hash to load details for
-                    if let Some(commit) = self.state.selected_commit() {
-                        self.pending_commit_hash = Some(commit.hash.clone());
+        for cmd in git_commands {
+            match cmd {
+                GitCommand::SelectIndex(idx) => {
+                    if self.state.view_mode == ViewMode::History {
+                        self.state.selected_commit = Some(idx);
+                        if let Some(commit) = self.state.selected_commit() {
+                            self.pending_commit_hash = Some(commit.hash.clone());
+                        }
+                    } else {
+                        self.state.selected_file = Some(idx);
                     }
                     commands.push(Command::Refresh);
-                } else {
-                    self.state.next_file();
+                }
+                GitCommand::SetFocus(pane) => {
+                    self.state.focus_pane = pane;
                     commands.push(Command::Refresh);
                 }
-            }
-            "k" | "Up" => {
-                if self.state.view_mode == ViewMode::History {
-                    self.state.select_prev_commit();
-                    // Mark commit hash to load details for
-                    if let Some(commit) = self.state.selected_commit() {
-                        self.pending_commit_hash = Some(commit.hash.clone());
+                GitCommand::ExecuteAction(crate::core::models::action::ActionId::Stage) => {
+                    if let Some(file) = self.state.selected_file_path() {
+                        commands.push(Command::StageFile(file));
                     }
+                }
+                GitCommand::ExecuteAction(crate::core::models::action::ActionId::Unstage) => {
+                    if let Some(file) = self.state.selected_file_path() {
+                        commands.push(Command::UnstageFile(file));
+                    }
+                }
+                GitCommand::ExecuteAction(crate::core::models::action::ActionId::Diff) => {
+                    if let Some(file) = self.state.selected_file_path() {
+                        commands.push(Command::ShowDiff(file));
+                    }
+                }
+                GitCommand::ExecuteAction(_) => {}
+                GitCommand::SwitchMode(mode) => {
+                    commands.push(Command::SwitchMode(mode));
+                }
+                GitCommand::LoadCommits => {
+                    commands.push(Command::LoadCommits);
+                }
+                GitCommand::Refresh => {
                     commands.push(Command::Refresh);
-                } else {
-                    self.state.prev_file();
-                    commands.push(Command::Refresh);
                 }
             }
-            "h" | "Left" => {
-                if self.state.view_mode == ViewMode::History {
-                    self.state.focus_pane = FocusPane::Sidebar;
-                } else {
-                    self.state.focus_pane = FocusPane::Sidebar;
-                }
-                commands.push(Command::Refresh);
+        }
+
+        if key == "s" && commands.is_empty() {
+            if let Some(file) = self.state.selected_file_path() {
+                commands.push(Command::StageFile(file));
             }
-            "l" | "Right" => {
-                if self.state.view_mode == ViewMode::History {
-                    self.state.focus_pane = FocusPane::Main;
-                } else {
-                    self.state.focus_pane = FocusPane::Main;
-                }
-                commands.push(Command::Refresh);
+        } else if key == "u" && commands.is_empty() {
+            if let Some(file) = self.state.selected_file_path() {
+                commands.push(Command::UnstageFile(file));
             }
-            "H" => {
-                commands.push(Command::SwitchMode(ViewMode::History));
-                commands.push(Command::LoadCommits);
+        } else if key == "d" && commands.is_empty() {
+            if let Some(file) = self.state.selected_file_path() {
+                commands.push(Command::ShowDiff(file));
             }
-            "S" => {
-                commands.push(Command::SwitchMode(ViewMode::Status));
-                commands.push(Command::Refresh);
-            }
-            "s" => {
-                if let Some(file) = self.state.selected_file_path() {
-                    commands.push(Command::StageFile(file));
-                }
-            }
-            "u" => {
-                if let Some(file) = self.state.selected_file_path() {
-                    commands.push(Command::UnstageFile(file));
-                }
-            }
-            "d" => {
-                if let Some(file) = self.state.selected_file_path() {
-                    commands.push(Command::ShowDiff(file));
-                }
-            }
-            "c" => {
-                commands.push(Command::OpenCommitDialog);
-            }
-            "r" => {
-                commands.push(Command::Refresh);
-            }
-            _ => {}
+        } else if key == "r" && commands.is_empty() {
+            commands.push(Command::Refresh);
         }
 
         commands
@@ -333,14 +330,17 @@ impl GitStatusPlugin {
             Command::ShowDiff(path) => {
                 self.load_diff(&path).await?;
                 self.state.view_mode = ViewMode::Diff;
+                self.sync_state_machine();
                 events.push(Event::RefreshNeeded);
             }
             Command::SwitchMode(mode) => {
                 self.state.view_mode = mode;
+                self.sync_state_machine();
                 events.push(Event::RefreshNeeded);
             }
             Command::SwitchFocus(pane) => {
                 self.state.focus_pane = pane;
+                self.state_machine.set_focus_pane(pane);
                 events.push(Event::RefreshNeeded);
             }
             Command::LoadCommits => {
@@ -375,6 +375,7 @@ impl GitStatusPlugin {
     async fn refresh(&mut self) -> Result<()> {
         let status = self.fetch_repo_status().await?;
         self.state.update_status(status);
+        self.sync_state_machine();
         Ok(())
     }
 
@@ -431,13 +432,15 @@ impl GitStatusPlugin {
         } else {
             Some(0)
         };
-        
+        self.state_machine.update_items(self.state.commits.len());
+        self.state_machine.set_selected_index(self.state.selected_commit);
+
         // Load details for first commit
         let first_hash = self.state.selected_commit().map(|c| c.hash.clone());
         if let Some(hash) = first_hash {
             self.load_commit_details(&hash).await?;
         }
-        
+
         Ok(())
     }
 
@@ -446,6 +449,22 @@ impl GitStatusPlugin {
         let files = self.git_service.commit_details(&self.repo_path, hash).await?;
         self.state.commit_files = files;
         Ok(())
+    }
+
+    fn sync_state_machine(&self) {
+        let item_count = if self.state.view_mode == ViewMode::History {
+            self.state.commits.len()
+        } else {
+            self.state.files.len()
+        };
+        self.state_machine.initialize(item_count, self.state.view_mode);
+        self.state_machine
+            .set_selected_index(if self.state.view_mode == ViewMode::History {
+                self.state.selected_commit
+            } else {
+                self.state.selected_file
+            });
+        self.state_machine.set_focus_pane(self.state.focus_pane);
     }
 }
 
@@ -471,9 +490,11 @@ impl Plugin for GitStatusPlugin {
 
     async fn init(&mut self, ctx: &PluginContext) -> Result<()> {
         self.repo_path = ctx.project_root.clone();
+        self.state_machine = GitStateMachine::new(self.repo_path.clone());
         tracing::debug!("Git plugin initialized with repo: {:?}", self.repo_path);
         if let Ok(repo_status) = self.fetch_repo_status().await {
             self.state.update_status(repo_status);
+            self.sync_state_machine();
         }
         // Load commits for history view (lazygit-style)
         if let Err(e) = self.load_commits().await {

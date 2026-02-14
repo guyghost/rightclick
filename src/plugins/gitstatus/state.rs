@@ -3,42 +3,11 @@
 //! This module defines the state structure for the Git Status plugin,
 //! including view modes, focus panes, and selection state.
 
+pub use crate::core::models::state_machine::{FocusPane, ViewMode};
 use crate::core::models::{Commit, Diff, FileChange, FileDiff, FileStatus, RepoStatus};
 
-/// The plugin's view mode determines what content is displayed
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ViewMode {
-    /// Show working directory status (staged/unstaged files)
-    Status,
-    /// Show diff for selected file
-    Diff,
-    /// Show commit history
-    History,
-}
-
-impl Default for ViewMode {
-    fn default() -> Self {
-        Self::History
-    }
-}
-
-/// Which pane has keyboard focus
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FocusPane {
-    /// Sidebar with file list
-    Sidebar,
-    /// Main content area (diff or history)
-    Main,
-}
-
-impl Default for FocusPane {
-    fn default() -> Self {
-        Self::Sidebar
-    }
-}
-
 /// Plugin state containing all mutable data
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct PluginState {
     /// All file changes (staged, unstaged, untracked)
     pub files: Vec<FileChange>,
@@ -77,8 +46,8 @@ impl PluginState {
             selected_file: None,
             selected_commit: None,
             diff: None,
-            view_mode: ViewMode::default(),
-            focus_pane: FocusPane::default(),
+            view_mode: ViewMode::Status,
+            focus_pane: FocusPane::Sidebar,
             sidebar_width: 35,
             branch: String::new(),
             ahead: 0,
@@ -119,7 +88,8 @@ impl PluginState {
 
     /// Get the path of the currently selected file if any
     pub fn selected_file_path(&self) -> Option<std::path::PathBuf> {
-        self.selected_file().map(|f| std::path::PathBuf::from(&f.path))
+        self.selected_file()
+            .map(|f| std::path::PathBuf::from(&f.path))
     }
 
     /// Get the currently selected commit if any
@@ -235,6 +205,12 @@ impl PluginState {
     /// Alias for select_prev_file
     pub fn prev_file(&mut self) {
         self.select_prev_file();
+    }
+}
+
+impl Default for PluginState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

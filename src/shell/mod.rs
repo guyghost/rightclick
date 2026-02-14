@@ -23,6 +23,7 @@
 //! 4. Repositories isolate data access (no business logic)
 //! 5. Services handle external integrations
 
+pub mod machines;
 pub mod repositories;
 pub mod services;
 pub mod services_full;
