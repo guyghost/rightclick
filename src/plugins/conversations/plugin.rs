@@ -432,14 +432,15 @@ impl ConversationsPlugin {
         match self.state.view {
             ConversationView::SessionsList => vec![
                 ("↑/↓", "Navigate"),
-                ("Enter", "Open"),
+                ("Enter/l/o", "Open"),
                 ("/", "Search"),
                 ("r", "Refresh"),
+                ("Ctrl+d/u", "Page"),
                 ("g/G", "First/Last"),
             ],
             ConversationView::Conversation => vec![
                 ("↑/↓", "Scroll"),
-                ("PgUp/Dn", "Page"),
+                ("Ctrl+d/u", "Page"),
                 ("Esc/h", "Back"),
                 ("Space", "Expand"),
                 ("e/c", "Expand/Collapse All"),
@@ -611,18 +612,129 @@ impl Plugin for ConversationsPlugin {
         
         match event {
             crate::event::Event::Key { code, modifiers } => {
-                if !modifiers.ctrl && !modifiers.alt {
+                // Handle Ctrl+key combinations
+                if modifiers.ctrl {
                     match code.as_str() {
-                        "j" | "Down" => {
-                            self.state.list_nav.next();
+                        "d" => {
+                            // Page down - varies by view
+                            match self.state.view {
+                                ConversationView::SessionsList | ConversationView::Search => {
+                                    self.state.list_nav.page_down();
+                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                }
+                                ConversationView::Conversation => {
+                                    self.state.message_scroll.scroll_down(self.state.message_scroll.viewport_height);
+                                }
+                            }
                         }
-                        "k" | "Up" => {
-                            self.state.list_nav.prev();
+                        "u" => {
+                            // Page up - varies by view
+                            match self.state.view {
+                                ConversationView::SessionsList | ConversationView::Search => {
+                                    self.state.list_nav.page_up();
+                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                }
+                                ConversationView::Conversation => {
+                                    self.state.message_scroll.scroll_up(self.state.message_scroll.viewport_height);
+                                }
+                            }
                         }
-                        "r" => {
-                            commands.push(PluginCmd::new("conversations", "refresh"));
+                        "c" => {
+                            // Exit search mode
+                            if self.state.view == ConversationView::Search {
+                                self.state.clear_search();
+                            }
                         }
                         _ => {}
+                    }
+                } else if !modifiers.alt {
+                    // Handle simple key presses
+                    match self.state.view {
+                        ConversationView::SessionsList => {
+                            match code.as_str() {
+                                "j" | "Down" => {
+                                    self.state.list_nav.next();
+                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                }
+                                "k" | "Up" => {
+                                    self.state.list_nav.prev();
+                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                }
+                                "g" | "Home" => {
+                                    self.state.list_nav.first();
+                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                }
+                                "G" | "End" => {
+                                    self.state.list_nav.last();
+                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                }
+                                "Enter" | "l" | "o" => {
+                                    if self.state.selected_session.is_some() {
+                                        self.state.enter_conversation();
+                                        commands.push(PluginCmd::new("conversations", "load-messages"));
+                                    }
+                                }
+                                "/" => {
+                                    self.state.start_search(String::new());
+                                }
+                                "r" => {
+                                    commands.push(PluginCmd::new("conversations", "refresh"));
+                                }
+                                _ => {}
+                            }
+                        }
+                        ConversationView::Conversation => {
+                            match code.as_str() {
+                                "j" | "Down" => {
+                                    self.state.message_scroll.scroll_down(3);
+                                }
+                                "k" | "Up" => {
+                                    self.state.message_scroll.scroll_up(3);
+                                }
+                                "g" | "Home" => {
+                                    self.state.message_scroll.scroll_to_top();
+                                }
+                                "G" | "End" => {
+                                    self.state.message_scroll.scroll_to_bottom();
+                                }
+                                "h" | "Left" | "Esc" | "Backspace" => {
+                                    self.state.enter_sessions_list();
+                                }
+                                " " => {
+                                    // Toggle message expansion
+                                    if let Some(msg) = self.state.get_message(self.state.message_scroll.scroll_y) {
+                                        let msg_id = msg.id.clone();
+                                        self.state.toggle_message_expanded(&msg_id);
+                                    }
+                                }
+                                "e" => {
+                                    self.state.expand_all_messages();
+                                }
+                                "c" => {
+                                    self.state.collapse_all_messages();
+                                }
+                                _ => {}
+                            }
+                        }
+                        ConversationView::Search => {
+                            match code.as_str() {
+                                "Esc" => {
+                                    self.state.clear_search();
+                                }
+                                "Enter" => {
+                                    // Filter is already applied in real-time
+                                }
+                                "j" | "Down" => {
+                                    self.state.list_nav.next();
+                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                }
+                                "k" | "Up" => {
+                                    self.state.list_nav.prev();
+                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                }
+                                _ => {}
+                            }
+                        }
                     }
                 }
             }

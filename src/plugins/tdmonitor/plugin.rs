@@ -392,7 +392,25 @@ impl TDMonitorPlugin {
                 commands.push(Command::Refresh);
             }
             Event::Key { code, modifiers } => {
-                if !modifiers.ctrl && !modifiers.alt {
+                if modifiers.ctrl {
+                    // Handle Ctrl+key combinations
+                    match code.as_str() {
+                        "d" => {
+                            // Page down
+                            for _ in 0..5 {
+                                self.state.select_next();
+                            }
+                        }
+                        "u" => {
+                            // Page up
+                            for _ in 0..5 {
+                                self.state.select_prev();
+                            }
+                        }
+                        _ => {}
+                    }
+                } else if !modifiers.alt {
+                    // Handle simple key presses
                     match code.as_str() {
                         "j" | "Down" => {
                             self.state.select_next();
@@ -400,8 +418,68 @@ impl TDMonitorPlugin {
                         "k" | "Up" => {
                             self.state.select_prev();
                         }
+                        "g" | "Home" => {
+                            self.state.select_first();
+                        }
+                        "G" | "End" => {
+                            self.state.select_last();
+                        }
+                        "v" => {
+                            // Toggle view mode
+                            self.state.view_mode = self.state.view_mode.toggle();
+                            commands.push(Command::SwitchMode(self.state.view_mode));
+                        }
+                        "n" => {
+                            // Create new task
+                            commands.push(Command::CreateTask);
+                        }
+                        "e" => {
+                            // Edit selected task
+                            if let Some(task) = self.state.selected_task() {
+                                commands.push(Command::EditTask(task.id.clone()));
+                            }
+                        }
                         "r" => {
+                            // Review selected task
+                            if let Some(task) = self.state.selected_task() {
+                                commands.push(Command::ReviewTask(task.id.clone()));
+                            }
+                        }
+                        "f" | "/" => {
+                            // Start filter input
+                            self.state.start_filter_input();
+                        }
+                        "c" => {
+                            // Cycle task status
+                            if let Some(task) = self.state.selected_task() {
+                                let next_status = match task.status {
+                                    TaskStatus::Todo => TaskStatus::InProgress,
+                                    TaskStatus::InProgress => TaskStatus::Review,
+                                    TaskStatus::Review => TaskStatus::Done,
+                                    TaskStatus::Done => TaskStatus::Todo,
+                                };
+                                commands.push(Command::UpdateStatus(task.id.clone(), next_status));
+                            }
+                        }
+                        "Enter" => {
+                            // Set as focused task
+                            if let Some(task) = self.state.selected_task() {
+                                commands.push(Command::SetFocus(task.id.clone()));
+                            }
+                        }
+                        " " => {
+                            // Toggle view or task
+                            self.state.view_mode = self.state.view_mode.toggle();
+                            commands.push(Command::SwitchMode(self.state.view_mode));
+                        }
+                        "R" => {
                             commands.push(Command::Refresh);
+                        }
+                        "Esc" => {
+                            // Clear filter or cancel input
+                            if self.state.filter_input_active {
+                                self.state.clear_filter();
+                            }
                         }
                         _ => {}
                     }
@@ -531,6 +609,7 @@ impl TDMonitorPlugin {
             PluginCommand::new("new", "New Task", 'n'),
             PluginCommand::new("edit", "Edit Task", 'e'),
             PluginCommand::new("review", "Review", 'r'),
+            PluginCommand::new("cycle", "Cycle Status", 'c'),
             PluginCommand::new("filter", "Filter", '/'),
             PluginCommand::new("toggle-view", "Toggle View", 'v'),
             PluginCommand::new("refresh", "Refresh", 'R'),
@@ -785,6 +864,7 @@ impl Plugin for TDMonitorPlugin {
             crate::plugin::PluginCommand::with_context("new", "New Task", 'n', crate::keymap::FocusContext::TDMonitor),
             crate::plugin::PluginCommand::with_context("edit", "Edit Task", 'e', crate::keymap::FocusContext::TDMonitor),
             crate::plugin::PluginCommand::with_context("review", "Review", 'r', crate::keymap::FocusContext::TDMonitor),
+            crate::plugin::PluginCommand::with_context("cycle", "Cycle Status", 'c', crate::keymap::FocusContext::TDMonitor),
             crate::plugin::PluginCommand::with_context("filter", "Filter", '/', crate::keymap::FocusContext::TDMonitor),
             crate::plugin::PluginCommand::with_context("toggle-view", "Toggle View", 'v', crate::keymap::FocusContext::TDMonitor),
             crate::plugin::PluginCommand::with_context("refresh", "Refresh", 'R', crate::keymap::FocusContext::TDMonitor),
@@ -799,6 +879,7 @@ impl Plugin for TDMonitorPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Datelike;
 
     #[test]
     fn test_plugin_id() {

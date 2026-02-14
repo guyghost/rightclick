@@ -109,6 +109,8 @@ pub struct WorkspacePlugin {
     config: crate::core::models::WorkspacePluginConfig,
     /// Worktree manager
     worktree_manager: Option<WorktreeManager>,
+    /// Flag to indicate preview content needs update
+    pending_preview_update: bool,
 }
 
 impl WorkspacePlugin {
@@ -125,6 +127,7 @@ impl WorkspacePlugin {
             key_bindings,
             config: crate::core::models::WorkspacePluginConfig::default(),
             worktree_manager: None,
+            pending_preview_update: false,
         }
     }
 
@@ -299,7 +302,19 @@ impl WorkspacePlugin {
                 commands.push(Command::Refresh);
             }
             Event::Key { code, modifiers } => {
-                if !modifiers.ctrl && !modifiers.alt {
+                if modifiers.ctrl {
+                    // Handle Ctrl+key combinations
+                    match code.as_str() {
+                        "d" => {
+                            // Page down in preview
+                        }
+                        "u" => {
+                            // Page up in preview
+                        }
+                        _ => {}
+                    }
+                } else if !modifiers.alt {
+                    // Handle simple key presses
                     match code.as_str() {
                         "j" | "Down" => {
                             if self.focus_pane == FocusPane::Sidebar {
@@ -324,6 +339,88 @@ impl WorkspacePlugin {
                                 self.focus_pane = FocusPane::Preview;
                                 commands.push(Command::SwitchFocus(FocusPane::Preview));
                             }
+                        }
+                        "Tab" => {
+                            self.focus_pane = match self.focus_pane {
+                                FocusPane::Sidebar => FocusPane::Preview,
+                                FocusPane::Preview => FocusPane::Sidebar,
+                            };
+                            commands.push(Command::SwitchFocus(self.focus_pane));
+                        }
+                        "v" => {
+                            // Toggle view mode
+                            let new_mode = match self.state.view_mode {
+                                ViewMode::List => ViewMode::Kanban,
+                                ViewMode::Kanban => ViewMode::List,
+                                ViewMode::Interactive => ViewMode::List,
+                            };
+                            self.state.view_mode = new_mode;
+                            commands.push(Command::SwitchMode(new_mode));
+                        }
+                        "1" => {
+                            // Switch to Output tab
+                            self.state.preview_tab = PreviewTab::Output;
+                            self.pending_preview_update = true;
+                            commands.push(Command::Refresh);
+                        }
+                        "2" => {
+                            // Switch to Diff tab
+                            self.state.preview_tab = PreviewTab::Diff;
+                            self.pending_preview_update = true;
+                            commands.push(Command::Refresh);
+                        }
+                        "3" => {
+                            // Switch to Task tab
+                            self.state.preview_tab = PreviewTab::Task;
+                            self.pending_preview_update = true;
+                            commands.push(Command::Refresh);
+                        }
+                        "n" => {
+                            // Create new worktree
+                            self.state.modal_state = ModalState::CreateWorktree;
+                        }
+                        "D" => {
+                            // Delete worktree
+                            if self.state.selected_worktree().is_some() {
+                                self.state.modal_state = ModalState::DeleteConfirm;
+                            }
+                        }
+                        "t" => {
+                            // Link/unlink task
+                            if self.state.selected_worktree().is_some() {
+                                self.state.modal_state = ModalState::LinkTask;
+                                if let Some(worktree) = self.state.selected_worktree() {
+                                    if let Some(ref task_id) = worktree.linked_task {
+                                        self.state.task_id_buffer = task_id.clone();
+                                    }
+                                }
+                            }
+                        }
+                        "a" => {
+                            // Launch AI agent
+                            if let Some(worktree) = self.state.selected_worktree() {
+                                let task = worktree.linked_task.clone();
+                                commands.push(Command::LaunchAgent {
+                                    worktree: worktree.name.clone(),
+                                    task,
+                                });
+                            }
+                        }
+                        "Enter" | "o" => {
+                            // Enter interactive mode
+                            if let Some(worktree) = self.state.selected_worktree() {
+                                commands.push(Command::EnterInteractive(worktree.path.clone()));
+                            }
+                        }
+                        "m" => {
+                            // Merge workflow
+                            if self.state.selected_worktree().is_some() {
+                                self.state.modal_state = ModalState::MergeDialog;
+                            }
+                        }
+                        "d" | "f" => {
+                            // Show diff
+                            commands.push(Command::ShowDiff);
                         }
                         "r" => {
                             commands.push(Command::Refresh);
@@ -396,6 +493,8 @@ impl WorkspacePlugin {
                     2 => PreviewTab::Task,
                     _ => self.state.preview_tab,
                 };
+                // Mark preview for update so content is loaded on next update cycle
+                self.pending_preview_update = true;
                 commands.push(Command::Refresh);
             }
             Action::NewFile => {
@@ -583,7 +682,7 @@ impl WorkspacePlugin {
             PluginCommand::new("delete", "Delete Worktree", 'D'),
             PluginCommand::new("link-task", "Link Task", 't'),
             PluginCommand::new("launch-agent", "Launch Agent", 'a'),
-            PluginCommand::new("interactive", "Interactive Mode", 'i'),
+            PluginCommand::new("interactive", "Interactive Mode", 'o'),
             PluginCommand::new("merge", "Merge", 'm'),
             PluginCommand::new("refresh", "Refresh", 'r'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
@@ -814,12 +913,22 @@ impl Plugin for WorkspacePlugin {
             crate::plugin::PluginCommand::with_context("agent", "Launch Agent", 'a', crate::keymap::FocusContext::Workspace),
             crate::plugin::PluginCommand::with_context("merge", "Merge", 'm', crate::keymap::FocusContext::Workspace),
             crate::plugin::PluginCommand::with_context("diff", "Diff", 'd', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context("interactive", "Interactive", 'o', crate::keymap::FocusContext::Workspace),
             crate::plugin::PluginCommand::with_context("refresh", "Refresh", 'r', crate::keymap::FocusContext::Workspace),
         ]
     }
 
     fn focus_context(&self) -> crate::keymap::FocusContext {
         crate::keymap::FocusContext::Workspace
+    }
+
+    async fn update(&mut self) -> anyhow::Result<()> {
+        // Update preview content if tab was switched
+        if self.pending_preview_update {
+            self.pending_preview_update = false;
+            self.update_preview().await?;
+        }
+        Ok(())
     }
 }
 

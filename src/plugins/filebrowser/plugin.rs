@@ -93,7 +93,19 @@ impl Plugin for FileBrowserPlugin {
                 self.refresh();
             }
             Event::Key { code, modifiers } => {
-                if !modifiers.ctrl && !modifiers.alt {
+                // Handle Ctrl+key combinations first
+                if modifiers.ctrl {
+                    match code.as_str() {
+                        "d" => {
+                            self.state.scroll_preview_down(self.state.preview_scroll.visible_lines / 2);
+                        }
+                        "u" => {
+                            self.state.scroll_preview_up(self.state.preview_scroll.visible_lines / 2);
+                        }
+                        _ => {}
+                    }
+                } else if !modifiers.alt {
+                    // Handle simple key presses (including shift which affects the code)
                     self.handle_key(&code);
                 }
             }
@@ -121,7 +133,7 @@ impl Plugin for FileBrowserPlugin {
     fn commands(&self) -> Vec<PluginCommand> {
         vec![
             PluginCommand::with_context("refresh", "Refresh", 'r', crate::keymap::FocusContext::FileBrowserTree),
-            PluginCommand::with_context("toggle_hidden", "Toggle Hidden", 'h', crate::keymap::FocusContext::FileBrowserTree),
+            PluginCommand::with_context("toggle_hidden", "Toggle Hidden", 'H', crate::keymap::FocusContext::FileBrowserTree),
             PluginCommand::with_context("toggle_ignored", "Toggle Ignored", 'i', crate::keymap::FocusContext::FileBrowserTree),
         ]
     }
@@ -250,7 +262,7 @@ impl FileBrowserPlugin {
                 self.state.toggle_file_info();
                 true
             }
-            "h" => {
+            "H" => {
                 self.state.toggle_hidden();
                 true
             }
@@ -266,12 +278,31 @@ impl FileBrowserPlugin {
                 self.state.scroll_preview_to_bottom();
                 true
             }
-            "ctrl+d" => {
-                self.state.scroll_preview_down(self.state.preview_scroll.visible_lines / 2);
+            // Navigation
+            "j" | "Down" => {
+                self.state.next_entry();
+                self.ensure_selected_visible();
                 true
             }
-            "ctrl+u" => {
-                self.state.scroll_preview_up(self.state.preview_scroll.visible_lines / 2);
+            "k" | "Up" => {
+                self.state.prev_entry();
+                self.ensure_selected_visible();
+                true
+            }
+            "l" | "Right" => {
+                self.state.expand_selected();
+                true
+            }
+            "h" | "Left" => {
+                self.state.collapse_selected();
+                true
+            }
+            "Enter" | " " => {
+                self.state.toggle_selected();
+                true
+            }
+            "r" => {
+                self.state.refresh();
                 true
             }
             _ => false,
@@ -301,8 +332,21 @@ impl FileBrowserPlugin {
 
     /// Ensure the currently selected item is visible in the tree view
     fn ensure_selected_visible(&mut self) {
-        let index = self.state.tree.selected_index;
-        self.state.tree_scroll.ensure_visible(index);
+        // Calculate position in visible (filtered) list
+        let visible_pos = self.state
+            .tree
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| {
+                let show_hidden = self.state.show_hidden || !e.is_hidden;
+                let show_ignored = self.state.show_ignored || !e.is_ignored;
+                show_hidden && show_ignored
+            })
+            .take_while(|(i, _)| *i != self.state.tree.selected_index)
+            .count();
+        
+        self.state.tree_scroll.ensure_visible(visible_pos);
     }
 
     /// Render the plugin to the given buffer (public API)
@@ -383,35 +427,44 @@ impl FileBrowserPlugin {
         let muted_style = style_for_ui_element(&self.theme, UiElement::MutedText);
         let primary_style = style_for_ui_element(&self.theme, UiElement::Primary);
 
-        let visible_entries: Vec<_> = self.state
+        // Build list of visible entry indices (not filtered)
+        let visible_indices: Vec<usize> = self.state
             .tree
             .entries
             .iter()
-            .filter(|e| {
+            .enumerate()
+            .filter(|(_, e)| {
                 // Filter hidden files
                 let show_hidden = self.state.show_hidden || !e.is_hidden;
                 // Filter git-ignored files
                 let show_ignored = self.state.show_ignored || !e.is_ignored;
                 show_hidden && show_ignored
             })
+            .map(|(i, _)| i)
             .collect();
 
         // Calculate visible range based on scroll offset
         let scroll_offset = self.state.tree_scroll.offset;
         let visible_count = area.height as usize;
+        
+        // Update scroll state total
+        let total_visible = visible_indices.len();
 
-        for (display_idx, entry) in visible_entries
+        let mut row = 0u16;
+        for (_vis_pos, &entry_idx) in visible_indices
             .iter()
             .enumerate()
             .skip(scroll_offset)
             .take(visible_count)
         {
-            let y = area.y + (display_idx - scroll_offset) as u16;
+            let y = area.y + row;
             if y >= area.y + area.height {
                 break;
             }
+            row += 1;
 
-            let is_selected = self.state.tree.selected_index == display_idx;
+            let entry = &self.state.tree.entries[entry_idx];
+            let is_selected = self.state.tree.selected_index == entry_idx;
             let style = if is_selected { selected_style } else { text_style };
 
             // Build the line
@@ -455,6 +508,9 @@ impl FileBrowserPlugin {
             let line = Line::from(spans);
             buf.set_line(area.x, y, &line, area.width);
         }
+        
+        // Update total lines for scrolling
+        let _ = (total_visible, visible_count);
     }
 
     /// Render the footer
@@ -463,7 +519,9 @@ impl FileBrowserPlugin {
             KeyHint::new("j/k", "Navigate"),
             KeyHint::new("↵/space", "Expand/Collapse"),
             KeyHint::new("i", "Toggle ignored"),
+            KeyHint::new("H", "Toggle hidden"),
             KeyHint::new("I", "File info"),
+            KeyHint::new("Ctrl+d/u", "Page scroll"),
             KeyHint::new("?", "Help"),
             KeyHint::new("q", "Quit"),
         ];
@@ -522,7 +580,7 @@ impl FileBrowserPlugin {
             Line::from(vec![Span::styled("View", primary_style.add_modifier(Modifier::BOLD))]),
             Line::from(""),
             Line::from(vec![Span::styled("i      ", primary_style), Span::styled("Toggle git-ignored files", text_style)]),
-            Line::from(vec![Span::styled("h      ", primary_style), Span::styled("Toggle hidden files", text_style)]),
+            Line::from(vec![Span::styled("H      ", primary_style), Span::styled("Toggle hidden files", text_style)]),
             Line::from(vec![Span::styled("I      ", primary_style), Span::styled("Show file info", text_style)]),
             Line::from(vec![Span::styled("g/G    ", primary_style), Span::styled("Go to top/bottom of preview", text_style)]),
             Line::from(vec![Span::styled("?      ", primary_style), Span::styled("Toggle this help", text_style)]),
@@ -682,7 +740,20 @@ impl FileBrowserPlugin {
     pub fn update_visible_lines(&mut self, tree_visible_lines: usize, preview_visible_lines: usize) {
         self.state.tree_scroll.set_visible_lines(tree_visible_lines);
         self.state.preview_scroll.set_visible_lines(preview_visible_lines);
-        self.state.tree_scroll.set_total_lines(self.state.tree.len());
+        
+        // Calculate visible (filtered) count for tree
+        let visible_count = self.state
+            .tree
+            .entries
+            .iter()
+            .filter(|e| {
+                let show_hidden = self.state.show_hidden || !e.is_hidden;
+                let show_ignored = self.state.show_ignored || !e.is_ignored;
+                show_hidden && show_ignored
+            })
+            .count();
+        self.state.tree_scroll.set_total_lines(visible_count);
+        
         if let Some(ref preview) = self.state.preview {
             self.state.preview_scroll.set_total_lines(preview.total_lines);
         }
