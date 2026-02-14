@@ -508,6 +508,8 @@ mod tests {
     use async_trait::async_trait;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
+    use std::path::PathBuf;
+    use std::sync::Arc;
 
     #[derive(Debug)]
     struct TestPlugin {

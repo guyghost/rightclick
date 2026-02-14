@@ -11,9 +11,13 @@
 //! - `git` - Git types (FileStatus, Diff, Commit, Branch, etc.)
 //! - `conversation` - Conversation types (Session, Message, ContentBlock, etc.)
 
+pub mod action;
 pub mod config;
 pub mod conversation;
 pub mod git;
+pub mod intent;
+pub mod navigation;
+pub mod state_machine;
 pub mod theme;
 
 // Re-export commonly used types for convenience

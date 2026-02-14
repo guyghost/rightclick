@@ -168,8 +168,12 @@ impl Preview {
 
         // Build content
         let mut content = format!("Directory: {}\n", path.display());
-        content.push_str(&format!("Files: {} | Directories: {} | Total size: {}\n", 
-            file_count, dir_count, Self::format_size(total_size)));
+        content.push_str(&format!(
+            "Files: {} | Directories: {} | Total size: {}\n",
+            file_count,
+            dir_count,
+            Self::format_size(total_size)
+        ));
         content.push_str("─".repeat(50).as_str());
         content.push('\n');
         content.push_str(&entries.join("\n"));
@@ -192,12 +196,10 @@ impl Preview {
         if let Some(ext) = path.extension() {
             let ext = ext.to_string_lossy().to_lowercase();
             let binary_extensions = [
-                "exe", "dll", "so", "dylib", "bin", "o", "a", "lib",
-                "zip", "tar", "gz", "bz2", "xz", "7z", "rar",
-                "jpg", "jpeg", "png", "gif", "bmp", "webp", "svg",
-                "mp3", "mp4", "avi", "mov", "mkv", "wav", "flac",
-                "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-                "db", "sqlite", "sqlite3", "class", "jar", "pyc",
+                "exe", "dll", "so", "dylib", "bin", "o", "a", "lib", "zip", "tar", "gz", "bz2",
+                "xz", "7z", "rar", "jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "mp3", "mp4",
+                "avi", "mov", "mkv", "wav", "flac", "pdf", "doc", "docx", "xls", "xlsx", "ppt",
+                "pptx", "db", "sqlite", "sqlite3", "class", "jar", "pyc",
             ];
             if binary_extensions.contains(&ext.as_str()) {
                 return true;
@@ -222,7 +224,10 @@ impl Preview {
     fn is_image_file(path: &Path) -> bool {
         if let Some(ext) = path.extension() {
             let ext = ext.to_string_lossy().to_lowercase();
-            matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp" | "svg" | "ico" | "tiff" | "tif")
+            matches!(
+                ext.as_str(),
+                "jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp" | "svg" | "ico" | "tiff" | "tif"
+            )
         } else {
             false
         }
@@ -297,20 +302,29 @@ impl<'a> PreviewWidget<'a> {
         // Handle special file types
         if self.preview.is_binary {
             lines.push(Line::from("[Binary file]"));
-            lines.push(Line::from(format!("Size: {}", Self::format_size_static(self.preview.file_size))));
+            lines.push(Line::from(format!(
+                "Size: {}",
+                Self::format_size_static(self.preview.file_size)
+            )));
             return lines;
         }
 
         if self.preview.is_image {
             lines.push(Line::from("[Image file]"));
-            lines.push(Line::from(format!("Size: {}", Self::format_size_static(self.preview.file_size))));
+            lines.push(Line::from(format!(
+                "Size: {}",
+                Self::format_size_static(self.preview.file_size)
+            )));
             lines.push(Line::from(format!("Path: {}", self.preview.path.display())));
             return lines;
         }
 
         if self.preview.is_truncated && self.preview.content.is_empty() {
             lines.push(Line::from("[File too large to preview]"));
-            lines.push(Line::from(format!("Size: {}", Self::format_size_static(self.preview.file_size))));
+            lines.push(Line::from(format!(
+                "Size: {}",
+                Self::format_size_static(self.preview.file_size)
+            )));
             return lines;
         }
 
@@ -332,8 +346,16 @@ impl<'a> PreviewWidget<'a> {
         let mut highlighter = HighlightLines::new(syntax, syntect_theme);
 
         // Process each line
-        for (line_num, line) in self.preview.content.lines().enumerate().skip(self.scroll_offset) {
-            let highlighted = highlighter.highlight_line(line, &syntax_set).unwrap_or_default();
+        for (line_num, line) in self
+            .preview
+            .content
+            .lines()
+            .enumerate()
+            .skip(self.scroll_offset)
+        {
+            let highlighted = highlighter
+                .highlight_line(line, &syntax_set)
+                .unwrap_or_default();
 
             let mut spans: Vec<Span> = Vec::new();
 
@@ -348,7 +370,10 @@ impl<'a> PreviewWidget<'a> {
             for (style, text) in highlighted {
                 let color = style.foreground;
                 let ratatui_color = ratatui::style::Color::Rgb(color.r, color.g, color.b);
-                spans.push(Span::styled(text.to_string(), Style::default().fg(ratatui_color)));
+                spans.push(Span::styled(
+                    text.to_string(),
+                    Style::default().fg(ratatui_color),
+                ));
             }
 
             lines.push(Line::from(spans));
@@ -364,7 +389,9 @@ impl<'a> PreviewWidget<'a> {
                 ),
                 Span::styled(
                     format!("{} lines", MAX_PREVIEW_LINES),
-                    Style::default().fg(ratatui::style::Color::Yellow).add_modifier(ratatui::style::Modifier::BOLD),
+                    Style::default()
+                        .fg(ratatui::style::Color::Yellow)
+                        .add_modifier(ratatui::style::Modifier::BOLD),
                 ),
                 Span::styled("]", Style::default().fg(ratatui::style::Color::Yellow)),
             ]));
@@ -396,15 +423,15 @@ impl<'a> Widget for PreviewWidget<'a> {
         // Create a block with title
         let title = format!(
             " {} ({}) ",
-            self.preview.path.file_name()
+            self.preview
+                .path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("Preview"),
             self.preview.file_type_description()
         );
 
-        let block = Block::default()
-            .title(title)
-            .borders(Borders::ALL);
+        let block = Block::default().title(title).borders(Borders::ALL);
 
         let inner = block.inner(area);
         block.render(area, buf);
@@ -442,7 +469,9 @@ impl<'a> Widget for SimplePreviewWidget<'a> {
         let block = Block::default()
             .title(format!(
                 " {} ",
-                self.preview.path.file_name()
+                self.preview
+                    .path
+                    .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("Preview")
             ))
@@ -473,6 +502,7 @@ impl<'a> Widget for SimplePreviewWidget<'a> {
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     #[test]
@@ -492,7 +522,7 @@ mod tests {
     #[test]
     fn test_preview_from_directory() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create some files
         fs::File::create(temp_dir.path().join("file1.txt")).unwrap();
         fs::File::create(temp_dir.path().join("file2.txt")).unwrap();
@@ -507,7 +537,7 @@ mod tests {
     #[test]
     fn test_preview_binary_detection() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create a file with null bytes
         let binary_path = temp_dir.path().join("binary.bin");
         let mut file = fs::File::create(&binary_path).unwrap();
@@ -521,7 +551,7 @@ mod tests {
     #[test]
     fn test_preview_image_detection() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         let image_path = temp_dir.path().join("image.png");
         fs::File::create(&image_path).unwrap();
 
@@ -581,7 +611,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("large.txt");
         let mut file = fs::File::create(&file_path).unwrap();
-        
+
         // Write many lines
         for i in 0..MAX_PREVIEW_LINES + 100 {
             writeln!(file, "Line {}", i).unwrap();
@@ -589,7 +619,11 @@ mod tests {
 
         let preview = Preview::from_file(&file_path).unwrap();
         assert!(preview.is_truncated);
-        assert!(preview.content.contains(&format!("Line {}", MAX_PREVIEW_LINES - 1)));
-        assert!(!preview.content.contains(&format!("Line {}", MAX_PREVIEW_LINES)));
+        assert!(preview
+            .content
+            .contains(&format!("Line {}", MAX_PREVIEW_LINES - 1)));
+        assert!(!preview
+            .content
+            .contains(&format!("Line {}", MAX_PREVIEW_LINES)));
     }
 }

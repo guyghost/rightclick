@@ -34,26 +34,26 @@ fn is_git_ignored(path: &Path, work_dir: &Path) -> bool {
     if !gitignore_path.exists() {
         return false;
     }
-    
+
     if let Ok(content) = std::fs::read_to_string(&gitignore_path) {
         let relative_path = match path.strip_prefix(repo_workdir) {
             Ok(p) => p.to_string_lossy(),
             Err(_) => return false,
         };
-        
+
         for line in content.lines() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
                 continue;
             }
-            
+
             // Simple substring match (not a full gitignore implementation)
             if relative_path.contains(line) || line.contains(&*relative_path) {
                 return true;
             }
         }
     }
-    
+
     false
 }
 
@@ -239,7 +239,12 @@ impl FileTree {
         };
 
         // Add root entry
-        tree.entries.push(FileEntry::new(root.clone(), 0, Some(".".to_string()), Some(&root)));
+        tree.entries.push(FileEntry::new(
+            root.clone(),
+            0,
+            Some(".".to_string()),
+            Some(&root),
+        ));
 
         // Initially expand root
         tree.expand(&root);
@@ -251,8 +256,12 @@ impl FileTree {
     pub fn refresh(&mut self) {
         let expanded: Vec<PathBuf> = self.expanded_dirs.iter().cloned().collect();
         self.entries.clear();
-        self.entries
-            .push(FileEntry::new(self.root.clone(), 0, Some(".".to_string()), Some(&self.root)));
+        self.entries.push(FileEntry::new(
+            self.root.clone(),
+            0,
+            Some(".".to_string()),
+            Some(&self.root),
+        ));
         self.expanded_dirs.clear();
 
         for path in expanded {
@@ -294,11 +303,10 @@ impl FileTree {
             Err(_) => return,
         };
 
-        // Insert children after the directory entry
-        let insert_idx = dir_idx + 1;
-        for (child_path, name) in children {
+        // Insert children after the directory entry (in reverse order to maintain sort)
+        for (child_path, name) in children.into_iter().rev() {
             let entry = FileEntry::new(child_path, depth, Some(name), Some(&self.root));
-            self.entries.insert(insert_idx, entry);
+            self.entries.insert(dir_idx + 1, entry);
         }
     }
 
@@ -507,7 +515,8 @@ impl<'a> FileTreeWidget<'a> {
 
 impl<'a> Widget for FileTreeWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let text_style = style_for_ui_element(&crate::core::models::Theme::default(), UiElement::Text);
+        let text_style =
+            style_for_ui_element(&crate::core::models::Theme::default(), UiElement::Text);
         let selected_style =
             style_for_ui_element(&crate::core::models::Theme::default(), UiElement::Highlight)
                 .add_modifier(Modifier::BOLD);
@@ -519,11 +528,7 @@ impl<'a> Widget for FileTreeWidget<'a> {
         let visible_entries: Vec<&FileEntry> = if self.show_hidden {
             self.tree.entries.iter().collect()
         } else {
-            self.tree
-                .entries
-                .iter()
-                .filter(|e| !e.is_hidden)
-                .collect()
+            self.tree.entries.iter().filter(|e| !e.is_hidden).collect()
         };
 
         for (i, entry) in visible_entries.iter().enumerate() {
@@ -532,7 +537,11 @@ impl<'a> Widget for FileTreeWidget<'a> {
             }
 
             let is_selected = self.tree.selected_index == i;
-            let style = if is_selected { selected_style } else { text_style };
+            let style = if is_selected {
+                selected_style
+            } else {
+                text_style
+            };
 
             // Build the line
             let mut spans: Vec<Span> = Vec::new();
@@ -554,7 +563,11 @@ impl<'a> Widget for FileTreeWidget<'a> {
             // Icon
             if self.show_icons {
                 let icon = if entry.is_dir {
-                    if entry.is_expanded { "📂 " } else { "📁 " }
+                    if entry.is_expanded {
+                        "📂 "
+                    } else {
+                        "📁 "
+                    }
                 } else {
                     "📄 "
                 };
@@ -594,7 +607,12 @@ mod tests {
 
     #[test]
     fn test_file_entry_with_name_override() {
-        let entry = FileEntry::new(PathBuf::from("/home/user/test.txt"), 1, Some("custom".to_string()), None);
+        let entry = FileEntry::new(
+            PathBuf::from("/home/user/test.txt"),
+            1,
+            Some("custom".to_string()),
+            None,
+        );
         assert_eq!(entry.name, "custom");
         assert_eq!(entry.depth, 1);
     }

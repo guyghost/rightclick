@@ -83,16 +83,58 @@ impl PluginState {
         self.update_preview();
     }
 
-    /// Navigate to the next entry in the tree
+    /// Get indices of visible entries (respecting hidden/ignored filters)
+    fn visible_indices(&self) -> Vec<usize> {
+        self.tree
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| {
+                let show_hidden = self.show_hidden || !e.is_hidden;
+                let show_ignored = self.show_ignored || !e.is_ignored;
+                show_hidden && show_ignored
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    /// Navigate to the next visible entry in the tree
     pub fn next_entry(&mut self) {
-        self.tree.next();
+        let visible = self.visible_indices();
+        if visible.is_empty() {
+            return;
+        }
+
+        // Find current position in visible list
+        let current_pos = visible.iter().position(|&i| i == self.tree.selected_index);
+
+        let next_idx = match current_pos {
+            Some(pos) if pos + 1 < visible.len() => visible[pos + 1],
+            _ => visible[0], // Wrap to start
+        };
+
+        self.tree.selected_index = next_idx;
         self.update_selected_path_public();
         self.update_preview();
     }
 
-    /// Navigate to the previous entry in the tree
+    /// Navigate to the previous visible entry in the tree
     pub fn prev_entry(&mut self) {
-        self.tree.prev();
+        let visible = self.visible_indices();
+        if visible.is_empty() {
+            return;
+        }
+
+        // Find current position in visible list
+        let current_pos = visible.iter().position(|&i| i == self.tree.selected_index);
+
+        let prev_idx = match current_pos {
+            Some(0) => *visible.last().unwrap(), // Wrap to end
+            Some(pos) => visible[pos - 1],
+            None => visible[0],
+        };
+
+        self.tree.selected_index = prev_idx;
         self.update_selected_path_public();
         self.update_preview();
     }
@@ -138,6 +180,13 @@ impl PluginState {
     /// Update the selected path from the tree
     pub fn update_selected_path_public(&mut self) {
         self.selected_path = self.tree.selected().map(|e| e.path.clone());
+        self.update_tree_scroll_total();
+    }
+
+    /// Update tree scroll total based on visible entries
+    fn update_tree_scroll_total(&mut self) {
+        let total = self.visible_indices().len();
+        self.tree_scroll.set_total_lines(total);
     }
 
     /// Update the preview based on the currently selected path
@@ -164,13 +213,14 @@ impl PluginState {
     /// Toggle visibility of git-ignored files
     pub fn toggle_ignored(&mut self) {
         self.show_ignored = !self.show_ignored;
+        self.update_tree_scroll_total();
         self.refresh();
     }
 
     /// Toggle visibility of hidden files
     pub fn toggle_hidden(&mut self) {
         self.show_hidden = !self.show_hidden;
-        // This would need to be passed to the tree widget during rendering
+        self.update_tree_scroll_total();
     }
 
     /// Toggle the file info panel
@@ -185,7 +235,7 @@ impl PluginState {
     /// * `query` - The search query (None to clear)
     pub fn set_filter(&mut self, query: Option<String>) {
         self.filter_query = query;
-        
+
         if let Some(ref q) = self.filter_query {
             let lower_query = q.to_lowercase();
             self.filtered_indices = self
@@ -271,9 +321,7 @@ impl PluginState {
 
     /// Check if the currently selected entry is a directory
     pub fn is_selected_dir(&self) -> bool {
-        self.selected_entry()
-            .map(|e| e.is_dir)
-            .unwrap_or(false)
+        self.selected_entry().map(|e| e.is_dir).unwrap_or(false)
     }
 
     /// Get the number of entries in the tree
@@ -318,7 +366,7 @@ mod tests {
         // Create some files to navigate
         fs::File::create(temp_dir.path().join("file1.txt")).unwrap();
         fs::File::create(temp_dir.path().join("file2.txt")).unwrap();
-        
+
         state.refresh();
 
         let initial_path = state.selected_path.clone();
@@ -338,7 +386,7 @@ mod tests {
         // Create test files
         fs::File::create(temp_dir.path().join("test.txt")).unwrap();
         fs::File::create(temp_dir.path().join("other.rs")).unwrap();
-        
+
         state.refresh();
 
         // Set filter

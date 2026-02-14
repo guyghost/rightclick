@@ -24,7 +24,7 @@ use rightclick::{
     config,
     core::models::Theme,
     plugin::{Plugin, PluginContext},
-    plugins::{conversations, filebrowser, gitstatus, tdmonitor, workspace},
+    plugins::{conversations, filebrowser, gitstatus, tdmonitor, workers},
     state,
     theme::{self, resolve_theme},
 };
@@ -168,12 +168,12 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Workspace plugin
+    // Workers plugin (replaces workspace plugin)
     if config.plugins.workspace.enabled {
-        info!("Loading workspace plugin");
-        let mut plugin = workspace::WorkspacePlugin::new();
+        info!("Loading workers plugin");
+        let mut plugin = workers::WorkersPlugin::new();
         if let Err(e) = plugin.init(&plugin_ctx).await {
-            warn!("Failed to init workspace plugin: {}", e);
+            warn!("Failed to init workers plugin: {}", e);
         } else {
             plugins.push(Box::new(plugin));
         }
@@ -185,8 +185,12 @@ async fn main() -> Result<()> {
         let mut plugin = gitstatus::GitStatusPlugin::new();
         let _ = plugin.init(&plugin_ctx).await;
         plugins.push(Box::new(plugin));
-        
+
         let mut plugin = filebrowser::FileBrowserPlugin::new(work_dir.clone());
+        let _ = plugin.init(&plugin_ctx).await;
+        plugins.push(Box::new(plugin));
+
+        let mut plugin = workers::WorkersPlugin::new();
         let _ = plugin.init(&plugin_ctx).await;
         plugins.push(Box::new(plugin));
     }

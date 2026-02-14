@@ -5,11 +5,19 @@
 //! fully deterministic.
 
 pub mod guards;
+pub mod intent;
 pub mod navigation;
 
 // Re-export commonly used types for convenience
 pub use guards::check_guard;
 pub use navigation::{apply_navigation, calculate_navigation};
+
+// Re-export intent functions and types
+pub use intent::{
+    build_intent_from_spec, extract_acceptance_criteria, extract_context_metadata,
+    extract_description, extract_title, generate_default_spec, generate_spec_document,
+    parse_spec_document, update_criteria_in_content, validate_spec, IntentParseError,
+};
 
 /// Prelude module for convenient imports
 pub mod prelude {
