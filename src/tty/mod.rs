@@ -20,7 +20,7 @@
 //!
 //! # Module Structure
 //!
-//! ```
+//! ```text
 //! tty/
 //! ├── mod.rs      # Module exports and documentation
 //! ├── buffer.rs   # OutputBuffer for terminal output management

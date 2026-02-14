@@ -22,8 +22,10 @@
 //! use async_trait::async_trait;
 //! use anyhow::Result;
 //!
-//! struct MyPlugin {
+//! #[derive(Debug)]
+//! struct ExamplePlugin {
 //!     focused: bool,
+//!     name: String,
 //! }
 //!
 //! impl ExamplePlugin {
@@ -52,7 +54,7 @@
 //!         Ok(())
 //!     }
 //!
-//!     fn handle_event(&mut self, _event: Event) -> Vec<Command> {
+//!     fn handle_event(&mut self, event: Event) -> Vec<Command> {
 //!         match event {
 //!             Event::RefreshNeeded => vec![Command::new("example", "refresh")],
 //!             _ => vec![],
@@ -98,7 +100,6 @@
 //!     }
 //! }
 //!
-//! ```
 //! ```
 
 use async_trait::async_trait;
@@ -571,6 +572,7 @@ impl PluginCommand {
 /// use async_trait::async_trait;
 /// use anyhow::Result;
 ///
+/// #[derive(Debug)]
 /// pub struct ExamplePlugin {
 ///     focused: bool,
 ///     name: String,
@@ -648,7 +650,6 @@ impl PluginCommand {
 ///     }
 /// }
 ///
-/// ```
 /// ```
 
 #[async_trait]

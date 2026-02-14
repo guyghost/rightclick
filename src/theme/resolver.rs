@@ -188,7 +188,7 @@ fn parse_theme_from_toml(content: &str) -> Result<Theme, ThemeError> {
 /// # Example
 ///
 /// ```rust
-/// use rightclick::theme::resolver::get_default_theme;
+/// use rightclick::theme::get_default_theme;
 ///
 /// let theme = get_default_theme();
 /// assert_eq!(theme.name, "default");
@@ -212,7 +212,7 @@ pub fn get_default_theme() -> Theme {
 /// # Example
 ///
 /// ```rust
-/// use rightclick::theme::resolver::resolve_theme_with_overrides;
+/// use rightclick::theme::resolve_theme_with_overrides;
 /// use rightclick::core::models::Config;
 /// use std::collections::HashMap;
 ///
@@ -261,7 +261,6 @@ pub fn resolve_theme_with_overrides(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[test]
     fn test_resolve_theme_default() {

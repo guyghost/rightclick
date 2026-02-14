@@ -53,13 +53,15 @@ impl ConversationsPlugin {
     ///
     /// # Example
     ///
-    /// ```rust
-    /// use rightclick::adapters::create_default_registry;
-    /// use rightclick::plugins::conversations::ConversationsPlugin;
-    ///
-    /// let registry = create_default_registry().unwrap();
-    /// let plugin = ConversationsPlugin::new(Arc::new(RwLock::new(registry)));
-    /// ```
+/// ```rust
+/// use rightclick::adapters::create_default_registry;
+/// use rightclick::plugins::conversations::ConversationsPlugin;
+/// use std::sync::Arc;
+/// use parking_lot::RwLock;
+///
+/// let registry = create_default_registry().unwrap();
+/// let plugin = ConversationsPlugin::new(Arc::new(RwLock::new(registry)));
+/// ```
     pub fn new(adapter_registry: Arc<RwLock<AdapterRegistry>>) -> Self {
         Self {
             state: PluginState::new(),
@@ -779,7 +781,6 @@ impl Plugin for ConversationsPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::types::AdapterType;
 
     #[test]
     fn test_plugin_creation() {

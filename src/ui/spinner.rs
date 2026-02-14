@@ -318,7 +318,7 @@ impl Spinner {
     /// let mut spinner = Spinner::new();
     /// spinner.tick();
     /// spinner.reset();
-    /// assert_eq!(spinner.current_frame(), spinner.frames[0]);
+    /// assert_eq!(spinner.current_index(), 0);
     /// ```
     pub fn reset(&mut self) {
         self.frame_index = 0;
@@ -524,7 +524,7 @@ mod tests {
 
         // Force next frame by waiting
         spinner.last_update = Instant::now() - Duration::from_millis(200);
-        let frame2 = spinner.tick();
+        let _frame2 = spinner.tick();
 
         // Frames should be different after enough time
         assert_ne!(spinner.frame_index, 0);

@@ -3,9 +3,7 @@
 //! This module provides pure functions for parsing and generating intent spec files.
 //! All functions are deterministic and have no side effects.
 
-use crate::core::models::intent::{
-    Criterion, Intent, IntentStatus, SpecDocument, SpecFrontmatter, WorkerSpec,
-};
+use crate::core::models::intent::{Criterion, Intent, IntentStatus, SpecDocument, SpecFrontmatter};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -78,9 +76,7 @@ pub fn parse_spec_document(content: &str) -> Result<SpecDocument, IntentParseErr
 
     // Find the end of frontmatter
     let end_marker = content[3..].find("---").ok_or_else(|| {
-        IntentParseError::InvalidFrontmatter(
-            "Missing closing frontmatter delimiter".to_string()
-        )
+        IntentParseError::InvalidFrontmatter("Missing closing frontmatter delimiter".to_string())
     })?;
 
     let frontmatter_str = &content[3..3 + end_marker].trim();
@@ -120,11 +116,7 @@ pub fn parse_spec_document(content: &str) -> Result<SpecDocument, IntentParseErr
 pub fn generate_spec_document(frontmatter: &SpecFrontmatter, content: &str) -> String {
     let yaml = serde_yaml::to_string(frontmatter).unwrap_or_default();
 
-    format!(
-        "---\n{}---\n\n{}",
-        yaml,
-        content
-    )
+    format!("---\n{}---\n\n{}", yaml, content)
 }
 
 /// Extract the title from markdown content.
@@ -287,11 +279,11 @@ fn parse_criterion_line(line: &str) -> Option<Criterion> {
 /// updated: 2026-02-14T11:00:00Z
 /// ---
 ///
-/// # Add JWT Authentication
+/// ## Add JWT Authentication
 ///
 /// Implement JWT-based authentication for the API.
 ///
-/// ## Acceptance Criteria
+/// ### Acceptance Criteria
 ///
 /// - [ ] Login endpoint returns JWT
 /// - [x] Token validation middleware
@@ -315,21 +307,33 @@ pub fn build_intent_from_spec(
     let description = extract_description(&doc.content).unwrap_or_default();
     let acceptance_criteria = extract_acceptance_criteria(&doc.content);
 
-    let now = doc.frontmatter.updated.clone()
+    let now = doc
+        .frontmatter
+        .updated
+        .clone()
         .or_else(|| doc.frontmatter.created.clone())
         .unwrap_or_else(|| "2026-01-01T00:00:00Z".to_string());
 
     Ok(Intent {
-        id: doc.frontmatter.id.unwrap_or_else(|| {
-            format!("intent-{}", uuid::Uuid::new_v4())
-        }),
+        id: doc
+            .frontmatter
+            .id
+            .unwrap_or_else(|| format!("intent-{}", uuid::Uuid::new_v4())),
         title,
         description,
         status: doc.frontmatter.status.unwrap_or(IntentStatus::Draft),
         spec_path,
-        workers: doc.frontmatter.workers.iter().map(|w| w.id.clone()).collect(),
+        workers: doc
+            .frontmatter
+            .workers
+            .iter()
+            .map(|w| w.id.clone())
+            .collect(),
         acceptance_criteria,
-        metadata: doc.frontmatter.extra.iter()
+        metadata: doc
+            .frontmatter
+            .extra
+            .iter()
             .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
             .collect(),
         created_at: doc.frontmatter.created.unwrap_or_else(|| now.clone()),
@@ -406,6 +410,10 @@ Additional notes and considerations...
 pub fn update_criteria_in_content(content: &str, completed: &[String]) -> String {
     let mut result = String::new();
     let mut in_criteria_section = false;
+    let has_criteria_section = {
+        let lower = content.to_lowercase();
+        lower.contains("acceptance criteria") || lower.contains("## criteria")
+    };
 
     for line in content.lines() {
         let trimmed = line.trim();
@@ -426,7 +434,9 @@ pub fn update_criteria_in_content(content: &str, completed: &[String]) -> String
         }
 
         // Update criterion lines
-        if in_criteria_section && (trimmed.starts_with("- [ ]") || trimmed.starts_with("- [x]")) {
+        if (in_criteria_section || !has_criteria_section)
+            && (trimmed.starts_with("- [ ]") || trimmed.starts_with("- [x]"))
+        {
             let criterion_text = trimmed[6..].trim();
             let is_completed = completed.iter().any(|c| criterion_text.contains(c));
 
@@ -486,7 +496,7 @@ pub fn validate_spec(content: &str) -> Result<(), IntentParseError> {
     // Must have frontmatter
     if !content.starts_with("---") {
         return Err(IntentParseError::InvalidMarkdown(
-            "Spec must start with YAML frontmatter".to_string()
+            "Spec must start with YAML frontmatter".to_string(),
         ));
     }
 
@@ -495,14 +505,14 @@ pub fn validate_spec(content: &str) -> Result<(), IntentParseError> {
     // Must have a title
     if extract_title(&doc.content).is_none() {
         return Err(IntentParseError::MissingField(
-            "Title (H1 heading) is required".to_string()
+            "Title (H1 heading) is required".to_string(),
         ));
     }
 
     // Should have acceptance criteria
     if extract_acceptance_criteria(&doc.content).is_empty() {
         return Err(IntentParseError::InvalidMarkdown(
-            "At least one acceptance criterion is recommended".to_string()
+            "At least one acceptance criterion is recommended".to_string(),
         ));
     }
 

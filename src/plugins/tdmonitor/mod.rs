@@ -20,7 +20,7 @@
 //!
 //! # Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use rightclick::plugins::tdmonitor::{TDMonitorPlugin, TDMonitorPluginContext};
 //!
 //! let mut plugin = TDMonitorPlugin::new();

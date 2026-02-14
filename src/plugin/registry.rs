@@ -118,6 +118,7 @@ impl Registry {
     /// # use rightclick::core::models::Config;
     /// # use rightclick::event::Dispatcher;
     ///
+    /// # #[derive(Debug)]
     /// # struct DummyPlugin;
     /// # #[async_trait]
     /// # impl Plugin for DummyPlugin {

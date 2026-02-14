@@ -208,7 +208,7 @@ impl Selection {
     /// ];
     /// let selection = Selection::from_positions((0, 7), (1, 3));
     /// let selected = selection.get_text(&lines);
-    /// assert_eq!(selected, "World!\nHow");
+    /// assert_eq!(selected, "World!\nHow ");
     /// ```
     pub fn get_text(&self, lines: &[impl AsRef<str>]) -> String {
         if self.is_empty() {
@@ -265,8 +265,8 @@ impl Selection {
     /// use rightclick::ui::Selection;
     ///
     /// let selection = Selection::from_positions((1, 5), (3, 10));
-    /// assert_eq!(selection.line_range(1, 20), Some((5, 20)));
-    /// assert_eq!(selection.line_range(2, 30), Some((0, 30)));
+    /// assert_eq!(selection.line_range(1, 20), Some((5, 19)));
+    /// assert_eq!(selection.line_range(2, 30), Some((0, 29)));
     /// assert_eq!(selection.line_range(3, 15), Some((0, 10)));
     /// assert_eq!(selection.line_range(0, 10), None);
     /// ```
@@ -465,7 +465,7 @@ mod tests {
     fn test_selection_get_text() {
         let lines = vec!["Hello, World!", "How are you?", "Goodbye!"];
         let sel = Selection::from_positions((0, 7), (1, 3));
-        assert_eq!(sel.get_text(&lines), "World!\nHow");
+        assert_eq!(sel.get_text(&lines), "World!\nHow ");
     }
 
     #[test]

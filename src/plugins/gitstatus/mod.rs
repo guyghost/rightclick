@@ -12,7 +12,8 @@
 //! # Usage
 //!
 //! ```rust
-//! use rightclick::plugins::gitstatus::{GitStatusPlugin, GitPluginContext, Config};
+//! use rightclick::plugins::gitstatus::{GitStatusPlugin, GitPluginContext};
+//! use rightclick::core::models::Config;
 //! use std::path::PathBuf;
 //!
 //! let mut plugin = GitStatusPlugin::new();
@@ -58,6 +59,7 @@ pub fn create_with_config(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugin::Plugin;
 
     #[test]
     fn test_plugin_constants() {
