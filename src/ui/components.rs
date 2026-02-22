@@ -4,7 +4,7 @@
 //! UI layout across the application.
 
 use crate::core::models::Theme;
-use crate::theme::{style_for_ui_element, UiElement};
+use crate::theme::{UiElement, style_for_ui_element};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Modifier;

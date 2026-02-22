@@ -154,7 +154,9 @@ impl ListNavigation {
         if self.selected < self.scroll_offset {
             self.scroll_offset = self.selected;
         } else if self.selected >= self.scroll_offset + self.viewport_height {
-            self.scroll_offset = self.selected.saturating_sub(self.viewport_height.saturating_sub(1));
+            self.scroll_offset = self
+                .selected
+                .saturating_sub(self.viewport_height.saturating_sub(1));
         }
     }
 
@@ -329,7 +331,8 @@ impl PluginState {
 
     /// Get mutable reference to selected session info
     pub fn selected_session_info_mut(&mut self) -> Option<&mut SessionInfo> {
-        self.selected_session.and_then(|idx| self.sessions.get_mut(idx))
+        self.selected_session
+            .and_then(|idx| self.sessions.get_mut(idx))
     }
 
     /// Select a session by index
@@ -405,7 +408,10 @@ impl PluginState {
             let query_lower = query.to_lowercase();
             sessions.retain(|s| {
                 s.title().to_lowercase().contains(&query_lower)
-                    || s.session.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
+                    || s.session
+                        .tags
+                        .iter()
+                        .any(|t| t.to_lowercase().contains(&query_lower))
             });
         }
 
@@ -562,16 +568,12 @@ mod tests {
     #[test]
     fn test_plugin_state_sessions() {
         let mut state = PluginState::new();
+        let claude_adapter: Arc<dyn Adapter> = Arc::new(MockAdapter::new(AdapterType::ClaudeCode));
+        let cursor_adapter: Arc<dyn Adapter> = Arc::new(MockAdapter::new(AdapterType::Cursor));
 
         let sessions = vec![
-            SessionInfo::new(
-                create_test_session("1", "Session 1"),
-                &MockAdapter::new(AdapterType::ClaudeCode),
-            ),
-            SessionInfo::new(
-                create_test_session("2", "Session 2"),
-                &MockAdapter::new(AdapterType::Cursor),
-            ),
+            SessionInfo::new(create_test_session("1", "Session 1"), &claude_adapter),
+            SessionInfo::new(create_test_session("2", "Session 2"), &cursor_adapter),
         ];
 
         state.set_sessions(sessions);
@@ -599,6 +601,7 @@ mod tests {
     #[test]
     fn test_view_transitions() {
         let mut state = PluginState::new();
+        let claude_adapter: Arc<dyn Adapter> = Arc::new(MockAdapter::new(AdapterType::ClaudeCode));
 
         assert_eq!(state.view, ConversationView::SessionsList);
 
@@ -609,7 +612,7 @@ mod tests {
         // Set up a session
         let sessions = vec![SessionInfo::new(
             create_test_session("1", "Session 1"),
-            &MockAdapter::new(AdapterType::ClaudeCode),
+            &claude_adapter,
         )];
         state.set_sessions(sessions);
         state.select_session(0);
@@ -630,6 +633,7 @@ mod tests {
     }
 
     // Mock adapter for testing
+    #[derive(Debug)]
     struct MockAdapter {
         adapter_type: AdapterType,
     }
@@ -640,6 +644,7 @@ mod tests {
         }
     }
 
+    #[async_trait::async_trait]
     impl Adapter for MockAdapter {
         fn id(&self) -> &str {
             "mock"
@@ -657,28 +662,32 @@ mod tests {
             self.adapter_type
         }
 
-        fn detect(&self, _project_root: &std::path::Path) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = crate::adapters::types::Result<bool>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(false) })
+        async fn detect(
+            &self,
+            _project_root: &std::path::Path,
+        ) -> crate::adapters::types::Result<bool> {
+            Ok(false)
         }
 
-        fn sessions(&self, _project_root: &std::path::Path) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = crate::adapters::types::Result<Vec<Session>>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(Vec::new()) })
+        async fn sessions(
+            &self,
+            _project_root: &std::path::Path,
+        ) -> crate::adapters::types::Result<Vec<Session>> {
+            Ok(Vec::new())
         }
 
-        fn messages(&self, _session_id: &str) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = crate::adapters::types::Result<Vec<Message>>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(Vec::new()) })
+        async fn messages(
+            &self,
+            _session_id: &str,
+        ) -> crate::adapters::types::Result<Vec<Message>> {
+            Ok(Vec::new())
         }
 
-        fn usage(&self, _session_id: &str) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = crate::adapters::types::Result<Option<TokenUsage>>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(None) })
+        async fn usage(
+            &self,
+            _session_id: &str,
+        ) -> crate::adapters::types::Result<Option<TokenUsage>> {
+            Ok(None)
         }
     }
 }

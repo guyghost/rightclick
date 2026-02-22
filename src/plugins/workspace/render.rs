@@ -12,7 +12,7 @@ use ratatui::{
 };
 
 use crate::core::models::Theme;
-use crate::theme::{style_for_git_status, style_for_ui_element, UiElement};
+use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 
@@ -190,12 +190,7 @@ fn render_preview_pane(
 }
 
 /// Render output tab content
-fn render_output_content(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_output_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     let block = Block::default()
         .title(" Output ")
         .borders(Borders::ALL)
@@ -356,9 +351,7 @@ fn render_kanban_column(
     use std::str::FromStr;
 
     let color = Color::from_str(header_color).unwrap_or(ratatui::style::Color::Gray);
-    let header_style = Style::default()
-        .fg(color)
-        .add_modifier(Modifier::BOLD);
+    let header_style = Style::default().fg(color).add_modifier(Modifier::BOLD);
 
     let block = Block::default()
         .title(format!(" {} ({}) ", title, indices.len()))
@@ -425,12 +418,7 @@ fn render_interactive_mode(
 }
 
 /// Render create worktree modal
-fn render_create_worktree_modal(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_create_worktree_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     let modal_area = centered_rect(60, 40, area);
 
     // Clear background
@@ -446,8 +434,7 @@ fn render_create_worktree_modal(
 
     let text = format!(
         "Name: {}\n\nBranch: {}\n\nPress Enter to create, Esc to cancel",
-        state.new_worktree_name,
-        state.new_worktree_branch
+        state.new_worktree_name, state.new_worktree_branch
     );
 
     let paragraph = Paragraph::new(text).style(style_for_ui_element(theme, UiElement::Text));
@@ -456,12 +443,7 @@ fn render_create_worktree_modal(
 }
 
 /// Render delete confirmation modal
-fn render_delete_confirm_modal(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_delete_confirm_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     let modal_area = centered_rect(50, 30, area);
 
     Clear.render(modal_area, buf);
@@ -516,12 +498,7 @@ fn render_link_task_modal(state: &PluginState, area: Rect, buf: &mut Buffer, the
 }
 
 /// Render merge dialog modal
-fn render_merge_dialog_modal(
-    state: &PluginState,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
+fn render_merge_dialog_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
     let modal_area = centered_rect(60, 50, area);
 
     Clear.render(modal_area, buf);
@@ -550,7 +527,11 @@ fn render_merge_dialog_modal(
 }
 
 /// Build a line for a worktree entry
-fn build_worktree_line<'a>(worktree: &'a Worktree, is_selected: bool, theme: &'a Theme) -> Line<'a> {
+fn build_worktree_line<'a>(
+    worktree: &'a Worktree,
+    is_selected: bool,
+    theme: &'a Theme,
+) -> Line<'a> {
     let icons = worktree.status_icons();
 
     let name_style = if is_selected {
@@ -575,7 +556,10 @@ fn build_worktree_line<'a>(worktree: &'a Worktree, is_selected: bool, theme: &'a
 
     if !icons.is_empty() {
         spans.push(Span::raw(" "));
-        spans.push(Span::styled(icons, style_for_ui_element(theme, UiElement::Info)));
+        spans.push(Span::styled(
+            icons,
+            style_for_ui_element(theme, UiElement::Info),
+        ));
     }
 
     if worktree.is_main {
@@ -590,7 +574,11 @@ fn build_worktree_line<'a>(worktree: &'a Worktree, is_selected: bool, theme: &'a
 }
 
 /// Build a compact line for kanban view
-fn build_worktree_compact_line<'a>(worktree: &'a Worktree, is_selected: bool, theme: &'a Theme) -> Line<'a> {
+fn build_worktree_compact_line<'a>(
+    worktree: &'a Worktree,
+    is_selected: bool,
+    theme: &'a Theme,
+) -> Line<'a> {
     let name_style = if is_selected {
         style_for_ui_element(theme, UiElement::ActiveItem)
     } else {
@@ -603,7 +591,10 @@ fn build_worktree_compact_line<'a>(worktree: &'a Worktree, is_selected: bool, th
 
     if !icons.is_empty() {
         spans.push(Span::raw(" "));
-        spans.push(Span::styled(icons, style_for_ui_element(theme, UiElement::Info)));
+        spans.push(Span::styled(
+            icons,
+            style_for_ui_element(theme, UiElement::Info),
+        ));
     }
 
     Line::from(spans)
@@ -617,7 +608,11 @@ fn build_diff_line<'a>(line: &'a str, theme: &'a Theme) -> Line<'a> {
         style_for_git_status(theme, "deleted")
     } else if line.starts_with("@@") {
         style_for_ui_element(theme, UiElement::Secondary)
-    } else if line.starts_with("diff ") || line.starts_with("index ") || line.starts_with("---") || line.starts_with("+++") {
+    } else if line.starts_with("diff ")
+        || line.starts_with("index ")
+        || line.starts_with("---")
+        || line.starts_with("+++")
+    {
         style_for_ui_element(theme, UiElement::Primary)
     } else {
         style_for_ui_element(theme, UiElement::Text)

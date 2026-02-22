@@ -4,20 +4,20 @@
 //! following the Functional Core & Imperative Shell architecture.
 
 // Core modules (always available)
-pub mod core;
 pub mod config;
-pub mod state;
+pub mod core;
 pub mod event;
+pub mod state;
 pub mod theme;
 
 // Shell modules (always available)
 pub mod shell;
 
 // UI modules (always available)
-pub mod ui;
 pub mod keymap;
 pub mod modal;
 pub mod palette;
+pub mod ui;
 
 // Plugin system (always available)
 pub mod plugin;

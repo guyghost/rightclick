@@ -4,8 +4,8 @@
 //! It reads conversation data from the local storage directory at
 //! `~/.codex/sessions/`.
 
-use crate::core::models::conversation::{ContentBlock, Message, Role, Session, TokenUsage};
 use crate::adapters::types::{Adapter, AdapterError, AdapterType, Result};
+use crate::core::models::conversation::{ContentBlock, Message, Role, Session, TokenUsage};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -94,8 +94,8 @@ impl CodexAdapter {
         let content = tokio::fs::read_to_string(&mapping_file).await?;
         let mappings: ProjectMappings = serde_json::from_str(&content)?;
 
-        let canonical_path = std::fs::canonicalize(project_root)
-            .unwrap_or_else(|_| project_root.to_path_buf());
+        let canonical_path =
+            std::fs::canonicalize(project_root).unwrap_or_else(|_| project_root.to_path_buf());
         let path_str = canonical_path.to_string_lossy().to_string();
 
         Ok(mappings
@@ -164,16 +164,14 @@ impl Adapter for CodexAdapter {
             let metadata_path = self.metadata_file(&session_id);
             let (name, created_at, updated_at) = if metadata_path.exists() {
                 match tokio::fs::read_to_string(&metadata_path).await {
-                    Ok(content) => {
-                        match serde_json::from_str::<CodexMetadata>(&content) {
-                            Ok(metadata) => (
-                                metadata.name.unwrap_or_else(|| session_id.clone()),
-                                metadata.created_at,
-                                metadata.updated_at,
-                            ),
-                            Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
-                        }
-                    }
+                    Ok(content) => match serde_json::from_str::<CodexMetadata>(&content) {
+                        Ok(metadata) => (
+                            metadata.name.unwrap_or_else(|| session_id.clone()),
+                            metadata.created_at,
+                            metadata.updated_at,
+                        ),
+                        Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
+                    },
                     Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
                 }
             } else {
@@ -183,16 +181,24 @@ impl Adapter for CodexAdapter {
                 let modified = metadata.as_ref().and_then(|m| m.modified().ok());
 
                 let created_at = created
-                    .and_then(|t| DateTime::from_timestamp(
-                        t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64,
-                        0
-                    ))
+                    .and_then(|t| {
+                        DateTime::from_timestamp(
+                            t.duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs() as i64,
+                            0,
+                        )
+                    })
                     .unwrap_or_else(Utc::now);
                 let updated_at = modified
-                    .and_then(|t| DateTime::from_timestamp(
-                        t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64,
-                        0
-                    ))
+                    .and_then(|t| {
+                        DateTime::from_timestamp(
+                            t.duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs() as i64,
+                            0,
+                        )
+                    })
                     .unwrap_or_else(Utc::now);
 
                 (session_id.clone(), created_at, updated_at)
@@ -243,7 +249,10 @@ impl Adapter for CodexAdapter {
             let content = tokio::fs::read_to_string(&metadata_path).await?;
             if let Ok(metadata) = serde_json::from_str::<CodexMetadata>(&content) {
                 if let Some(usage) = metadata.total_usage {
-                    return Ok(Some(TokenUsage::new(usage.prompt_tokens, usage.completion_tokens)));
+                    return Ok(Some(TokenUsage::new(
+                        usage.prompt_tokens,
+                        usage.completion_tokens,
+                    )));
                 }
             }
         }
@@ -336,7 +345,9 @@ impl CodexMessage {
             .filter_map(|block| block.to_content_block())
             .collect();
 
-        let tokens = self.usage.map(|u| TokenUsage::new(u.prompt_tokens, u.completion_tokens));
+        let tokens = self
+            .usage
+            .map(|u| TokenUsage::new(u.prompt_tokens, u.completion_tokens));
 
         Message {
             id,
@@ -364,9 +375,15 @@ enum CodexContentBlock {
     #[serde(rename = "tool_call")]
     ToolCall { id: String, function: CodexFunction },
     #[serde(rename = "tool_result")]
-    ToolResult { tool_call_id: String, output: String },
+    ToolResult {
+        tool_call_id: String,
+        output: String,
+    },
     #[serde(rename = "code")]
-    Code { language: Option<String>, code: String },
+    Code {
+        language: Option<String>,
+        code: String,
+    },
 }
 
 impl CodexContentBlock {
@@ -381,15 +398,18 @@ impl CodexContentBlock {
     fn to_content_block(self) -> Option<ContentBlock> {
         match self {
             CodexContentBlock::Text { text } => Some(ContentBlock::Text { content: text }),
-            CodexContentBlock::Reasoning { content } => {
-                Some(ContentBlock::Markdown { content: format!("*Reasoning:* {}", content) })
-            }
+            CodexContentBlock::Reasoning { content } => Some(ContentBlock::Markdown {
+                content: format!("*Reasoning:* {}", content),
+            }),
             CodexContentBlock::ToolCall { id, function } => Some(ContentBlock::ToolUse {
                 id,
                 name: function.name,
                 input: function.arguments,
             }),
-            CodexContentBlock::ToolResult { tool_call_id, output } => Some(ContentBlock::ToolResult {
+            CodexContentBlock::ToolResult {
+                tool_call_id,
+                output,
+            } => Some(ContentBlock::ToolResult {
                 tool_use_id: tool_call_id,
                 content: output,
                 is_error: false,
@@ -491,22 +511,16 @@ mod tests {
                 "completion_tokens": 50
             }
         });
-        tokio::fs::write(
-            adapter.metadata_file("test-session"),
-            metadata.to_string(),
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(adapter.metadata_file("test-session"), metadata.to_string())
+            .await
+            .unwrap();
 
         // Create conversation
         let conversation = r#"{"role": "user", "content": "Hello", "timestamp": 1700000000}
 {"role": "assistant", "content": "Hi!", "timestamp": 1700000001}"#;
-        tokio::fs::write(
-            adapter.conversation_file("test-session"),
-            conversation,
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(adapter.conversation_file("test-session"), conversation)
+            .await
+            .unwrap();
 
         let sessions = adapter.sessions(project).await.unwrap();
         assert_eq!(sessions.len(), 1);
@@ -525,12 +539,9 @@ mod tests {
         // Create conversation with content blocks
         let conversation = r#"{"role": "user", "content": "Hello", "timestamp": 1700000000}
 {"role": "assistant", "content": "Hi there!", "timestamp": 1700000001, "model": "gpt-4", "usage": {"prompt_tokens": 10, "completion_tokens": 5}}"#;
-        tokio::fs::write(
-            adapter.conversation_file("test-session"),
-            conversation,
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(adapter.conversation_file("test-session"), conversation)
+            .await
+            .unwrap();
 
         let messages = adapter.messages("test-session").await.unwrap();
         assert_eq!(messages.len(), 2);
@@ -559,12 +570,9 @@ mod tests {
                 "completion_tokens": 200
             }
         });
-        tokio::fs::write(
-            adapter.metadata_file("test-session"),
-            metadata.to_string(),
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(adapter.metadata_file("test-session"), metadata.to_string())
+            .await
+            .unwrap();
 
         let usage = adapter.usage("test-session").await.unwrap();
         assert!(usage.is_some());

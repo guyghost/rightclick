@@ -212,6 +212,25 @@ impl GitStateMachine {
                     commands.push(GitCommand::SetFocus(FocusPane::Main));
                 }
             }
+            "Tab" => {
+                // Toggle focus between Sidebar and Main
+                let current_pane = self.executor.context().focus_pane;
+                let new_pane = match current_pane {
+                    FocusPane::Sidebar => {
+                        self.executor.update_context(|ctx| {
+                            ctx.focus_pane = FocusPane::Main;
+                        });
+                        FocusPane::Main
+                    }
+                    FocusPane::Main => {
+                        self.executor.update_context(|ctx| {
+                            ctx.focus_pane = FocusPane::Sidebar;
+                        });
+                        FocusPane::Sidebar
+                    }
+                };
+                commands.push(GitCommand::SetFocus(new_pane));
+            }
             "g" | "Home" => {
                 let result = self.executor.handle_navigation(NavDirection::First);
                 if let crate::core::models::navigation::NavigationResult::Navigate {

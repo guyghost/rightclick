@@ -619,11 +619,15 @@ mod tests {
 
         let preview = Preview::from_file(&file_path).unwrap();
         assert!(preview.is_truncated);
-        assert!(preview
-            .content
-            .contains(&format!("Line {}", MAX_PREVIEW_LINES - 1)));
-        assert!(!preview
-            .content
-            .contains(&format!("Line {}", MAX_PREVIEW_LINES)));
+        assert!(
+            preview
+                .content
+                .contains(&format!("Line {}", MAX_PREVIEW_LINES - 1))
+        );
+        assert!(
+            !preview
+                .content
+                .contains(&format!("Line {}", MAX_PREVIEW_LINES))
+        );
     }
 }

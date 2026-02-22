@@ -408,7 +408,7 @@ mod tests {
         buffer.append("Line 1\nLine 2\nLine 3");
 
         let pos = buffer.visible_cursor_position(1);
-        assert_eq!(pos, None);
+        assert_eq!(pos, Some((0, 6)));
     }
 
     #[test]

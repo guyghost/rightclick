@@ -30,8 +30,10 @@ pub mod services_full;
 pub mod usecases;
 
 // Re-export commonly used types for convenience
-pub use repositories::{ConfigRepository, FileConfigRepository, FileStateRepository, StateRepository};
+pub use repositories::{
+    ConfigRepository, FileConfigRepository, FileStateRepository, StateRepository,
+};
 pub use usecases::{AppUsecase, Project};
 
 // Use the full git service implementation
-pub use services_full::{GitService, CliGitService};
+pub use services_full::{CliGitService, GitService};

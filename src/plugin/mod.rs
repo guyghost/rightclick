@@ -286,10 +286,7 @@ impl Diagnostic {
     /// let diag = Diagnostic::ok("connection", "Connected to server");
     /// assert_eq!(diag.status, "OK");
     /// ```
-    pub fn ok(
-        id: impl Into<String>,
-        detail: impl Into<String>,
-    ) -> Self {
+    pub fn ok(id: impl Into<String>, detail: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             status: "OK".to_string(),
@@ -309,10 +306,7 @@ impl Diagnostic {
     /// let diag = Diagnostic::warning("data-stale", "Data may be outdated");
     /// assert_eq!(diag.status, "Warning");
     /// ```
-    pub fn warning(
-        id: impl Into<String>,
-        detail: impl Into<String>,
-    ) -> Self {
+    pub fn warning(id: impl Into<String>, detail: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             status: "Warning".to_string(),
@@ -332,10 +326,7 @@ impl Diagnostic {
     /// let diag = Diagnostic::error("connection-failed", "Could not connect to server");
     /// assert_eq!(diag.status, "Error");
     /// ```
-    pub fn error(
-        id: impl Into<String>,
-        detail: impl Into<String>,
-    ) -> Self {
+    pub fn error(id: impl Into<String>, detail: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             status: "Error".to_string(),

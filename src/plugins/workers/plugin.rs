@@ -3,7 +3,7 @@
 //! This module implements the Workers plugin for RightClick, providing
 //! a TUI interface for managing AI agent workflows (Intents).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -11,9 +11,11 @@ use ratatui::{buffer::Buffer, layout::Rect};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
-use crate::core::logic::{generate_default_spec, parse_spec_document, build_intent_from_spec};
+use crate::core::logic::{build_intent_from_spec, generate_default_spec, parse_spec_document};
 use crate::core::models::Theme;
-use crate::core::models::intent::{Intent, IntentStatus, Worker, WorkerType, WorkerStatus, WorkerId};
+use crate::core::models::intent::{
+    Intent, IntentStatus, Worker, WorkerId, WorkerStatus, WorkerType,
+};
 use crate::event::Event;
 use crate::keymap::registry::KeyBindingRegistry;
 use crate::keymap::{Action, FocusContext};
@@ -108,6 +110,8 @@ pub struct WorkersPlugin {
     worker_runner: WorkerRunner,
     /// Output receivers for running workers
     output_receivers: HashMap<String, mpsc::Receiver<WorkerOutput>>,
+    /// Commands queued from input handling and executed in update()
+    pending_commands: VecDeque<Command>,
 }
 
 impl WorkersPlugin {
@@ -128,6 +132,7 @@ impl WorkersPlugin {
             config: crate::core::models::WorkspacePluginConfig::default(),
             worker_runner: WorkerRunner::new(),
             output_receivers: HashMap::new(),
+            pending_commands: VecDeque::new(),
         }
     }
 
@@ -157,10 +162,8 @@ impl WorkersPlugin {
         // Note: Stop action not available, use 'q' for quit instead
         registry.bind("enter", Action::Enter, FocusContext::Workspace); // Open intent
 
-        // Preview tabs
-        registry.bind("1", Action::SwitchTab(0), FocusContext::Workspace);
-        registry.bind("2", Action::SwitchTab(1), FocusContext::Workspace);
-        registry.bind("3", Action::SwitchTab(2), FocusContext::Workspace);
+        // Note: Preview tab switching uses [ and ] keys (handled in handle_event)
+        // to avoid conflict with global navigation keys 1-5
 
         // Pane switching
         registry.bind("left", Action::NavigateLeft, FocusContext::Workspace);
@@ -192,7 +195,9 @@ impl WorkersPlugin {
         self.state.logs_dir = self.repo_path.join(&self.state.logs_dir);
 
         // Ensure directories exist
-        tokio::fs::create_dir_all(&self.state.intents_dir).await.ok();
+        tokio::fs::create_dir_all(&self.state.intents_dir)
+            .await
+            .ok();
         tokio::fs::create_dir_all(&self.state.logs_dir).await.ok();
 
         // Initial load
@@ -222,9 +227,9 @@ impl WorkersPlugin {
         }
 
         // Sort intents by creation date (newest first)
-        self.state.intents.sort_by(|a, b| {
-            b.intent.created_at.cmp(&a.intent.created_at)
-        });
+        self.state
+            .intents
+            .sort_by(|a, b| b.intent.created_at.cmp(&a.intent.created_at));
 
         // Select first intent if none selected
         if self.state.selected_intent.is_none() && !self.state.intents.is_empty() {
@@ -262,7 +267,8 @@ impl WorkersPlugin {
     /// Create a new intent
     pub async fn create_intent(&mut self, title: &str) -> Result<Intent> {
         // Generate slug from title
-        let slug = title.to_lowercase()
+        let slug = title
+            .to_lowercase()
             .replace(' ', "-")
             .replace(|c: char| !c.is_alphanumeric() && c != '-', "");
 
@@ -300,7 +306,9 @@ impl WorkersPlugin {
 
     /// Run workers for an intent
     pub async fn run_workers(&mut self, intent_id: &str) -> Result<()> {
-        let intent = self.state.get_intent(intent_id)
+        let intent = self
+            .state
+            .get_intent(intent_id)
             .ok_or_else(|| anyhow::anyhow!("Intent not found: {}", intent_id))?
             .intent
             .clone();
@@ -314,7 +322,10 @@ impl WorkersPlugin {
         }
 
         // Start pending workers
-        let workers_to_start: Vec<Worker> = self.state.workers.values()
+        let workers_to_start: Vec<Worker> = self
+            .state
+            .workers
+            .values()
             .filter(|e| {
                 e.worker.intent_id == intent_id
                     && e.worker.status == WorkerStatus::Pending
@@ -337,7 +348,9 @@ impl WorkersPlugin {
 
     /// Create default workers for an intent (sequential workflow)
     async fn create_default_workers(&mut self, intent_id: &str) -> Result<()> {
-        let intent = self.state.get_intent(intent_id)
+        let intent = self
+            .state
+            .get_intent(intent_id)
             .ok_or_else(|| anyhow::anyhow!("Intent not found: {}", intent_id))?
             .intent
             .clone();
@@ -353,7 +366,9 @@ impl WorkersPlugin {
             self.repo_path.clone(),
             &branch,
             "claude",
-            self.state.logs_dir.join(format!("{}-investigator.log", intent_id)),
+            self.state
+                .logs_dir
+                .join(format!("{}-investigator.log", intent_id)),
             &now,
         );
 
@@ -364,9 +379,12 @@ impl WorkersPlugin {
             self.repo_path.clone(),
             &branch,
             "claude",
-            self.state.logs_dir.join(format!("{}-implementer.log", intent_id)),
+            self.state
+                .logs_dir
+                .join(format!("{}-implementer.log", intent_id)),
             &now,
-        ).depends_on(investigator.id.clone());
+        )
+        .depends_on(investigator.id.clone());
 
         let verifier = Worker::new(
             "verify",
@@ -375,9 +393,12 @@ impl WorkersPlugin {
             self.repo_path.clone(),
             &branch,
             "claude",
-            self.state.logs_dir.join(format!("{}-verifier.log", intent_id)),
+            self.state
+                .logs_dir
+                .join(format!("{}-verifier.log", intent_id)),
             &now,
-        ).depends_on(implementer.id.clone());
+        )
+        .depends_on(implementer.id.clone());
 
         self.state.add_worker(investigator);
         self.state.add_worker(implementer);
@@ -389,7 +410,10 @@ impl WorkersPlugin {
 
     /// Start a single worker
     async fn start_worker(&mut self, worker: &Worker, spec_content: &str) -> Result<()> {
-        let rx = self.worker_runner.spawn_worker(worker, spec_content).await?;
+        let rx = self
+            .worker_runner
+            .spawn_worker(worker, spec_content)
+            .await?;
         self.output_receivers.insert(worker.id.clone(), rx);
 
         // Update worker status
@@ -404,7 +428,9 @@ impl WorkersPlugin {
 
     /// Get IDs of completed workers
     fn get_completed_worker_ids(&self) -> Vec<WorkerId> {
-        self.state.workers.values()
+        self.state
+            .workers
+            .values()
             .filter(|e| e.worker.status == WorkerStatus::Completed)
             .map(|e| e.worker.id.clone())
             .collect()
@@ -482,6 +508,40 @@ impl WorkersPlugin {
         }
     }
 
+    async fn process_pending_commands(&mut self) {
+        while let Some(command) = self.pending_commands.pop_front() {
+            let result = match command {
+                Command::None
+                | Command::SwitchMode(_)
+                | Command::SwitchFocus(_)
+                | Command::SwitchTab(_)
+                | Command::ShowIntent(_)
+                | Command::EmitEvent(_) => Ok(()),
+                Command::Refresh => self.refresh().await,
+                Command::CreateIntent { title } => self.create_intent(&title).await.map(|_| ()),
+                Command::DeleteIntent(intent_id) => self.delete_intent(&intent_id).await,
+                Command::RunWorkers(intent_id) => self.run_workers(&intent_id).await,
+                Command::StopWorkers => self.stop_workers().await,
+                Command::OpenIntent(intent_id) => {
+                    if let Some(idx) = self
+                        .state
+                        .intents
+                        .iter()
+                        .position(|intent| intent.intent.id == intent_id)
+                    {
+                        self.state.selected_intent = Some(idx);
+                        self.state.preview_tab = PreviewTab::Spec;
+                    }
+                    Ok(())
+                }
+            };
+
+            if let Err(e) = result {
+                warn!("Failed to execute workers command: {}", e);
+            }
+        }
+    }
+
     /// Handle keyboard input events
     pub fn handle_event_internal(&mut self, event: Event) -> Vec<Command> {
         let mut commands = Vec::new();
@@ -491,6 +551,41 @@ impl WorkersPlugin {
                 commands.push(Command::Refresh);
             }
             Event::Key { code, modifiers } => {
+                if self.state.is_modal_open() && !modifiers.ctrl && !modifiers.alt {
+                    match self.state.modal_state {
+                        ModalState::CreateIntent => match code.as_str() {
+                            "Esc" => self.state.close_modal(),
+                            "Backspace" => self.handle_backspace(),
+                            "Enter" => {
+                                let title = self.state.new_intent_title.trim().to_string();
+                                if !title.is_empty() {
+                                    commands.push(Command::CreateIntent { title });
+                                }
+                                self.state.close_modal();
+                            }
+                            _ => {
+                                if code.len() == 1 {
+                                    if let Some(c) = code.chars().next() {
+                                        self.handle_char(c);
+                                    }
+                                }
+                            }
+                        },
+                        ModalState::DeleteConfirm => match code.as_str() {
+                            "Esc" => self.state.close_modal(),
+                            "Enter" | "Delete" | "D" => {
+                                if let Some(intent) = self.state.selected_intent() {
+                                    commands.push(Command::DeleteIntent(intent.intent.id.clone()));
+                                }
+                                self.state.close_modal();
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    }
+                    return commands;
+                }
+
                 if modifiers.ctrl {
                     // Handle Ctrl+key combinations
                     match code.as_str() {
@@ -544,19 +639,24 @@ impl WorkersPlugin {
                             self.state.view_mode = new_mode;
                             commands.push(Command::SwitchMode(new_mode));
                         }
-                        "1" => {
-                            // Switch to Spec tab
-                            self.state.preview_tab = PreviewTab::Spec;
+                        "]" => {
+                            // Cycle to next preview tab (Spec -> Output -> Criteria -> Spec)
+                            let new_tab = match self.state.preview_tab {
+                                PreviewTab::Spec => PreviewTab::Output,
+                                PreviewTab::Output => PreviewTab::Criteria,
+                                PreviewTab::Criteria => PreviewTab::Spec,
+                            };
+                            self.state.preview_tab = new_tab;
                             commands.push(Command::Refresh);
                         }
-                        "2" => {
-                            // Switch to Output tab
-                            self.state.preview_tab = PreviewTab::Output;
-                            commands.push(Command::Refresh);
-                        }
-                        "3" => {
-                            // Switch to Criteria tab
-                            self.state.preview_tab = PreviewTab::Criteria;
+                        "[" => {
+                            // Cycle to previous preview tab (Spec <- Output <- Criteria <- Spec)
+                            let new_tab = match self.state.preview_tab {
+                                PreviewTab::Spec => PreviewTab::Criteria,
+                                PreviewTab::Output => PreviewTab::Spec,
+                                PreviewTab::Criteria => PreviewTab::Output,
+                            };
+                            self.state.preview_tab = new_tab;
                             commands.push(Command::Refresh);
                         }
                         "n" => {
@@ -684,36 +784,32 @@ impl WorkersPlugin {
     /// Handle actions when a modal is open
     fn handle_modal_action(&mut self, action: &Action, commands: &mut Vec<Command>) {
         match self.state.modal_state {
-            ModalState::CreateIntent => {
-                match action {
-                    Action::Confirm => {
-                        if !self.state.new_intent_title.is_empty() {
-                            commands.push(Command::CreateIntent {
-                                title: self.state.new_intent_title.clone(),
-                            });
-                            self.state.close_modal();
-                        }
-                    }
-                    Action::Cancel => {
+            ModalState::CreateIntent => match action {
+                Action::Confirm => {
+                    if !self.state.new_intent_title.is_empty() {
+                        commands.push(Command::CreateIntent {
+                            title: self.state.new_intent_title.clone(),
+                        });
                         self.state.close_modal();
                     }
-                    _ => {}
                 }
-            }
-            ModalState::DeleteConfirm => {
-                match action {
-                    Action::Confirm | Action::Delete => {
-                        if let Some(intent) = self.state.selected_intent() {
-                            commands.push(Command::DeleteIntent(intent.intent.id.clone()));
-                        }
-                        self.state.close_modal();
-                    }
-                    Action::Cancel => {
-                        self.state.close_modal();
-                    }
-                    _ => {}
+                Action::Cancel => {
+                    self.state.close_modal();
                 }
-            }
+                _ => {}
+            },
+            ModalState::DeleteConfirm => match action {
+                Action::Confirm | Action::Delete => {
+                    if let Some(intent) = self.state.selected_intent() {
+                        commands.push(Command::DeleteIntent(intent.intent.id.clone()));
+                    }
+                    self.state.close_modal();
+                }
+                Action::Cancel => {
+                    self.state.close_modal();
+                }
+                _ => {}
+            },
             _ => {}
         }
     }
@@ -825,7 +921,9 @@ fn sanitize_branch_name(name: &str) -> String {
 impl super::state::PluginState {
     /// Get the intent ID for a given worker ID
     fn get_intent_id_for_worker(&self, worker_id: &str) -> Option<String> {
-        self.workers.get(worker_id).map(|e| e.worker.intent_id.clone())
+        self.workers
+            .get(worker_id)
+            .map(|e| e.worker.intent_id.clone())
     }
 }
 
@@ -833,7 +931,7 @@ impl super::state::PluginState {
 // Plugin Trait Implementation
 // ============================================================================
 
-use crate::plugin::{Plugin, PluginContext as PluginCtx, Command as PluginCmd};
+use crate::plugin::{Command as PluginCmd, Plugin, PluginContext as PluginCtx};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -865,7 +963,10 @@ impl Plugin for WorkersPlugin {
 
     fn handle_event(&mut self, event: crate::event::Event) -> Vec<PluginCmd> {
         let commands = self.handle_event_internal(event);
-        commands.into_iter().map(|_cmd| PluginCmd::new("workers", "action")).collect()
+        for command in commands {
+            self.pending_commands.push_back(command);
+        }
+        Vec::new()
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &crate::core::models::Theme) {
@@ -882,13 +983,60 @@ impl Plugin for WorkersPlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::with_context("create", "New Intent", 'n', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("delete", "Delete", 'D', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("run", "Run Workers", 'r', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("stop", "Stop", 's', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("open", "Open", 'o', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("switch-view", "View", 'v', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("refresh", "Refresh", 'f', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context(
+                "create",
+                "New Intent",
+                'n',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "delete",
+                "Delete",
+                'D',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "run",
+                "Run Workers",
+                'r',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "stop",
+                "Stop",
+                's',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "open",
+                "Open",
+                'o',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "switch-view",
+                "View",
+                'v',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "prev-tab",
+                "Prev",
+                '[',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "next-tab",
+                "Next",
+                ']',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "refresh",
+                "Refresh",
+                'f',
+                crate::keymap::FocusContext::Workspace,
+            ),
         ]
     }
 
@@ -897,6 +1045,8 @@ impl Plugin for WorkersPlugin {
     }
 
     async fn update(&mut self) -> anyhow::Result<()> {
+        self.process_pending_commands().await;
+
         // Process worker output
         self.process_worker_output().await;
 

@@ -178,7 +178,6 @@ mod integration_tests {
             FocusContext::FileBrowser,
             FocusContext::Conversations,
             FocusContext::Workspace,
-            FocusContext::TDMonitor,
         ];
 
         for context in root_contexts {
@@ -221,8 +220,5 @@ mod integration_tests {
 
         let action = registry.handle("4", FocusContext::Global);
         assert!(matches!(action, Some(Action::SwitchPlugin(ref p)) if p == "workspace"));
-
-        let action = registry.handle("5", FocusContext::Global);
-        assert!(matches!(action, Some(Action::SwitchPlugin(ref p)) if p == "td_monitor"));
     }
 }

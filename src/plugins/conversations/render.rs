@@ -3,12 +3,12 @@
 //! This module provides the UI rendering for the Conversations plugin,
 //! implementing a two-pane layout with sessions list and conversation view.
 
-use crate::core::models::conversation::{ContentBlock, Message, Role};
 use crate::core::models::Theme;
+use crate::core::models::conversation::{ContentBlock, Message, Role};
 use crate::plugins::conversations::state::SessionInfo;
 use crate::plugins::conversations::state::{ConversationView, PluginState};
-use crate::theme::style_for_ui_element;
 use crate::theme::UiElement;
+use crate::theme::style_for_ui_element;
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};

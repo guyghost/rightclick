@@ -56,9 +56,7 @@ mod state;
 // Re-export main types
 pub use plugin::{ConversationsAction, ConversationsPlugin, ConversationsPluginBuilder};
 pub use render::ConversationsRenderer;
-pub use state::{
-    ConversationView, ListNavigation, MessageScroll, PluginState, SessionInfo,
-};
+pub use state::{ConversationView, ListNavigation, MessageScroll, PluginState, SessionInfo};
 
 use std::sync::Arc;
 
@@ -86,7 +84,9 @@ use crate::core::models::conversation::Session;
 /// let registry = create_default_registry().unwrap();
 /// let plugin = init(Arc::new(RwLock::new(registry)));
 /// ```
-pub fn init(adapter_registry: Arc<RwLock<crate::adapters::AdapterRegistry>>) -> ConversationsPlugin {
+pub fn init(
+    adapter_registry: Arc<RwLock<crate::adapters::AdapterRegistry>>,
+) -> ConversationsPlugin {
     ConversationsPlugin::new(adapter_registry)
 }
 
@@ -131,21 +131,12 @@ pub fn format_session_line(session: &Session, adapter: &dyn Adapter, selected: b
     let name = &session.name;
     let msg_count = session.message_count;
 
-    let date_str = session
-        .updated_at
-        .format("%Y-%m-%d %H:%M")
-        .to_string();
+    let date_str = session.updated_at.format("%Y-%m-%d %H:%M").to_string();
 
     if selected {
-        format!(
-            "▶ {} {} ({} msgs, {})",
-            icon, name, msg_count, date_str
-        )
+        format!("▶ {} {} ({} msgs, {})", icon, name, msg_count, date_str)
     } else {
-        format!(
-            "  {} {} ({} msgs, {})",
-            icon, name, msg_count, date_str
-        )
+        format!("  {} {} ({} msgs, {})", icon, name, msg_count, date_str)
     }
 }
 
@@ -206,7 +197,7 @@ pub fn role_style(
     theme: &crate::core::models::Theme,
 ) -> ratatui::style::Style {
     use crate::core::models::conversation::Role;
-    use crate::theme::{style_for_ui_element, UiElement};
+    use crate::theme::{UiElement, style_for_ui_element};
     use ratatui::style::Modifier;
 
     match role {
@@ -240,13 +231,15 @@ pub fn default_key_bindings() -> Vec<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::models::conversation::{Role, Session};
     use crate::adapters::types::AdapterType;
+    use crate::core::models::conversation::{Role, Session};
 
+    #[derive(Debug)]
     struct MockAdapter {
         adapter_type: AdapterType,
     }
 
+    #[async_trait::async_trait]
     impl Adapter for MockAdapter {
         fn id(&self) -> &str {
             "mock"
@@ -264,28 +257,34 @@ mod tests {
             self.adapter_type
         }
 
-        fn detect(&self, _project_root: &std::path::Path) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = crate::adapters::types::Result<bool>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(false) })
+        async fn detect(
+            &self,
+            _project_root: &std::path::Path,
+        ) -> crate::adapters::types::Result<bool> {
+            Ok(false)
         }
 
-        fn sessions(&self, _project_root: &std::path::Path) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = crate::adapters::types::Result<Vec<Session>>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(Vec::new()) })
+        async fn sessions(
+            &self,
+            _project_root: &std::path::Path,
+        ) -> crate::adapters::types::Result<Vec<Session>> {
+            Ok(Vec::new())
         }
 
-        fn messages(&self, _session_id: &str) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = crate::adapters::types::Result<Vec<crate::core::models::conversation::Message>>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(Vec::new()) })
+        async fn messages(
+            &self,
+            _session_id: &str,
+        ) -> crate::adapters::types::Result<Vec<crate::core::models::conversation::Message>>
+        {
+            Ok(Vec::new())
         }
 
-        fn usage(&self, _session_id: &str) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = crate::adapters::types::Result<Option<crate::core::models::conversation::TokenUsage>>> + Send + '_>,
-        > {
-            Box::pin(async { Ok(None) })
+        async fn usage(
+            &self,
+            _session_id: &str,
+        ) -> crate::adapters::types::Result<Option<crate::core::models::conversation::TokenUsage>>
+        {
+            Ok(None)
         }
     }
 

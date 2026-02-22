@@ -18,10 +18,10 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use super::buffer::{OutputBuffer, DEFAULT_SCROLLBACK};
+use super::buffer::{DEFAULT_SCROLLBACK, OutputBuffer};
 use super::polling::Poller;
 
 /// Time window for detecting double escape press.

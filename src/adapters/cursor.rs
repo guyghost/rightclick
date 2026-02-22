@@ -4,11 +4,11 @@
 //! It reads conversation data from the SQLite database at
 //! `~/.cursor/chats/{md5-hash}/store.db`.
 
-use crate::core::models::conversation::{ContentBlock, Message, Role, Session, TokenUsage};
 use crate::adapters::types::{Adapter, AdapterError, AdapterType, Result};
+use crate::core::models::conversation::{ContentBlock, Message, Role, Session, TokenUsage};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
 
 /// Cursor adapter implementation
@@ -131,11 +131,8 @@ impl Adapter for CursorAdapter {
 
         // Check if the database has any conversations
         let conn = self.open_db(&db_path)?;
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM conversations",
-            [],
-            |row| row.get(0),
-        )?;
+        let count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM conversations", [], |row| row.get(0))?;
 
         Ok(count > 0)
     }
@@ -161,12 +158,14 @@ impl Adapter for CursorAdapter {
             let updated_at: i64 = row.get(3)?;
             let message_count: i64 = row.get(4)?;
 
-            let created_at = DateTime::from_timestamp(created_at, 0)
-                .unwrap_or_else(Utc::now);
-            let updated_at = DateTime::from_timestamp(updated_at, 0)
-                .unwrap_or_else(Utc::now);
+            let created_at = DateTime::from_timestamp(created_at, 0).unwrap_or_else(Utc::now);
+            let updated_at = DateTime::from_timestamp(updated_at, 0).unwrap_or_else(Utc::now);
 
-            let mut session = Session::new(&id, title.unwrap_or_else(|| "Untitled".to_string()), "cursor");
+            let mut session = Session::new(
+                &id,
+                title.unwrap_or_else(|| "Untitled".to_string()),
+                "cursor",
+            );
             session.created_at = created_at;
             session.updated_at = updated_at;
             session.message_count = message_count as usize;
@@ -174,7 +173,8 @@ impl Adapter for CursorAdapter {
             Ok(session)
         })?;
 
-        sessions.collect::<std::result::Result<Vec<_>, _>>()
+        sessions
+            .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(AdapterError::from)
     }
 
@@ -190,7 +190,7 @@ impl Adapter for CursorAdapter {
             "SELECT id, role, content, created_at, model, metadata
              FROM messages
              WHERE conversation_id = ?1
-             ORDER BY created_at ASC"
+             ORDER BY created_at ASC",
         )?;
 
         let messages = stmt.query_map(params![session_id], |row| {
@@ -208,8 +208,7 @@ impl Adapter for CursorAdapter {
                 _ => Role::User,
             };
 
-            let timestamp = DateTime::from_timestamp(created_at, 0)
-                .unwrap_or_else(Utc::now);
+            let timestamp = DateTime::from_timestamp(created_at, 0).unwrap_or_else(Utc::now);
 
             // Parse metadata for token usage and content blocks
             let (tokens, content_blocks) = if let Some(ref meta_str) = metadata {
@@ -232,7 +231,8 @@ impl Adapter for CursorAdapter {
             })
         })?;
 
-        messages.collect::<std::result::Result<Vec<_>, _>>()
+        messages
+            .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(AdapterError::from)
     }
 
@@ -277,7 +277,9 @@ fn parse_cursor_metadata(metadata: &str) -> (Option<TokenUsage>, Vec<ContentBloc
 
     let meta: CursorMetadata = serde_json::from_str(metadata).unwrap_or_default();
 
-    let tokens = meta.usage.map(|u| TokenUsage::new(u.prompt_tokens, u.completion_tokens));
+    let tokens = meta
+        .usage
+        .map(|u| TokenUsage::new(u.prompt_tokens, u.completion_tokens));
 
     let content_blocks = meta
         .content_blocks
@@ -295,16 +297,27 @@ fn parse_content_block(value: serde_json::Value) -> Option<ContentBlock> {
     match block_type {
         "text" => {
             let text = value.get("text")?.as_str()?;
-            Some(ContentBlock::Text { content: text.to_string() })
+            Some(ContentBlock::Text {
+                content: text.to_string(),
+            })
         }
         "code" => {
             let code = value.get("code")?.as_str()?.to_string();
-            let language = value.get("language").and_then(|l| l.as_str()).map(String::from);
-            Some(ContentBlock::Code { language, code, file_path: None })
+            let language = value
+                .get("language")
+                .and_then(|l| l.as_str())
+                .map(String::from);
+            Some(ContentBlock::Code {
+                language,
+                code,
+                file_path: None,
+            })
         }
         "markdown" => {
             let content = value.get("content")?.as_str()?;
-            Some(ContentBlock::Markdown { content: content.to_string() })
+            Some(ContentBlock::Markdown {
+                content: content.to_string(),
+            })
         }
         "image" => {
             let source = value.get("source")?.as_str()?.to_string();
@@ -313,9 +326,19 @@ fn parse_content_block(value: serde_json::Value) -> Option<ContentBlock> {
         }
         "file" => {
             let path = value.get("path")?.as_str()?.to_string();
-            let content = value.get("content").and_then(|c| c.as_str()).map(String::from);
-            let line_count = value.get("line_count").and_then(|l| l.as_u64()).map(|n| n as usize);
-            Some(ContentBlock::File { path, content, line_count })
+            let content = value
+                .get("content")
+                .and_then(|c| c.as_str())
+                .map(String::from);
+            let line_count = value
+                .get("line_count")
+                .and_then(|l| l.as_u64())
+                .map(|n| n as usize);
+            Some(ContentBlock::File {
+                path,
+                content,
+                line_count,
+            })
         }
         _ => None,
     }
@@ -352,7 +375,8 @@ mod tests {
                 updated_at INTEGER
             )",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         conn.execute(
             "CREATE TABLE messages (
                 id TEXT PRIMARY KEY,
@@ -364,7 +388,8 @@ mod tests {
                 metadata TEXT
             )",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         conn
     }
 
@@ -384,8 +409,10 @@ mod tests {
 
         // Create database
         let db_path = adapter.db_path(project);
-        tokio::fs::create_dir_all(db_path.parent().unwrap()).await.unwrap();
-        
+        tokio::fs::create_dir_all(db_path.parent().unwrap())
+            .await
+            .unwrap();
+
         // Create the database with schema
         let conn = create_test_db(&db_path);
         drop(conn); // Close connection
@@ -402,15 +429,18 @@ mod tests {
 
         // Create database with data
         let db_path = adapter.db_path(project);
-        tokio::fs::create_dir_all(db_path.parent().unwrap()).await.unwrap();
-        
+        tokio::fs::create_dir_all(db_path.parent().unwrap())
+            .await
+            .unwrap();
+
         {
             let conn = create_test_db(&db_path);
             conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at) 
                  VALUES ('test-conv', 'Test Conversation', 1700000000, 1700000100)",
                 [],
-            ).unwrap();
+            )
+            .unwrap();
             conn.execute(
                 "INSERT INTO messages (id, conversation_id, role, content, created_at, model, metadata)
                  VALUES ('msg1', 'test-conv', 'user', 'Hello', 1700000000, NULL, NULL)",
@@ -436,15 +466,18 @@ mod tests {
 
         // Create database with data
         let db_path = adapter.db_path(project);
-        tokio::fs::create_dir_all(db_path.parent().unwrap()).await.unwrap();
-        
+        tokio::fs::create_dir_all(db_path.parent().unwrap())
+            .await
+            .unwrap();
+
         {
             let conn = create_test_db(&db_path);
             conn.execute(
                 "INSERT INTO conversations (id, title, created_at, updated_at) 
                  VALUES ('test-conv', 'Test', 1700000000, 1700000100)",
                 [],
-            ).unwrap();
+            )
+            .unwrap();
             conn.execute(
                 "INSERT INTO messages (id, conversation_id, role, content, created_at, model, metadata)
                  VALUES ('msg1', 'test-conv', 'user', 'Hello', 1700000000, NULL, NULL)",

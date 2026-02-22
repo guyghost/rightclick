@@ -131,7 +131,7 @@ impl PluginContext {
     pub fn get_adapter(&self, id: &str) -> Option<&dyn Adapter> {
         self.adapters.get(id).map(|a| a.as_ref())
     }
-    
+
     /// Set adapters for this context.
     ///
     /// # Arguments
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_context_with_adapters() {
-        let adapters: HashMap<String, Box<dyn Adapter>> = HashMap::new();
+        let adapters: Arc<HashMap<String, Arc<dyn Adapter>>> = Arc::new(HashMap::new());
         let ctx = PluginContext::with_adapters(
             PathBuf::from("/work"),
             PathBuf::from("/project"),

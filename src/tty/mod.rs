@@ -96,10 +96,10 @@ pub mod polling;
 pub mod session;
 
 // Re-export commonly used types
-pub use buffer::{OutputBuffer, DEFAULT_SCROLLBACK};
-pub use polling::{AdaptivePoller, Poller, DEFAULT_POLL_INTERVAL_MS};
+pub use buffer::{DEFAULT_SCROLLBACK, OutputBuffer};
+pub use polling::{AdaptivePoller, DEFAULT_POLL_INTERVAL_MS, Poller};
 pub use session::{
-    create_pane, execute_tmux, kill_pane, list_panes, Session, DOUBLE_ESCAPE_WINDOW,
+    DOUBLE_ESCAPE_WINDOW, Session, create_pane, execute_tmux, kill_pane, list_panes,
 };
 
 use std::process::Command;

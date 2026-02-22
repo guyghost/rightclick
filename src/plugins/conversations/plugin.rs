@@ -7,18 +7,16 @@ use crate::adapters::types::{Adapter, AdapterRegistry};
 // Message and Session imported from state module
 use crate::event::{Event, Topic};
 use crate::keymap::KeyBinding;
-use crate::plugins::conversations::state::{
-    ConversationView, PluginState, SessionInfo,
-};
 use crate::plugins::conversations::render::ConversationsRenderer;
+use crate::plugins::conversations::state::{ConversationView, PluginState, SessionInfo};
 use crate::theme::get_current_theme;
 use anyhow::Result;
+use parking_lot::RwLock;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use parking_lot::RwLock;
 use tracing::{debug, error, info, warn};
 
 /// The Conversations plugin manages AI conversation sessions
@@ -42,6 +40,9 @@ pub struct ConversationsPlugin {
     renderer: ConversationsRenderer,
     /// Event dispatcher for publishing events
     event_dispatcher: Option<crate::event::EventDispatcher>,
+    /// Defer refresh/load operations to async update()
+    pending_refresh: bool,
+    pending_load_messages: bool,
 }
 
 impl ConversationsPlugin {
@@ -53,15 +54,15 @@ impl ConversationsPlugin {
     ///
     /// # Example
     ///
-/// ```rust
-/// use rightclick::adapters::create_default_registry;
-/// use rightclick::plugins::conversations::ConversationsPlugin;
-/// use std::sync::Arc;
-/// use parking_lot::RwLock;
-///
-/// let registry = create_default_registry().unwrap();
-/// let plugin = ConversationsPlugin::new(Arc::new(RwLock::new(registry)));
-/// ```
+    /// ```rust
+    /// use rightclick::adapters::create_default_registry;
+    /// use rightclick::plugins::conversations::ConversationsPlugin;
+    /// use std::sync::Arc;
+    /// use parking_lot::RwLock;
+    ///
+    /// let registry = create_default_registry().unwrap();
+    /// let plugin = ConversationsPlugin::new(Arc::new(RwLock::new(registry)));
+    /// ```
     pub fn new(adapter_registry: Arc<RwLock<AdapterRegistry>>) -> Self {
         Self {
             state: PluginState::new(),
@@ -71,6 +72,8 @@ impl ConversationsPlugin {
             project_root: None,
             renderer: ConversationsRenderer::new(),
             event_dispatcher: None,
+            pending_refresh: false,
+            pending_load_messages: false,
         }
     }
 
@@ -118,6 +121,52 @@ impl ConversationsPlugin {
         &mut self.state
     }
 
+    fn set_selected_session_from_filtered_index(&mut self) {
+        let selected_id = self
+            .state
+            .filtered_sessions()
+            .get(self.state.list_nav.selected)
+            .map(|s| s.session.id.clone());
+
+        self.state.selected_session = selected_id.and_then(|id| {
+            self.state
+                .sessions
+                .iter()
+                .position(|session| session.session.id == id)
+        });
+    }
+
+    fn refresh_search_navigation(&mut self) {
+        let filtered_count = self.state.filtered_sessions().len();
+        self.state.list_nav.set_total_items(filtered_count);
+
+        if filtered_count == 0 {
+            self.state.selected_session = None;
+            return;
+        }
+
+        if self.state.list_nav.selected >= filtered_count {
+            self.state.list_nav.selected = filtered_count - 1;
+        }
+
+        self.set_selected_session_from_filtered_index();
+    }
+
+    fn append_search_char(&mut self, c: char) {
+        let mut query = self.state.search_query.clone().unwrap_or_default();
+        query.push(c);
+        self.state.search_query = Some(query);
+        self.refresh_search_navigation();
+    }
+
+    fn pop_search_char(&mut self) {
+        if let Some(mut query) = self.state.search_query.clone() {
+            query.pop();
+            self.state.search_query = Some(query);
+            self.refresh_search_navigation();
+        }
+    }
+
     /// Load sessions from all adapters
     ///
     /// This async method queries all registered adapters for sessions
@@ -130,7 +179,8 @@ impl ConversationsPlugin {
             Some(path) => path.clone(),
             None => {
                 self.state.set_loading(false);
-                self.state.set_error(Some("No project root set".to_string()));
+                self.state
+                    .set_error(Some("No project root set".to_string()));
                 return Ok(());
             }
         };
@@ -147,21 +197,14 @@ impl ConversationsPlugin {
 
             match adapter.sessions(&project_root).await {
                 Ok(sessions) => {
-                    info!(
-                        "Loaded {} sessions from {}",
-                        sessions.len(),
-                        adapter.name()
-                    );
+                    info!("Loaded {} sessions from {}", sessions.len(), adapter.name());
 
                     for session in sessions {
                         all_sessions.push(SessionInfo::new(session, &adapter));
                     }
 
                     // Store adapter reference
-                    self.adapters.insert(
-                        adapter_id.clone(),
-                        adapter.clone(),
-                    );
+                    self.adapters.insert(adapter_id.clone(), adapter.clone());
                 }
                 Err(e) => {
                     warn!("Failed to load sessions from {}: {}", adapter.name(), e);
@@ -217,7 +260,8 @@ impl ConversationsPlugin {
             }
             Err(e) => {
                 error!("Failed to load messages: {}", e);
-                self.state.set_error(Some(format!("Failed to load messages: {}", e)));
+                self.state
+                    .set_error(Some(format!("Failed to load messages: {}", e)));
             }
         }
 
@@ -325,11 +369,15 @@ impl ConversationsPlugin {
                 true
             }
             (KeyCode::PageDown, _) | (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
-                self.state.message_scroll.scroll_down(self.state.message_scroll.viewport_height);
+                self.state
+                    .message_scroll
+                    .scroll_down(self.state.message_scroll.viewport_height);
                 true
             }
             (KeyCode::PageUp, _) | (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
-                self.state.message_scroll.scroll_up(self.state.message_scroll.viewport_height);
+                self.state
+                    .message_scroll
+                    .scroll_up(self.state.message_scroll.viewport_height);
                 true
             }
             (KeyCode::Home, _) | (KeyCode::Char('g'), KeyModifiers::NONE) => {
@@ -426,7 +474,8 @@ impl ConversationsPlugin {
     /// Render the plugin UI
     pub fn render(&self, area: Rect, buf: &mut Buffer) {
         let theme = get_current_theme().unwrap_or_default();
-        self.renderer.render(&self.state, area, buf, &theme, self.focused);
+        self.renderer
+            .render(&self.state, area, buf, &theme, self.focused);
     }
 
     /// Get key hints for the current view
@@ -447,11 +496,9 @@ impl ConversationsPlugin {
                 ("Space", "Expand"),
                 ("e/c", "Expand/Collapse All"),
             ],
-            ConversationView::Search => vec![
-                ("Esc", "Clear"),
-                ("Enter", "Search"),
-                ("Type", "Filter"),
-            ],
+            ConversationView::Search => {
+                vec![("Esc", "Clear"), ("Enter", "Search"), ("Type", "Filter")]
+            }
         }
     }
 
@@ -549,9 +596,9 @@ impl ConversationsPluginBuilder {
 
     /// Build the plugin
     pub fn build(self) -> Result<ConversationsPlugin> {
-        let registry = self.adapter_registry.ok_or_else(|| {
-            anyhow::anyhow!("Adapter registry is required")
-        })?;
+        let registry = self
+            .adapter_registry
+            .ok_or_else(|| anyhow::anyhow!("Adapter registry is required"))?;
 
         let mut plugin = ConversationsPlugin::new(registry);
 
@@ -577,7 +624,7 @@ impl Default for ConversationsPluginBuilder {
 // Plugin Trait Implementation
 // ============================================================================
 
-use crate::plugin::{Plugin, PluginContext, Command as PluginCmd};
+use crate::plugin::{Command as PluginCmd, Plugin, PluginContext};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -597,11 +644,11 @@ impl Plugin for ConversationsPlugin {
     async fn init(&mut self, ctx: &PluginContext) -> anyhow::Result<()> {
         self.project_root = Some(ctx.project_root.clone());
         // Note: adapters are loaded from the registry, not from context
-        
+
         if let Err(e) = self.load_sessions().await {
             warn!("Failed to load sessions: {}", e);
         }
-        
+
         Ok(())
     }
 
@@ -610,8 +657,6 @@ impl Plugin for ConversationsPlugin {
     }
 
     fn handle_event(&mut self, event: crate::event::Event) -> Vec<PluginCmd> {
-        let mut commands = Vec::new();
-        
         match event {
             crate::event::Event::Key { code, modifiers } => {
                 // Handle Ctrl+key combinations
@@ -622,10 +667,13 @@ impl Plugin for ConversationsPlugin {
                             match self.state.view {
                                 ConversationView::SessionsList | ConversationView::Search => {
                                     self.state.list_nav.page_down();
-                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                    self.state.selected_session =
+                                        Some(self.state.list_nav.selected);
                                 }
                                 ConversationView::Conversation => {
-                                    self.state.message_scroll.scroll_down(self.state.message_scroll.viewport_height);
+                                    self.state
+                                        .message_scroll
+                                        .scroll_down(self.state.message_scroll.viewport_height);
                                 }
                             }
                         }
@@ -634,10 +682,13 @@ impl Plugin for ConversationsPlugin {
                             match self.state.view {
                                 ConversationView::SessionsList | ConversationView::Search => {
                                     self.state.list_nav.page_up();
-                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                    self.state.selected_session =
+                                        Some(self.state.list_nav.selected);
                                 }
                                 ConversationView::Conversation => {
-                                    self.state.message_scroll.scroll_up(self.state.message_scroll.viewport_height);
+                                    self.state
+                                        .message_scroll
+                                        .scroll_up(self.state.message_scroll.viewport_height);
                                 }
                             }
                         }
@@ -645,6 +696,13 @@ impl Plugin for ConversationsPlugin {
                             // Exit search mode
                             if self.state.view == ConversationView::Search {
                                 self.state.clear_search();
+                                self.state
+                                    .list_nav
+                                    .set_total_items(self.state.sessions.len());
+                                if self.state.list_nav.selected < self.state.sessions.len() {
+                                    self.state.selected_session =
+                                        Some(self.state.list_nav.selected);
+                                }
                             }
                         }
                         _ => {}
@@ -652,39 +710,38 @@ impl Plugin for ConversationsPlugin {
                 } else if !modifiers.alt {
                     // Handle simple key presses
                     match self.state.view {
-                        ConversationView::SessionsList => {
-                            match code.as_str() {
-                                "j" | "Down" => {
-                                    self.state.list_nav.next();
-                                    self.state.selected_session = Some(self.state.list_nav.selected);
-                                }
-                                "k" | "Up" => {
-                                    self.state.list_nav.prev();
-                                    self.state.selected_session = Some(self.state.list_nav.selected);
-                                }
-                                "g" | "Home" => {
-                                    self.state.list_nav.first();
-                                    self.state.selected_session = Some(self.state.list_nav.selected);
-                                }
-                                "G" | "End" => {
-                                    self.state.list_nav.last();
-                                    self.state.selected_session = Some(self.state.list_nav.selected);
-                                }
-                                "Enter" | "l" | "o" => {
-                                    if self.state.selected_session.is_some() {
-                                        self.state.enter_conversation();
-                                        commands.push(PluginCmd::new("conversations", "load-messages"));
-                                    }
-                                }
-                                "/" => {
-                                    self.state.start_search(String::new());
-                                }
-                                "r" => {
-                                    commands.push(PluginCmd::new("conversations", "refresh"));
-                                }
-                                _ => {}
+                        ConversationView::SessionsList => match code.as_str() {
+                            "j" | "Down" => {
+                                self.state.list_nav.next();
+                                self.state.selected_session = Some(self.state.list_nav.selected);
                             }
-                        }
+                            "k" | "Up" => {
+                                self.state.list_nav.prev();
+                                self.state.selected_session = Some(self.state.list_nav.selected);
+                            }
+                            "g" | "Home" => {
+                                self.state.list_nav.first();
+                                self.state.selected_session = Some(self.state.list_nav.selected);
+                            }
+                            "G" | "End" => {
+                                self.state.list_nav.last();
+                                self.state.selected_session = Some(self.state.list_nav.selected);
+                            }
+                            "Enter" | "l" | "o" => {
+                                if self.state.selected_session.is_some() {
+                                    self.state.enter_conversation();
+                                    self.pending_load_messages = true;
+                                }
+                            }
+                            "/" => {
+                                self.state.start_search(String::new());
+                                self.refresh_search_navigation();
+                            }
+                            "r" => {
+                                self.pending_refresh = true;
+                            }
+                            _ => {}
+                        },
                         ConversationView::Conversation => {
                             match code.as_str() {
                                 "j" | "Down" => {
@@ -704,7 +761,9 @@ impl Plugin for ConversationsPlugin {
                                 }
                                 " " => {
                                     // Toggle message expansion
-                                    if let Some(msg) = self.state.get_message(self.state.message_scroll.scroll_y) {
+                                    if let Some(msg) =
+                                        self.state.get_message(self.state.message_scroll.scroll_y)
+                                    {
                                         let msg_id = msg.id.clone();
                                         self.state.toggle_message_expanded(&msg_id);
                                     }
@@ -722,31 +781,48 @@ impl Plugin for ConversationsPlugin {
                             match code.as_str() {
                                 "Esc" => {
                                     self.state.clear_search();
+                                    self.state
+                                        .list_nav
+                                        .set_total_items(self.state.sessions.len());
+                                    if self.state.list_nav.selected < self.state.sessions.len() {
+                                        self.state.selected_session =
+                                            Some(self.state.list_nav.selected);
+                                    }
                                 }
                                 "Enter" => {
                                     // Filter is already applied in real-time
                                 }
+                                "Backspace" => {
+                                    self.pop_search_char();
+                                }
                                 "j" | "Down" => {
                                     self.state.list_nav.next();
-                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                    self.set_selected_session_from_filtered_index();
                                 }
                                 "k" | "Up" => {
                                     self.state.list_nav.prev();
-                                    self.state.selected_session = Some(self.state.list_nav.selected);
+                                    self.set_selected_session_from_filtered_index();
                                 }
-                                _ => {}
+                                _ => {
+                                    if code.len() == 1 {
+                                        let ch = code.chars().next().unwrap_or_default();
+                                        if !ch.is_control() {
+                                            self.append_search_char(ch);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
             crate::event::Event::RefreshNeeded => {
-                commands.push(PluginCmd::new("conversations", "refresh"));
+                self.pending_refresh = true;
             }
             _ => {}
         }
-        
-        commands
+
+        Vec::new()
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &crate::core::models::Theme) {
@@ -765,16 +841,59 @@ impl Plugin for ConversationsPlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::with_context("refresh", "Refresh", 'r', crate::keymap::FocusContext::Conversations),
-            crate::plugin::PluginCommand::with_context("search", "Search", '/', crate::keymap::FocusContext::Conversations),
-            crate::plugin::PluginCommand::with_context("expand", "Expand", 'e', crate::keymap::FocusContext::Conversations),
-            crate::plugin::PluginCommand::with_context("open", "Open", 'o', crate::keymap::FocusContext::Conversations),
-            crate::plugin::PluginCommand::with_context("back", "Back", 'h', crate::keymap::FocusContext::Conversations),
+            crate::plugin::PluginCommand::with_context(
+                "refresh",
+                "Refresh",
+                'r',
+                crate::keymap::FocusContext::Conversations,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "search",
+                "Search",
+                '/',
+                crate::keymap::FocusContext::Conversations,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "expand",
+                "Expand",
+                'e',
+                crate::keymap::FocusContext::Conversations,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "open",
+                "Open",
+                'o',
+                crate::keymap::FocusContext::Conversations,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "back",
+                "Back",
+                'h',
+                crate::keymap::FocusContext::Conversations,
+            ),
         ]
     }
 
     fn focus_context(&self) -> crate::keymap::FocusContext {
         crate::keymap::FocusContext::Conversations
+    }
+
+    async fn update(&mut self) -> anyhow::Result<()> {
+        if self.pending_refresh {
+            self.pending_refresh = false;
+            if let Err(e) = self.refresh().await {
+                warn!("Conversations refresh failed: {}", e);
+            }
+        }
+
+        if self.pending_load_messages {
+            self.pending_load_messages = false;
+            if let Err(e) = self.load_selected_session_messages().await {
+                warn!("Failed to load conversation messages: {}", e);
+            }
+        }
+
+        Ok(())
     }
 }
 

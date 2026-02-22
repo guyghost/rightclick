@@ -1,9 +1,9 @@
 //! External service integrations - STUB
 
+use crate::core::models::{Commit, Diff, FileDiff, RepoStatus};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::path::Path;
-use crate::core::models::{Commit, Diff, FileDiff, RepoStatus};
 
 #[async_trait]
 pub trait GitService: Send + Sync {
@@ -14,6 +14,8 @@ pub trait GitService: Send + Sync {
     async fn unstage(&self, repo_path: &Path, file: &Path) -> Result<()>;
     async fn commit(&self, repo_path: &Path, message: &str) -> Result<()>;
     async fn commit_details(&self, repo_path: &Path, commit_hash: &str) -> Result<Vec<FileDiff>>;
+    /// Get the full diff for a specific commit
+    async fn commit_diff(&self, repo_path: &Path, commit_hash: &str) -> Result<Diff>;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -47,5 +49,8 @@ impl GitService for CliGitService {
     }
     async fn commit_details(&self, _repo_path: &Path, _commit_hash: &str) -> Result<Vec<FileDiff>> {
         Ok(Vec::new())
+    }
+    async fn commit_diff(&self, _repo_path: &Path, _commit_hash: &str) -> Result<Diff> {
+        Ok(Diff::default())
     }
 }

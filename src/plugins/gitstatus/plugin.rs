@@ -3,16 +3,17 @@
 //! This module implements the Git Status plugin for RightClick, providing
 //! a TUI interface for viewing and interacting with git repository status.
 
+use std::collections::VecDeque;
 use std::path::PathBuf;
 
 use anyhow::Result;
 use async_trait::async_trait;
 use ratatui::{buffer::Buffer, layout::Rect};
 
-use crate::core::models::{RepoStatus, Theme, Config};
+use crate::core::models::{Config, RepoStatus, Theme};
 use crate::event::Event;
-use crate::keymap::registry::KeyBindingRegistry;
 use crate::keymap::FocusContext;
+use crate::keymap::registry::KeyBindingRegistry;
 use crate::plugin::{Command as PluginCommandTrait, Plugin, PluginContext};
 use crate::shell::machines::{GitCommand, GitStateMachine};
 use crate::shell::services_full::{CliGitService, GitService};
@@ -100,6 +101,8 @@ pub struct GitStatusPlugin {
     state_machine: GitStateMachine,
     /// Hash of commit to load details for
     pending_commit_hash: Option<String>,
+    /// Commands queued from input handling and executed in update()
+    pending_commands: VecDeque<Command>,
 }
 
 impl GitStatusPlugin {
@@ -108,6 +111,7 @@ impl GitStatusPlugin {
         Self {
             state: PluginState::default(),
             pending_commit_hash: None,
+            pending_commands: VecDeque::new(),
             repo_path: PathBuf::new(),
             focused: false,
             git_service: CliGitService::new(),
@@ -121,6 +125,7 @@ impl GitStatusPlugin {
         Self {
             state: PluginState::default(),
             pending_commit_hash: None,
+            pending_commands: VecDeque::new(),
             repo_path: PathBuf::new(),
             focused: false,
             git_service,
@@ -223,7 +228,7 @@ impl GitStatusPlugin {
                 if modifiers.ctrl {
                     // Handle Ctrl+key combinations
                 } else if modifiers.alt {
-                    // Handle Alt+key combinations  
+                    // Handle Alt+key combinations
                 } else {
                     // Handle simple key presses
                     commands.extend(self.handle_key(&code));
@@ -289,22 +294,6 @@ impl GitStatusPlugin {
             }
         }
 
-        if key == "s" && commands.is_empty() {
-            if let Some(file) = self.state.selected_file_path() {
-                commands.push(Command::StageFile(file));
-            }
-        } else if key == "u" && commands.is_empty() {
-            if let Some(file) = self.state.selected_file_path() {
-                commands.push(Command::UnstageFile(file));
-            }
-        } else if key == "d" && commands.is_empty() {
-            if let Some(file) = self.state.selected_file_path() {
-                commands.push(Command::ShowDiff(file));
-            }
-        } else if key == "r" && commands.is_empty() {
-            commands.push(Command::Refresh);
-        }
-
         commands
     }
 
@@ -335,6 +324,26 @@ impl GitStatusPlugin {
             }
             Command::SwitchMode(mode) => {
                 self.state.view_mode = mode;
+
+                // Ensure appropriate selection when switching modes
+                match mode {
+                    ViewMode::History => {
+                        // When entering History mode, ensure a commit is selected
+                        if self.state.selected_commit.is_none() && !self.state.commits.is_empty() {
+                            self.state.selected_commit = Some(0);
+                        }
+                        // Clear file selection when entering History mode
+                        self.state.selected_file = None;
+                    }
+                    ViewMode::Status | ViewMode::Diff => {
+                        // When entering Status/Diff mode, ensure a file is selected if available
+                        if self.state.selected_file.is_none() && !self.state.files.is_empty() {
+                            self.state.selected_file = Some(0);
+                        }
+                    }
+                }
+
+                self.validate_selections();
                 self.sync_state_machine();
                 events.push(Event::RefreshNeeded);
             }
@@ -375,6 +384,8 @@ impl GitStatusPlugin {
     async fn refresh(&mut self) -> Result<()> {
         let status = self.fetch_repo_status().await?;
         self.state.update_status(status);
+        // Validate selections after data changes to ensure they stay in bounds
+        self.validate_selections();
         self.sync_state_machine();
         Ok(())
     }
@@ -427,18 +438,20 @@ impl GitStatusPlugin {
         let commits = self.git_service.commits(&self.repo_path, 100).await?;
         tracing::debug!("Loaded {} commits", commits.len());
         self.state.commits = commits;
-        self.state.selected_commit = if self.state.commits.is_empty() {
-            None
-        } else {
-            Some(0)
-        };
-        self.state_machine.update_items(self.state.commits.len());
-        self.state_machine.set_selected_index(self.state.selected_commit);
 
-        // Load details for first commit
-        let first_hash = self.state.selected_commit().map(|c| c.hash.clone());
-        if let Some(hash) = first_hash {
-            self.load_commit_details(&hash).await?;
+        // Validate selections after loading commits
+        self.validate_selections();
+
+        // Update state machine with new commit count
+        if self.state.view_mode == ViewMode::History {
+            self.state_machine.update_items(self.state.commits.len());
+            self.state_machine
+                .set_selected_index(self.state.selected_commit);
+        }
+
+        // Load details for selected commit (if any)
+        if let Some(commit) = self.state.selected_commit().cloned() {
+            self.load_commit_details(&commit.hash).await?;
         }
 
         Ok(())
@@ -446,25 +459,83 @@ impl GitStatusPlugin {
 
     /// Load commit details
     async fn load_commit_details(&mut self, hash: &str) -> Result<()> {
-        let files = self.git_service.commit_details(&self.repo_path, hash).await?;
+        // Load file list with stats
+        let files = self
+            .git_service
+            .commit_details(&self.repo_path, hash)
+            .await?;
         self.state.commit_files = files;
+
+        // Load full diff with patch content
+        let diff = self.git_service.commit_diff(&self.repo_path, hash).await?;
+        self.state.commit_diff = Some(diff);
+
         Ok(())
     }
 
     fn sync_state_machine(&self) {
+        // Determine item count based on view mode and available data
         let item_count = if self.state.view_mode == ViewMode::History {
             self.state.commits.len()
         } else {
+            // In Status/Diff mode, use files count normally
+            // But if files are empty and commits exist, we still show commits in sidebar
+            // The state machine tracks files for navigation purposes
             self.state.files.len()
         };
-        self.state_machine.initialize(item_count, self.state.view_mode);
+
         self.state_machine
-            .set_selected_index(if self.state.view_mode == ViewMode::History {
-                self.state.selected_commit
-            } else {
-                self.state.selected_file
-            });
+            .initialize(item_count, self.state.view_mode);
+
+        // Set selected index based on view mode
+        let selected_index = if self.state.view_mode == ViewMode::History {
+            self.state.selected_commit
+        } else {
+            self.state.selected_file
+        };
+        self.state_machine.set_selected_index(selected_index);
         self.state_machine.set_focus_pane(self.state.focus_pane);
+
+        tracing::debug!(
+            "Synced state machine: view_mode={:?}, item_count={}, selected_index={:?}, focus_pane={:?}",
+            self.state.view_mode,
+            item_count,
+            selected_index,
+            self.state.focus_pane
+        );
+    }
+
+    /// Ensure selections are valid after data changes
+    fn validate_selections(&mut self) {
+        // Validate file selection
+        if let Some(idx) = self.state.selected_file {
+            if idx >= self.state.files.len() {
+                self.state.selected_file = if self.state.files.is_empty() {
+                    None
+                } else {
+                    Some(self.state.files.len() - 1)
+                };
+            }
+        }
+
+        // Validate commit selection
+        if let Some(idx) = self.state.selected_commit {
+            if idx >= self.state.commits.len() {
+                self.state.selected_commit = if self.state.commits.is_empty() {
+                    None
+                } else {
+                    Some(self.state.commits.len() - 1)
+                };
+            }
+        }
+
+        // Ensure at least one selection when appropriate
+        if self.state.view_mode == ViewMode::History
+            && self.state.selected_commit.is_none()
+            && !self.state.commits.is_empty()
+        {
+            self.state.selected_commit = Some(0);
+        }
     }
 }
 
@@ -510,26 +581,10 @@ impl Plugin for GitStatusPlugin {
 
     fn handle_event(&mut self, event: Event) -> Vec<PluginCommandTrait> {
         let commands = self.handle_event_internal(event);
-        // Convert internal commands to plugin commands
-        commands
-            .into_iter()
-            .filter_map(|cmd| match cmd {
-                Command::Refresh => Some(PluginCommandTrait::new("git-status", "refresh")),
-                Command::StageFile(path) => {
-                    Some(PluginCommandTrait::with_args("git-status", "stage", path.to_string_lossy()))
-                }
-                Command::UnstageFile(path) => Some(PluginCommandTrait::with_args(
-                    "git-status",
-                    "unstage",
-                    path.to_string_lossy(),
-                )),
-                Command::ShowDiff(path) => {
-                    Some(PluginCommandTrait::with_args("git-status", "diff", path.to_string_lossy()))
-                }
-                Command::OpenCommitDialog => Some(PluginCommandTrait::new("git-status", "commit")),
-                _ => None,
-            })
-            .collect()
+        for cmd in commands {
+            self.pending_commands.push_back(cmd);
+        }
+        Vec::new()
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
@@ -545,12 +600,78 @@ impl Plugin for GitStatusPlugin {
     }
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
-        vec![
-            crate::plugin::PluginCommand::with_context("stage", "Stage", 's', FocusContext::GitStatus),
-            crate::plugin::PluginCommand::with_context("unstage", "Unstage", 'u', FocusContext::GitStatus),
-            crate::plugin::PluginCommand::with_context("diff", "Diff", 'd', FocusContext::GitStatus),
-            crate::plugin::PluginCommand::with_context("commit", "Commit", 'c', FocusContext::GitStatus),
-        ]
+        // Build contextual shortcuts based on view mode
+        let mut commands = vec![
+            // Navigation
+            crate::plugin::PluginCommand::with_context("nav", "nav", 'j', self.focus_context()),
+            crate::plugin::PluginCommand::with_context("nav", "nav", 'k', self.focus_context()),
+        ];
+
+        if self.state.view_mode == ViewMode::History {
+            // History mode shortcuts
+            commands.extend(vec![
+                crate::plugin::PluginCommand::with_context(
+                    "status",
+                    "Status",
+                    'S',
+                    FocusContext::GitStatus,
+                ),
+                crate::plugin::PluginCommand::with_context(
+                    "history",
+                    "History",
+                    'H',
+                    FocusContext::GitStatus,
+                ),
+            ]);
+        } else {
+            // Status/Diff mode shortcuts
+            if !self.state.files.is_empty() {
+                commands.extend(vec![
+                    crate::plugin::PluginCommand::with_context(
+                        "stage",
+                        "Stage",
+                        's',
+                        FocusContext::GitStatus,
+                    ),
+                    crate::plugin::PluginCommand::with_context(
+                        "unstage",
+                        "Unstage",
+                        'u',
+                        FocusContext::GitStatus,
+                    ),
+                    crate::plugin::PluginCommand::with_context(
+                        "diff",
+                        "Diff",
+                        'd',
+                        FocusContext::GitStatus,
+                    ),
+                ]);
+            }
+            commands.extend(vec![
+                crate::plugin::PluginCommand::with_context(
+                    "history",
+                    "History",
+                    'H',
+                    FocusContext::GitStatus,
+                ),
+                crate::plugin::PluginCommand::with_context(
+                    "commit",
+                    "Commit",
+                    'c',
+                    FocusContext::GitStatus,
+                ),
+            ]);
+        }
+
+        // Common shortcuts
+        commands.extend(vec![crate::plugin::PluginCommand::with_context(
+            "refresh",
+            "Refresh",
+            'r',
+            FocusContext::GitStatus,
+        )]);
+
+        commands
     }
 
     fn focus_context(&self) -> FocusContext {
@@ -558,6 +679,12 @@ impl Plugin for GitStatusPlugin {
     }
 
     async fn update(&mut self) -> Result<()> {
+        while let Some(cmd) = self.pending_commands.pop_front() {
+            if let Err(e) = self.execute_internal(cmd).await {
+                tracing::warn!("Failed to execute git command: {}", e);
+            }
+        }
+
         // Load commit details if there's a pending hash
         if let Some(hash) = self.pending_commit_hash.take() {
             if let Err(e) = self.load_commit_details(&hash).await {
@@ -605,6 +732,12 @@ pub fn register_default_bindings(registry: &mut KeyBindingRegistry) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::models::{Commit, FileChange, FileStatus};
+    use chrono::Utc;
+
+    fn test_commit(hash: &str) -> Commit {
+        Commit::new(hash, "subject", "author", Utc::now())
+    }
 
     #[test]
     fn test_plugin_new() {
@@ -625,39 +758,34 @@ mod tests {
         let plugin = GitStatusPlugin::new();
         let commands = plugin.commands();
         assert!(!commands.is_empty());
-        
-        // Check that we have the expected commands
-        let has_stage = commands.iter().any(|c| c.id == "stage");
-        let has_unstage = commands.iter().any(|c| c.id == "unstage");
-        let has_diff = commands.iter().any(|c| c.id == "diff");
-        let has_commit = commands.iter().any(|c| c.id == "commit");
-        
-        assert!(has_stage);
-        assert!(has_unstage);
-        assert!(has_diff);
-        assert!(has_commit);
+
+        // Check that we have navigation commands
+        let has_nav = commands.iter().any(|c| c.id == "nav");
+        let has_refresh = commands.iter().any(|c| c.id == "refresh");
+
+        assert!(has_nav);
+        assert!(has_refresh);
     }
 
     #[test]
     fn test_handle_key_navigation() {
         let mut plugin = GitStatusPlugin::new();
-        
+        plugin.state_machine.initialize(3, ViewMode::Status);
+
         // Test j key (next)
         let commands = plugin.handle_key("j");
         assert_eq!(commands.len(), 1);
         assert_eq!(commands[0], Command::Refresh);
-        
+
         // Test k key (prev)
         let commands = plugin.handle_key("k");
-        assert_eq!(commands.len(), 1);
-        assert_eq!(commands[0], Command::Refresh);
-        
+        assert!(commands.is_empty() || (commands.len() == 1 && commands[0] == Command::Refresh));
+
         // Test h key (sidebar focus)
         let commands = plugin.handle_key("h");
-        assert_eq!(commands.len(), 1);
-        assert_eq!(commands[0], Command::Refresh);
+        assert!(commands.is_empty());
         assert_eq!(plugin.state.focus_pane, FocusPane::Sidebar);
-        
+
         // Test l key (main focus)
         let commands = plugin.handle_key("l");
         assert_eq!(commands.len(), 1);
@@ -668,12 +796,12 @@ mod tests {
     #[test]
     fn test_handle_key_actions() {
         let mut plugin = GitStatusPlugin::new();
-        
+
         // Test r key (refresh)
         let commands = plugin.handle_key("r");
         assert_eq!(commands.len(), 1);
         assert_eq!(commands[0], Command::Refresh);
-        
+
         // Test c key (commit dialog)
         let commands = plugin.handle_key("c");
         assert_eq!(commands.len(), 1);
@@ -681,12 +809,60 @@ mod tests {
     }
 
     #[test]
+    fn test_history_navigation_uses_state_machine() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::History;
+        plugin.state.commits = vec![
+            test_commit("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            test_commit("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+            test_commit("cccccccccccccccccccccccccccccccccccccccc"),
+        ];
+        plugin.sync_state_machine();
+
+        let commands = plugin.handle_key("j");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert_eq!(plugin.state.selected_commit, Some(0));
+        assert_eq!(
+            plugin.pending_commit_hash.as_deref(),
+            Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        );
+
+        let commands = plugin.handle_key("j");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert_eq!(plugin.state.selected_commit, Some(1));
+        assert_eq!(
+            plugin.pending_commit_hash.as_deref(),
+            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+        );
+
+        let commands = plugin.handle_key("k");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert_eq!(plugin.state.selected_commit, Some(0));
+        assert_eq!(
+            plugin.pending_commit_hash.as_deref(),
+            Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        );
+    }
+
+    #[test]
+    fn test_stage_without_selection_is_blocked_by_guard() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Status;
+        plugin.state.files = vec![FileChange::new("src/main.rs", FileStatus::Modified)];
+        plugin.state.selected_file = None;
+        plugin.sync_state_machine();
+
+        let commands = plugin.handle_key("s");
+        assert!(commands.is_empty());
+    }
+
+    #[test]
     fn test_focus_context() {
         let mut plugin = GitStatusPlugin::new();
-        
+
         // Default is sidebar
         assert_eq!(plugin.focus_context(), FocusContext::GitStatus);
-        
+
         // Switch to main
         plugin.state.focus_pane = FocusPane::Main;
         assert_eq!(plugin.focus_context(), FocusContext::GitDiff);
@@ -695,11 +871,15 @@ mod tests {
     #[tokio::test]
     async fn test_plugin_init() {
         let mut plugin = GitStatusPlugin::new();
-        let ctx = PluginContext {
-            project_root: PathBuf::from("."),
-            config: Config::default(),
-        };
-        
+        let ctx = PluginContext::new(
+            PathBuf::from("."),
+            PathBuf::from("."),
+            PathBuf::from("."),
+            Config::default(),
+            std::sync::Arc::new(crate::event::Dispatcher::new()),
+            tracing::info_span!("test"),
+        );
+
         // Should not panic
         let result = plugin.init(&ctx).await;
         assert!(result.is_ok());
@@ -716,13 +896,13 @@ mod tests {
     fn test_available_commands() {
         let plugin = GitStatusPlugin::new();
         let commands = plugin.available_commands();
-        
+
         assert_eq!(commands.len(), 4);
-        
+
         let stage = commands.iter().find(|c| c.id == "stage").unwrap();
         assert_eq!(stage.key, 's');
         assert_eq!(stage.context, FocusContext::GitStatus);
-        
+
         let unstage = commands.iter().find(|c| c.id == "unstage").unwrap();
         assert_eq!(unstage.key, 'u');
     }

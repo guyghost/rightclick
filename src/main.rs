@@ -8,14 +8,14 @@ use clap::Parser;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Terminal,
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     widgets::{Block, Borders, Paragraph, Tabs},
-    Terminal,
 };
 use tracing::{info, warn};
 
@@ -24,7 +24,7 @@ use rightclick::{
     config,
     core::models::Theme,
     plugin::{Plugin, PluginContext},
-    plugins::{conversations, filebrowser, gitstatus, tdmonitor, workers},
+    plugins::{conversations, filebrowser, gitstatus, workers},
     state,
     theme::{self, resolve_theme},
 };
@@ -55,7 +55,7 @@ fn version() -> &'static str {
 
 /// Setup logging
 fn setup_logging(debug: bool) -> Result<()> {
-    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
     let filter = if debug {
         EnvFilter::new("debug")
@@ -106,7 +106,10 @@ async fn main() -> Result<()> {
 
     // Detect adapters for conversations plugin
     let adapter_registry = create_default_registry()?;
-    let adapters = adapter_registry.detect_all(&project_root).await.unwrap_or_default();
+    let adapters = adapter_registry
+        .detect_all(&project_root)
+        .await
+        .unwrap_or_default();
     info!("Detected {} adapters", adapters.len());
 
     // Create plugin context
@@ -157,18 +160,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    // TD Monitor plugin
-    if config.plugins.td_monitor.enabled {
-        info!("Loading td-monitor plugin");
-        let mut plugin = tdmonitor::TDMonitorPlugin::new();
-        if let Err(e) = plugin.init(&plugin_ctx).await {
-            warn!("Failed to init tdmonitor plugin: {}", e);
-        } else {
-            plugins.push(Box::new(plugin));
-        }
-    }
-
-    // Workers plugin (replaces workspace plugin)
+    // Workers plugin
     if config.plugins.workspace.enabled {
         info!("Loading workers plugin");
         let mut plugin = workers::WorkersPlugin::new();
@@ -255,24 +247,51 @@ impl App {
 
         match event {
             CEvent::Key(key) if key.kind == KeyEventKind::Press => {
+                let active_plugin_id = self
+                    .plugins
+                    .get(self.active_plugin)
+                    .map(|p| p.id())
+                    .unwrap_or("");
+                let active_is_workspace = active_plugin_id == "workspace";
+                let active_is_gitstatus = active_plugin_id == "git-status";
+
                 // Global keys first
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Char('Q') => {
                         self.should_quit = true;
                         return Ok(());
                     }
+                    KeyCode::Char('c')
+                        if key
+                            .modifiers
+                            .contains(crossterm::event::KeyModifiers::CONTROL) =>
+                    {
+                        self.should_quit = true;
+                        return Ok(());
+                    }
                     KeyCode::Char(c) if c.is_ascii_digit() => {
+                        // Always use digits 1-9 for global plugin navigation
                         let idx = c.to_digit(10).unwrap() as usize;
                         if idx > 0 && idx <= self.plugins.len() {
                             self.switch_plugin(idx - 1);
                             return Ok(());
                         }
                     }
-                    KeyCode::Tab => {
+                    KeyCode::Tab
+                        if (!active_is_workspace && !active_is_gitstatus)
+                            || key
+                                .modifiers
+                                .contains(crossterm::event::KeyModifiers::CONTROL) =>
+                    {
                         self.next_plugin();
                         return Ok(());
                     }
-                    KeyCode::BackTab => {
+                    KeyCode::BackTab
+                        if (!active_is_workspace && !active_is_gitstatus)
+                            || key
+                                .modifiers
+                                .contains(crossterm::event::KeyModifiers::CONTROL) =>
+                    {
                         self.prev_plugin();
                         return Ok(());
                     }
@@ -302,13 +321,17 @@ impl App {
                         _ => key.code.to_string(),
                     };
                     let modifiers = rightclick::event::KeyModifiers {
-                        ctrl: key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL),
+                        ctrl: key
+                            .modifiers
+                            .contains(crossterm::event::KeyModifiers::CONTROL),
                         alt: key.modifiers.contains(crossterm::event::KeyModifiers::ALT),
-                        shift: key.modifiers.contains(crossterm::event::KeyModifiers::SHIFT),
+                        shift: key
+                            .modifiers
+                            .contains(crossterm::event::KeyModifiers::SHIFT),
                     };
-                    let event = rightclick::event::Event::Key { 
-                        code: key_code, 
-                        modifiers 
+                    let event = rightclick::event::Event::Key {
+                        code: key_code,
+                        modifiers,
                     };
                     let _commands = plugin.handle_event(event);
                 }
@@ -378,8 +401,7 @@ impl App {
             if let Some(plugin) = self.plugins.get(self.active_plugin) {
                 plugin.render(chunks[1], f.buffer_mut(), &self.theme);
             } else {
-                let msg = Paragraph::new("No plugins loaded.")
-                    .alignment(Alignment::Center);
+                let msg = Paragraph::new("No plugins loaded.").alignment(Alignment::Center);
                 f.render_widget(msg, chunks[1]);
             }
 
@@ -409,27 +431,87 @@ impl App {
     }
 
     fn render_footer(&self, f: &mut ratatui::Frame, area: Rect) {
-        let hints = if let Some(plugin) = self.plugins.get(self.active_plugin) {
-            let commands = plugin.commands();
-            let cmd_hints: Vec<String> = commands
-                .iter()
-                .take(4)
-                .map(|c| format!("{}: {}", c.key, c.name))
-                .collect();
-            format!(" q:quit | Tab:switch | {} ", cmd_hints.join(" | "))
-        } else {
-            " q:quit | Tab:switch ".to_string()
-        };
+        use ratatui::text::{Line, Span};
 
-        let footer = Paragraph::new(hints)
-            .style(Style::default().fg(Color::Gray))
-            .alignment(Alignment::Center);
-        f.render_widget(footer, area);
+        if let Some(plugin) = self.plugins.get(self.active_plugin) {
+            let commands = plugin.commands();
+
+            // Group commands by category
+            let nav_keys = ['j', 'k', 'h', 'l', 'g', 'G'];
+
+            let mut nav_cmds: Vec<String> = Vec::new();
+            let mut action_cmds: Vec<String> = Vec::new();
+
+            for cmd in &commands {
+                let hint = format!("{}:{}", cmd.key, cmd.name);
+                let key = cmd.key;
+
+                if nav_keys.contains(&key) {
+                    if !nav_cmds.contains(&hint) {
+                        nav_cmds.push(hint);
+                    }
+                } else if !action_cmds.contains(&hint) {
+                    action_cmds.push(hint);
+                }
+            }
+
+            // Build footer spans
+            let mut spans: Vec<Span> = Vec::new();
+
+            // Navigation section in blue
+            if !nav_cmds.is_empty() {
+                spans.push(Span::styled("⟨", Style::default().fg(Color::Blue)));
+                spans.push(Span::styled(
+                    nav_cmds.join(" "),
+                    Style::default().fg(Color::Cyan),
+                ));
+                spans.push(Span::styled("⟩", Style::default().fg(Color::Blue)));
+                spans.push(Span::raw(" "));
+            }
+
+            // Actions section in green/yellow
+            if !action_cmds.is_empty() {
+                spans.push(Span::styled("[", Style::default().fg(Color::Green)));
+                spans.push(Span::styled(
+                    action_cmds.join(" "),
+                    Style::default().fg(Color::Yellow),
+                ));
+                spans.push(Span::styled("]", Style::default().fg(Color::Green)));
+                spans.push(Span::raw(" "));
+            }
+
+            // Global shortcuts
+            spans.push(Span::styled("q:", Style::default().fg(Color::Red)));
+            spans.push(Span::styled("quit ", Style::default().fg(Color::Gray)));
+
+            // Tab behavior depends on plugin
+            if plugin.id() == "git-status" {
+                spans.push(Span::styled("Tab:", Style::default().fg(Color::Magenta)));
+                spans.push(Span::styled("pane ", Style::default().fg(Color::Gray)));
+            } else {
+                spans.push(Span::styled("Tab:", Style::default().fg(Color::Magenta)));
+                spans.push(Span::styled("switch ", Style::default().fg(Color::Gray)));
+            }
+            spans.push(Span::styled("1-9:", Style::default().fg(Color::Magenta)));
+            spans.push(Span::styled("goto", Style::default().fg(Color::Gray)));
+
+            let line = Line::from(spans);
+            let footer = Paragraph::new(line).alignment(Alignment::Center);
+            f.render_widget(footer, area);
+        } else {
+            let footer = Paragraph::new(" q:quit | Tab:switch | 1-9:goto ")
+                .style(Style::default().fg(Color::Gray))
+                .alignment(Alignment::Center);
+            f.render_widget(footer, area);
+        }
     }
 }
 
 /// Main application loop
-async fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
+async fn run_app(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    app: &mut App,
+) -> Result<()> {
     let tick_rate = std::time::Duration::from_millis(250);
 
     loop {

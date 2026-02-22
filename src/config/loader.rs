@@ -3,7 +3,7 @@
 //! This module handles loading configuration from files, including
 /// migration of older config formats and graceful handling of missing files.
 use crate::config::paths::config_path;
-use crate::core::models::config::{Config, CURRENT_CONFIG_VERSION};
+use crate::core::models::config::{CURRENT_CONFIG_VERSION, Config};
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;

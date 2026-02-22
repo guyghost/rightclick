@@ -12,7 +12,8 @@ use tokio::process::Command;
 use tracing::{debug, instrument};
 
 use crate::core::models::{
-    Branch, Commit, Diff, DiffHunk, DiffLine, FileChange, FileDiff, FileStatus, Remote, RepoStatus,
+    Branch, ChangeType, Commit, Diff, DiffHunk, DiffLine, FileChange, FileDiff, FileStatus, Remote,
+    RepoStatus,
 };
 
 /// Trait for git operations
@@ -47,6 +48,9 @@ pub trait GitService: Send + Sync {
 
     /// Get commit details including changed files
     async fn commit_details(&self, repo_path: &Path, commit_hash: &str) -> Result<Vec<FileDiff>>;
+
+    /// Get the full diff for a specific commit
+    async fn commit_diff(&self, repo_path: &Path, commit_hash: &str) -> Result<Diff>;
 }
 
 /// Git service implementation using command-line git
@@ -195,7 +199,9 @@ impl CliGitService {
                 // Try to parse date in various formats
                 let date = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(date_str) {
                     dt.with_timezone(&chrono::Utc)
-                } else if let Ok(dt) = chrono::DateTime::parse_from_str(date_str, "%a %b %e %H:%M:%S %Y %z") {
+                } else if let Ok(dt) =
+                    chrono::DateTime::parse_from_str(date_str, "%a %b %e %H:%M:%S %Y %z")
+                {
                     dt.with_timezone(&chrono::Utc)
                 } else {
                     // Fallback to current time if parsing fails
@@ -228,7 +234,9 @@ impl GitService for CliGitService {
     async fn status(&self, repo_path: &Path) -> Result<RepoStatus> {
         debug!("Getting git status for {}", repo_path.display());
 
-        let output = self.run_git(repo_path, &["status", "--porcelain", "-b"]).await?;
+        let output = self
+            .run_git(repo_path, &["status", "--porcelain", "-b"])
+            .await?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         let files = self.parse_status_output(&stdout);
@@ -246,19 +254,19 @@ impl GitService for CliGitService {
             // Parse branch name and ahead/behind
             let parts: Vec<&str> = b.split("...").collect();
             let name = parts[0].to_string();
-            
+
             let ahead = b
                 .find("[ahead ")
                 .and_then(|i| b[i + 7..].split(']').next())
                 .and_then(|n| n.parse().ok())
                 .unwrap_or(0);
-            
+
             let behind = b
                 .find("[behind ")
                 .and_then(|i| b[i + 8..].split(']').next())
                 .and_then(|n| n.parse().ok())
                 .unwrap_or(0);
-            
+
             (name, ahead, behind)
         } else {
             ("main".to_string(), 0, 0)
@@ -269,7 +277,7 @@ impl GitService for CliGitService {
         let mut unstaged = Vec::new();
         let mut untracked = Vec::new();
         let mut conflicted = Vec::new();
-        
+
         for file in files {
             match file.status {
                 FileStatus::Staged => staged.push(file),
@@ -298,10 +306,17 @@ impl GitService for CliGitService {
 
     #[instrument(skip(self))]
     async fn diff(&self, repo_path: &Path, file: &Path) -> Result<Diff> {
-        debug!("Getting diff for {} in {}", file.display(), repo_path.display());
+        debug!(
+            "Getting diff for {} in {}",
+            file.display(),
+            repo_path.display()
+        );
 
         let output = self
-            .run_git(repo_path, &["diff", "--cached", "--", file.to_str().unwrap_or(".")])
+            .run_git(
+                repo_path,
+                &["diff", "--cached", "--", file.to_str().unwrap_or(".")],
+            )
             .await?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -327,7 +342,7 @@ impl GitService for CliGitService {
                 // Parse hunk header: @@ -old_start,old_lines +new_start,new_lines @@
                 let header = line.to_string();
                 let parts: Vec<&str> = line.split_whitespace().collect();
-                
+
                 let old_range = parts.get(1).unwrap_or(&"-0,0");
                 let new_range = parts.get(2).unwrap_or(&"+0,0");
 
@@ -342,7 +357,10 @@ impl GitService for CliGitService {
                     header: header.clone(),
                     lines: Vec::new(),
                 });
-            } else if !line.starts_with("---") && !line.starts_with("+++") && !line.starts_with("diff") {
+            } else if !line.starts_with("---")
+                && !line.starts_with("+++")
+                && !line.starts_with("diff")
+            {
                 let diff_line = if line.starts_with('+') {
                     DiffLine {
                         content: line[1..].to_string(),
@@ -444,7 +462,11 @@ impl GitService for CliGitService {
 
     #[instrument(skip(self))]
     async fn commit(&self, repo_path: &Path, message: &str) -> Result<()> {
-        debug!("Committing in {} with message: {}", repo_path.display(), message);
+        debug!(
+            "Committing in {} with message: {}",
+            repo_path.display(),
+            message
+        );
         self.run_git(repo_path, &["commit", "-m", message]).await?;
         Ok(())
     }
@@ -456,7 +478,7 @@ impl GitService for CliGitService {
             .await?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         let branch = stdout.trim().to_string();
-        
+
         if branch.is_empty() {
             Ok(None)
         } else {
@@ -466,7 +488,9 @@ impl GitService for CliGitService {
 
     #[instrument(skip(self))]
     async fn branches(&self, repo_path: &Path) -> Result<Vec<Branch>> {
-        let output = self.run_git(repo_path, &["branch", "-a", "--format=%(refname:short)"]).await?;
+        let output = self
+            .run_git(repo_path, &["branch", "-a", "--format=%(refname:short)"])
+            .await?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         let branches = stdout
@@ -500,7 +524,7 @@ impl GitService for CliGitService {
             if parts.len() >= 2 {
                 let name = parts[0].to_string();
                 let url = parts[1].to_string();
-                
+
                 if seen.insert(name.clone()) {
                     remotes.push(Remote {
                         name,
@@ -519,7 +543,10 @@ impl GitService for CliGitService {
     async fn commit_details(&self, repo_path: &Path, commit_hash: &str) -> Result<Vec<FileDiff>> {
         // Use --name-status to get file status (A=Added, M=Modified, D=Deleted, R=Renamed)
         let output = self
-            .run_git(repo_path, &["show", "--name-status", "--format=", commit_hash])
+            .run_git(
+                repo_path,
+                &["show", "--name-status", "--format=", commit_hash],
+            )
             .await?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -589,20 +616,25 @@ impl GitService for CliGitService {
                         let additions_str = parts[0].trim();
                         let deletions_str = parts[1].trim();
                         let file_path = parts[2].trim();
-                        
+
                         // Check for binary files (-\t-\tfile)
                         if additions_str == "-" && deletions_str == "-" {
-                            if let Some(fd) = file_diffs.iter_mut().find(|fd| fd.path == file_path) {
+                            if let Some(fd) = file_diffs.iter_mut().find(|fd| fd.path == file_path)
+                            {
                                 fd.is_binary = true;
                                 fd.additions = 0;
                                 fd.deletions = 0;
                             }
                             continue;
                         }
-                        
+
                         // Parse additions and deletions
-                        if let (Ok(additions), Ok(deletions)) = (additions_str.parse::<usize>(), deletions_str.parse::<usize>()) {
-                            if let Some(fd) = file_diffs.iter_mut().find(|fd| fd.path == file_path) {
+                        if let (Ok(additions), Ok(deletions)) = (
+                            additions_str.parse::<usize>(),
+                            deletions_str.parse::<usize>(),
+                        ) {
+                            if let Some(fd) = file_diffs.iter_mut().find(|fd| fd.path == file_path)
+                            {
                                 fd.additions = additions;
                                 fd.deletions = deletions;
                             }
@@ -614,16 +646,169 @@ impl GitService for CliGitService {
 
         Ok(file_diffs)
     }
+
+    #[instrument(skip(self))]
+    async fn commit_diff(&self, repo_path: &Path, commit_hash: &str) -> Result<Diff> {
+        // Get the full diff with patch content
+        let output = self
+            .run_git(repo_path, &["show", "--patch", "--no-color", commit_hash])
+            .await?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // Parse the diff output
+        let mut files = Vec::new();
+        let mut current_file: Option<FileDiff> = None;
+        let mut current_hunk: Option<DiffHunk> = None;
+        let mut total_additions = 0;
+        let mut total_deletions = 0;
+
+        for line in stdout.lines() {
+            // New file diff starts with "diff --git"
+            if line.starts_with("diff --git") {
+                // Save previous file if exists
+                if let Some(hunk) = current_hunk.take() {
+                    if let Some(ref mut file) = current_file {
+                        file.hunks.push(hunk);
+                    }
+                }
+                if let Some(file) = current_file.take() {
+                    files.push(file);
+                }
+
+                // Parse file path from "diff --git a/old_path b/new_path"
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 4 {
+                    let path = parts[3].trim_start_matches('b').trim_start_matches('/');
+                    current_file = Some(FileDiff::new(path));
+                }
+            }
+            // File mode/permission changes
+            else if line.starts_with("new file mode") {
+                if let Some(ref mut file) = current_file {
+                    file.is_created = true;
+                }
+            } else if line.starts_with("deleted file mode") {
+                if let Some(ref mut file) = current_file {
+                    file.is_deleted = true;
+                }
+            } else if line.starts_with("rename from") {
+                if let Some(ref mut file) = current_file {
+                    file.is_renamed = true;
+                    file.old_path = Some(line[12..].to_string());
+                }
+            } else if line.starts_with("rename to") {
+                if let Some(ref mut file) = current_file {
+                    file.path = line[10..].to_string();
+                }
+            }
+            // Binary file
+            else if line.starts_with("Binary files") || line.starts_with("GIT binary patch") {
+                if let Some(ref mut file) = current_file {
+                    file.is_binary = true;
+                }
+            }
+            // Hunk header: "@@ -old_start,old_lines +new_start,new_lines @@"
+            else if line.starts_with("@@") && line.contains("@@") {
+                // Save previous hunk
+                if let Some(hunk) = current_hunk.take() {
+                    if let Some(ref mut file) = current_file {
+                        file.hunks.push(hunk);
+                    }
+                }
+
+                // Parse hunk header
+                let header_end = line[2..].find("@@").map(|i| i + 2).unwrap_or(line.len()) + 2;
+                let _header = line[..header_end].to_string();
+
+                // Extract old and new line info
+                let range_part = &line[2..header_end - 2].trim();
+                let ranges: Vec<&str> = range_part.split_whitespace().collect();
+
+                let (old_start, old_lines) = if let Some(old_range) = ranges.first() {
+                    parse_range(old_range)
+                } else {
+                    (0, 0)
+                };
+
+                let (new_start, new_lines) = if ranges.len() > 1 {
+                    parse_range(ranges[1])
+                } else {
+                    (0, 0)
+                };
+
+                current_hunk = Some(DiffHunk {
+                    old_start: old_start as u32,
+                    old_lines: old_lines as u32,
+                    new_start: new_start as u32,
+                    new_lines: new_lines as u32,
+                    header: line.to_string(),
+                    lines: Vec::new(),
+                });
+            }
+            // Diff line content
+            else if let Some(ref mut hunk) = current_hunk {
+                let (change_type, content) = if line.starts_with('+') {
+                    (ChangeType::Added, line[1..].to_string())
+                } else if line.starts_with('-') {
+                    (ChangeType::Deleted, line[1..].to_string())
+                } else if line.starts_with(' ') {
+                    (ChangeType::Context, line[1..].to_string())
+                } else if line.starts_with("\\") {
+                    // "\ No newline at end of file" - skip
+                    continue;
+                } else {
+                    (ChangeType::Message, line.to_string())
+                };
+
+                if change_type == ChangeType::Added {
+                    total_additions += 1;
+                    if let Some(ref mut file) = current_file {
+                        file.additions += 1;
+                    }
+                } else if change_type == ChangeType::Deleted {
+                    total_deletions += 1;
+                    if let Some(ref mut file) = current_file {
+                        file.deletions += 1;
+                    }
+                }
+
+                hunk.lines.push(DiffLine {
+                    change_type,
+                    content,
+                    old_line_no: None,
+                    new_line_no: None,
+                });
+            }
+        }
+
+        // Save last hunk and file
+        if let Some(hunk) = current_hunk {
+            if let Some(ref mut file) = current_file {
+                file.hunks.push(hunk);
+            }
+        }
+        if let Some(file) = current_file {
+            files.push(file);
+        }
+
+        let files_changed = files.len();
+        Ok(Diff {
+            files,
+            files_changed,
+            total_additions,
+            total_deletions,
+        })
+    }
 }
 
 /// Parse a range string like "-1,5" or "+5" into (start, lines)
 fn parse_range(range: &str) -> (usize, usize) {
     let range = range.trim_start_matches(&['-', '+'][..]);
     let parts: Vec<&str> = range.split(',').collect();
-    
+
     let start = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
     let lines = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
-    
+
     (start, lines)
 }
 
@@ -636,7 +821,7 @@ mod tests {
         let service = CliGitService::new();
         let output = " M src/main.rs\nM  src/lib.rs\n?? new_file.txt";
         let files = service.parse_status_output(output);
-        
+
         assert_eq!(files.len(), 3);
         assert!(matches!(files[0].status, FileStatus::Modified));
         assert!(matches!(files[1].status, FileStatus::Staged));

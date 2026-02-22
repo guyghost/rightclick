@@ -108,14 +108,13 @@ impl WorkerRunner {
 
         // Ensure log directory exists
         if let Some(parent) = worker.output_log.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                WorkerRunnerError::Io(e)
-            })?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| WorkerRunnerError::Io(e))?;
         }
 
         // Spawn the agent process
-        let mut child = spawn_agent_process(&worker.agent, &prompt, &worker.worktree_path)
-            .await?;
+        let mut child = spawn_agent_process(&worker.agent, &prompt, &worker.worktree_path).await?;
 
         let pid = child
             .id()
@@ -133,20 +132,21 @@ impl WorkerRunner {
         let log_path = worker.output_log.clone();
 
         // Get stdout and stderr handles
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| WorkerRunnerError::SpawnFailed("Failed to capture stdout".to_string()))?;
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| WorkerRunnerError::SpawnFailed("Failed to capture stderr".to_string()))?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            WorkerRunnerError::SpawnFailed("Failed to capture stdout".to_string())
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            WorkerRunnerError::SpawnFailed("Failed to capture stderr".to_string())
+        })?;
 
         // Spawn output handling task
         tokio::spawn(async move {
             let result = handle_output(stdout, stderr, log_path, tx.clone()).await;
             if let Err(e) = result {
-                error!("Output handling error for worker {}: {}", worker_id_clone, e);
+                error!(
+                    "Output handling error for worker {}: {}",
+                    worker_id_clone, e
+                );
                 let _ = tx.send(WorkerOutput::Exited(1)).await;
             }
         });
@@ -201,11 +201,9 @@ impl WorkerRunner {
         let completed: Vec<String> = self
             .running
             .iter_mut()
-            .filter_map(|(id, child)| {
-                match child.try_wait() {
-                    Ok(Some(_)) => Some(id.clone()),
-                    _ => None,
-                }
+            .filter_map(|(id, child)| match child.try_wait() {
+                Ok(Some(_)) => Some(id.clone()),
+                _ => None,
             })
             .collect();
 
@@ -476,9 +474,9 @@ async fn spawn_agent_process(
         .stdin(Stdio::null());
 
     // Spawn the process
-    let child = cmd.spawn().map_err(|e| {
-        WorkerRunnerError::SpawnFailed(format!("Failed to spawn {}: {}", agent, e))
-    })?;
+    let child = cmd
+        .spawn()
+        .map_err(|e| WorkerRunnerError::SpawnFailed(format!("Failed to spawn {}: {}", agent, e)))?;
 
     Ok(child)
 }

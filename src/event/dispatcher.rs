@@ -34,9 +34,9 @@ impl Dispatcher {
         let mut id = self.next_id.write();
         let subscriber_id = *id;
         *id += 1;
-        
+
         self.subscribers.write().insert(subscriber_id, sender);
-        
+
         Subscription {
             id: subscriber_id,
             topic: _topic,
@@ -121,11 +121,11 @@ mod tests {
     async fn test_subscribe_and_publish() {
         let dispatcher = Dispatcher::new();
         let mut sub = dispatcher.subscribe(Topic::All);
-        
+
         assert_eq!(dispatcher.subscriber_count(), 1);
-        
+
         dispatcher.publish(Topic::All, Event::RefreshNeeded);
-        
+
         // Event should be received
         let event = sub.receiver.recv().await;
         assert!(matches!(event, Some(Event::RefreshNeeded)));

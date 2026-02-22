@@ -4,7 +4,7 @@
 //! directory creation, file I/O, and migration of older state formats.
 //! All operations are atomic where possible to prevent corruption.
 
-use crate::state::types::{State, STATE_VERSION};
+use crate::state::types::{STATE_VERSION, State};
 use anyhow::{Context, Result};
 use directories::ProjectDirs;
 use std::fs;

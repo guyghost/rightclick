@@ -37,7 +37,9 @@ mod state;
 pub use plugin::{Command, PluginCommand, WorkersPlugin, WorkersPluginContext};
 pub use render::{render_workers, render_workers_status};
 pub use runner::{WorkerRunner, WorkerRunnerError};
-pub use state::{FocusPane, IntentEntry, ModalState, PluginState, PreviewTab, ViewMode, WorkerEntry};
+pub use state::{
+    FocusPane, IntentEntry, ModalState, PluginState, PreviewTab, ViewMode, WorkerEntry,
+};
 
 /// Plugin metadata
 pub const PLUGIN_ID: &str = "workspace"; // Keep "workspace" for tab compatibility

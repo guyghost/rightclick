@@ -4,8 +4,8 @@
 //! It reads conversation data from the local storage directory at
 //! `~/.claude/projects/{encoded-path}/`.
 
+use crate::adapters::types::{Adapter, AdapterError, AdapterType, Result, encode_path};
 use crate::core::models::conversation::{ContentBlock, Message, Role, Session, TokenUsage};
-use crate::adapters::types::{encode_path, Adapter, AdapterError, AdapterType, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -141,29 +141,20 @@ impl Adapter for ClaudeCodeAdapter {
                 continue;
             }
 
-            let session_id = entry
-                .file_name()
-                .to_string_lossy()
-                .to_string();
+            let session_id = entry.file_name().to_string_lossy().to_string();
 
             // Try to read session metadata
             let metadata_path = entry.path().join("metadata.json");
             let (name, created_at, updated_at) = if metadata_path.exists() {
                 match tokio::fs::read_to_string(&metadata_path).await {
-                    Ok(content) => {
-                        match serde_json::from_str::<ClaudeSessionMetadata>(&content) {
-                            Ok(metadata) => (
-                                metadata.name.unwrap_or_else(|| session_id.clone()),
-                                metadata.created_at,
-                                metadata.updated_at,
-                            ),
-                            Err(_) => (
-                                session_id.clone(),
-                                Utc::now(),
-                                Utc::now(),
-                            ),
-                        }
-                    }
+                    Ok(content) => match serde_json::from_str::<ClaudeSessionMetadata>(&content) {
+                        Ok(metadata) => (
+                            metadata.name.unwrap_or_else(|| session_id.clone()),
+                            metadata.created_at,
+                            metadata.updated_at,
+                        ),
+                        Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
+                    },
                     Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
                 }
             } else {
@@ -173,9 +164,7 @@ impl Adapter for ClaudeCodeAdapter {
             // Count messages by reading conversation file
             let conversation_path = self.conversation_file(project_root, &session_id);
             let message_count = if conversation_path.exists() {
-                let raw_messages: Vec<ClaudeMessage> = self
-                    .read_jsonl(&conversation_path)
-                    .await?;
+                let raw_messages: Vec<ClaudeMessage> = self.read_jsonl(&conversation_path).await?;
                 raw_messages.len()
             } else {
                 0
@@ -211,11 +200,13 @@ impl Adapter for ClaudeCodeAdapter {
                 continue;
             }
 
-            let conversation_path = entry.path().join("sessions").join(session_id).join("conversation.jsonl");
+            let conversation_path = entry
+                .path()
+                .join("sessions")
+                .join(session_id)
+                .join("conversation.jsonl");
             if conversation_path.exists() {
-                let raw_messages: Vec<ClaudeMessage> = self
-                    .read_jsonl(&conversation_path)
-                    .await?;
+                let raw_messages: Vec<ClaudeMessage> = self.read_jsonl(&conversation_path).await?;
 
                 return Ok(raw_messages
                     .into_iter()
@@ -305,7 +296,9 @@ impl ClaudeMessage {
             .filter_map(|block| block.to_content_block())
             .collect();
 
-        let tokens = self.usage.map(|u| TokenUsage::new(u.input_tokens, u.output_tokens));
+        let tokens = self
+            .usage
+            .map(|u| TokenUsage::new(u.input_tokens, u.output_tokens));
 
         Message {
             id,
@@ -331,11 +324,21 @@ enum ClaudeContentBlock {
     #[serde(rename = "thinking")]
     Thinking { thinking: String },
     #[serde(rename = "tool_use")]
-    ToolUse { id: String, name: String, input: serde_json::Value },
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
     #[serde(rename = "tool_result")]
-    ToolResult { tool_use_id: String, content: String },
+    ToolResult {
+        tool_use_id: String,
+        content: String,
+    },
     #[serde(rename = "code")]
-    Code { language: Option<String>, code: String },
+    Code {
+        language: Option<String>,
+        code: String,
+    },
 }
 
 impl ClaudeContentBlock {
@@ -350,15 +353,18 @@ impl ClaudeContentBlock {
     fn to_content_block(self) -> Option<ContentBlock> {
         match self {
             ClaudeContentBlock::Text { text } => Some(ContentBlock::Text { content: text }),
-            ClaudeContentBlock::Thinking { thinking } => {
-                Some(ContentBlock::Markdown { content: format!("*Thinking:* {}", thinking) })
-            }
+            ClaudeContentBlock::Thinking { thinking } => Some(ContentBlock::Markdown {
+                content: format!("*Thinking:* {}", thinking),
+            }),
             ClaudeContentBlock::ToolUse { id, name, input } => Some(ContentBlock::ToolUse {
                 id,
                 name,
                 input: input.to_string(),
             }),
-            ClaudeContentBlock::ToolResult { tool_use_id, content } => Some(ContentBlock::ToolResult {
+            ClaudeContentBlock::ToolResult {
+                tool_use_id,
+                content,
+            } => Some(ContentBlock::ToolResult {
                 tool_use_id,
                 content,
                 is_error: false,
@@ -439,22 +445,16 @@ mod tests {
             "created_at": Utc::now().timestamp(),
             "updated_at": Utc::now().timestamp()
         });
-        tokio::fs::write(
-            session_dir.join("metadata.json"),
-            metadata.to_string(),
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(session_dir.join("metadata.json"), metadata.to_string())
+            .await
+            .unwrap();
 
         // Create conversation
         let conversation = r#"{"type": "message", "role": "user", "content": "Hello", "timestamp": 1700000000}
 {"type": "message", "role": "assistant", "content": "Hi there!", "timestamp": 1700000001}"#;
-        tokio::fs::write(
-            session_dir.join("conversation.jsonl"),
-            conversation,
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(session_dir.join("conversation.jsonl"), conversation)
+            .await
+            .unwrap();
 
         let sessions = adapter.sessions(project).await.unwrap();
         assert_eq!(sessions.len(), 1);

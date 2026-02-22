@@ -192,8 +192,8 @@ mod tests {
 
     #[test]
     fn test_create_registry_with() {
-        let registry = create_registry_with(&[AdapterType::ClaudeCode, AdapterType::Codex])
-            .unwrap();
+        let registry =
+            create_registry_with(&[AdapterType::ClaudeCode, AdapterType::Codex]).unwrap();
         // Should have up to 2 adapters
         assert!(registry.len() <= 2);
     }

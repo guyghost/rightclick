@@ -22,9 +22,9 @@ pub mod theme;
 
 // Re-export commonly used types for convenience
 pub use config::{
-    Config, ConversationsPluginConfig, FileBrowserPluginConfig, GitStatusPluginConfig,
-    KeymapConfig, PluginsConfig, ProjectConfig, ProjectsConfig, UIConfig, WorkspacePluginConfig,
-    CURRENT_CONFIG_VERSION,
+    CURRENT_CONFIG_VERSION, Config, ConversationsPluginConfig, FileBrowserPluginConfig,
+    GitStatusPluginConfig, KeymapConfig, PluginsConfig, ProjectConfig, ProjectsConfig, UIConfig,
+    WorkspacePluginConfig,
 };
 pub use conversation::{
     ContentBlock, ConversationContext, ConversationError, FileContext, FinishReason, GitContext,
@@ -46,13 +46,13 @@ pub mod errors {
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use super::{
-        Blame, BlameLine, Branch, ChangeType, ColorPalette, Commit, Config, ContentBlock,
-        ConversationContext, ConversationError, ConversationsPluginConfig, Diff, DiffHunk,
-        DiffLine, FileBrowserPluginConfig, FileChange, FileContext, FileDiff, FileStatus,
+        Blame, BlameLine, Branch, CURRENT_CONFIG_VERSION, ChangeType, ColorPalette, Commit, Config,
+        ContentBlock, ConversationContext, ConversationError, ConversationsPluginConfig, Diff,
+        DiffHunk, DiffLine, FileBrowserPluginConfig, FileChange, FileContext, FileDiff, FileStatus,
         FinishReason, GitContext, GitError, GitStatusPluginConfig, KeymapConfig, Message,
         PluginsConfig, ProjectConfig, ProjectContext, ProjectsConfig, Remote, RepoState,
         RepoStatus, Role, Session, Stash, StreamChunk, Theme, ThemeError, ThemeRef, TokenColors,
-        TokenUsage, ToolUse, UIConfig, UiColors, WorkspacePluginConfig, CURRENT_CONFIG_VERSION,
+        TokenUsage, ToolUse, UIConfig, UiColors, WorkspacePluginConfig,
     };
 }
 

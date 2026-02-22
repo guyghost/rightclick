@@ -92,10 +92,10 @@ pub fn fuzzy_match_simple(text: &str, query: &str) -> Option<u32> {
     if query.is_empty() {
         return Some(0);
     }
-    
+
     let text_lower = text.to_lowercase();
     let query_lower = query.to_lowercase();
-    
+
     if text_lower.contains(&query_lower) {
         Some(query.len() as u32 * 10)
     } else {
@@ -128,11 +128,8 @@ mod tests {
     #[test]
     fn test_fuzzy_matcher_new() {
         let matcher = FuzzyMatcher::new();
-        let entries = vec![
-            create_test_entry("quit"),
-            create_test_entry("refresh"),
-        ];
-        
+        let entries = vec![create_test_entry("quit"), create_test_entry("refresh")];
+
         let results = matcher.match_entries(&entries, "quit");
         assert!(!results.is_empty());
     }

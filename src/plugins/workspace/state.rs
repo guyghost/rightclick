@@ -416,8 +416,8 @@ mod tests {
 
     #[test]
     fn test_worktree_with_task() {
-        let worktree = Worktree::new("feature", PathBuf::from("/repo/feature"), "feature")
-            .with_task("TD-123");
+        let worktree =
+            Worktree::new("feature", PathBuf::from("/repo/feature"), "feature").with_task("TD-123");
         assert_eq!(worktree.linked_task, Some("TD-123".to_string()));
     }
 

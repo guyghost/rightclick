@@ -328,11 +328,7 @@ impl Section for ButtonSection {
     }
 
     fn height(&self, _width: u16) -> u16 {
-        if self.buttons.is_empty() {
-            0
-        } else {
-            1
-        }
+        if self.buttons.is_empty() { 0 } else { 1 }
     }
 }
 

@@ -12,7 +12,7 @@ use ratatui::{
 };
 
 use crate::core::models::Theme;
-use crate::core::models::{ChangeType, Diff, FileStatus, FileChange};
+use crate::core::models::{ChangeType, Diff, FileChange, FileStatus};
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
 
 use super::state::{FocusPane, PluginState, ViewMode};
@@ -33,8 +33,16 @@ pub fn render_git_status(
     let sidebar_area = main_layout[0];
     let main_area = main_layout[1];
 
-    // Render sidebar
-    render_sidebar(state, state.focus_pane, focused, sidebar_area, buf, theme);
+    // Render sidebar based on view mode
+    match state.view_mode {
+        ViewMode::Status | ViewMode::Diff => {
+            render_sidebar(state, state.focus_pane, focused, sidebar_area, buf, theme);
+        }
+        ViewMode::History => {
+            // In History mode, sidebar shows commit list
+            render_commit_list(state, state.focus_pane, focused, sidebar_area, buf, theme);
+        }
+    }
 
     // Render main content based on view mode
     match state.view_mode {
@@ -42,7 +50,8 @@ pub fn render_git_status(
             render_diff_view(state, state.focus_pane, focused, main_area, buf, theme);
         }
         ViewMode::History => {
-            render_history_view(state, state.focus_pane, focused, main_area, buf, theme);
+            // In History mode, main pane shows commit details (full width)
+            render_commit_details(state, state.focus_pane, focused, main_area, buf, theme);
         }
     }
 }
@@ -86,6 +95,7 @@ fn render_sidebar(
 
     // Collect all file sections
     let mut lines: Vec<Line> = Vec::new();
+    let mut selected_line: Option<usize> = None;
 
     // Staged section
     let staged = state.staged_files();
@@ -97,6 +107,9 @@ fn render_sidebar(
                 .and_then(|idx| state.files.get(idx))
                 .map(|f| f.path == file.path)
                 .unwrap_or(false);
+            if is_selected {
+                selected_line = Some(lines.len());
+            }
             lines.push(build_file_line(file, is_selected, theme));
         }
         lines.push(Line::raw(""));
@@ -116,6 +129,9 @@ fn render_sidebar(
                 .and_then(|idx| state.files.get(idx))
                 .map(|f| f.path == file.path)
                 .unwrap_or(false);
+            if is_selected {
+                selected_line = Some(lines.len());
+            }
             lines.push(build_file_line(file, is_selected, theme));
         }
         lines.push(Line::raw(""));
@@ -135,12 +151,70 @@ fn render_sidebar(
                 .and_then(|idx| state.files.get(idx))
                 .map(|f| f.path == file.path)
                 .unwrap_or(false);
+            if is_selected {
+                selected_line = Some(lines.len());
+            }
             lines.push(build_file_line(file, is_selected, theme));
         }
     }
 
+    if state.files.is_empty() {
+        lines.push(Line::raw(""));
+        lines.push(Line::styled(
+            "  ✓ Working tree clean",
+            style_for_ui_element(theme, UiElement::Success),
+        ));
+        lines.push(Line::raw(""));
+    }
+
+    // Add clear separation between working tree changes and commits
+    if !state.commits.is_empty() {
+        // Add spacing and a visual separator line
+        lines.push(Line::raw(""));
+
+        // Create a horizontal separator line that fills the width
+        let separator_style = style_for_ui_element(theme, UiElement::Border);
+        lines.push(Line::styled(
+            "─────────────────────────────────────────",
+            separator_style,
+        ));
+        lines.push(Line::raw(""));
+
+        // Section header for commits
+        let header_style =
+            style_for_ui_element(theme, UiElement::Secondary).add_modifier(Modifier::BOLD);
+        lines.push(Line::styled(
+            format!(" Recent Commits ({})", state.commits.len()),
+            header_style,
+        ));
+        lines.push(Line::raw(""));
+
+        for (idx, commit) in state.commits.iter().enumerate() {
+            // Fix: In History mode, use selected_commit directly
+            // In Status/Diff mode, only show commit selection if no file is selected
+            let is_selected = match state.view_mode {
+                crate::core::models::state_machine::ViewMode::History => {
+                    state.selected_commit == Some(idx)
+                }
+                _ => {
+                    // In Status/Diff mode, show commit selection only when no file is selected
+                    state.selected_file.is_none() && state.selected_commit == Some(idx)
+                }
+            };
+            if is_selected {
+                selected_line = Some(lines.len());
+            }
+            lines.push(build_commit_line(
+                commit.short_hash.as_str(),
+                &commit.subject,
+                is_selected,
+                theme,
+            ));
+        }
+    }
+
     if lines.is_empty() {
-        let empty_text = Paragraph::new("Working directory clean")
+        let empty_text = Paragraph::new("No changes or commits available")
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty_text.render(inner, buf);
@@ -148,7 +222,7 @@ fn render_sidebar(
     }
 
     // Calculate scroll offset to keep selection visible
-    let scroll_offset = calculate_scroll_offset(&lines, available_height, state.selected_file);
+    let scroll_offset = calculate_scroll_offset(lines.len(), available_height, selected_line);
 
     // Render visible lines
     let visible_lines: Vec<Line> = lines
@@ -166,11 +240,17 @@ fn render_sidebar(
 fn render_diff_view(
     state: &PluginState,
     focus_pane: FocusPane,
-    _focused: bool,
+    focused: bool,
     area: Rect,
     buf: &mut Buffer,
     theme: &Theme,
 ) {
+    if state.diff.is_none() && state.selected_file().is_none() && state.selected_commit().is_some()
+    {
+        render_commit_details(state, focus_pane, focused, area, buf, theme);
+        return;
+    }
+
     let is_main_focused = focus_pane == FocusPane::Main;
     let border_style = if is_main_focused {
         style_for_ui_element(theme, UiElement::Primary)
@@ -262,30 +342,6 @@ fn render_diff_content(diff: &Diff, area: Rect, buf: &mut Buffer, theme: &Theme)
     text.render(area, buf);
 }
 
-/// Render the commit history view (lazygit-style)
-fn render_history_view(
-    state: &PluginState,
-    focus_pane: FocusPane,
-    focused: bool,
-    area: Rect,
-    buf: &mut Buffer,
-    theme: &Theme,
-) {
-    let main_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(area);
-
-    let sidebar_area = main_layout[0];
-    let main_area = main_layout[1];
-
-    // Render commit list on the left
-    render_commit_list(state, focus_pane, focused, sidebar_area, buf, theme);
-
-    // Render commit details on the right
-    render_commit_details(state, focus_pane, focused, main_area, buf, theme);
-}
-
 /// Render the commit list sidebar
 fn render_commit_list(
     state: &PluginState,
@@ -355,7 +411,8 @@ fn render_commit_list(
         ]));
     }
 
-    let scroll_offset = calculate_scroll_offset(&lines, available_height, state.selected_commit);
+    let scroll_offset =
+        calculate_scroll_offset(lines.len(), available_height, state.selected_commit);
     let visible_lines: Vec<Line> = lines
         .iter()
         .skip(scroll_offset)
@@ -401,7 +458,13 @@ fn render_commit_details(
         style_for_ui_element(theme, UiElement::Border)
     };
 
+    let title = state
+        .selected_commit()
+        .map(|c| format!(" Commit {} ", c.short_hash))
+        .unwrap_or_else(|| " Commit ".to_string());
+
     let block = Block::default()
+        .title(title)
         .borders(Borders::ALL)
         .border_style(border_style);
 
@@ -420,20 +483,27 @@ fn render_commit_details(
     let text_style = style_for_ui_element(theme, UiElement::Text);
     let muted_style = style_for_ui_element(theme, UiElement::MutedText);
     let primary_style = style_for_ui_element(theme, UiElement::Primary);
+    let header_style = style_for_ui_element(theme, UiElement::Secondary);
     let added_style = style_for_git_status(theme, "added");
     let deleted_style = style_for_git_status(theme, "deleted");
 
     // Commit hash header
     lines.push(Line::from(vec![
         Span::styled("Commit ", text_style),
-        Span::styled(commit.short_hash.clone(), primary_style.add_modifier(Modifier::BOLD)),
+        Span::styled(
+            commit.short_hash.clone(),
+            primary_style.add_modifier(Modifier::BOLD),
+        ),
     ]));
     lines.push(Line::raw(""));
 
     // Author and date
     lines.push(Line::from(vec![
         Span::styled("👤 ", text_style),
-        Span::styled(commit.author.clone(), text_style.add_modifier(Modifier::BOLD)),
+        Span::styled(
+            commit.author.clone(),
+            text_style.add_modifier(Modifier::BOLD),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::styled("🕐 ", text_style),
@@ -451,14 +521,100 @@ fn render_commit_details(
     }
     lines.push(Line::raw(""));
 
-    // Files section
-    if !state.commit_files.is_empty() {
+    // Files and Diff section
+    if let Some(ref diff) = state.commit_diff {
+        if !diff.files.is_empty() {
+            lines.push(Line::from(vec![
+                Span::styled("Files (", text_style.add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    diff.files.len().to_string(),
+                    text_style.add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(") ", text_style.add_modifier(Modifier::BOLD)),
+                Span::styled(format!("+{}", diff.total_additions), added_style),
+                Span::styled(format!(" -{}", diff.total_deletions), deleted_style),
+            ]));
+            lines.push(Line::raw(""));
+
+            // Show diff for each file
+            for file_diff in &diff.files {
+                // File header with separator
+                lines.push(Line::styled(
+                    format!("─────────────────────────────────────────"),
+                    muted_style,
+                ));
+
+                let status_label = if file_diff.is_created {
+                    "Added"
+                } else if file_diff.is_deleted {
+                    "Deleted"
+                } else if file_diff.is_renamed {
+                    "Renamed"
+                } else {
+                    "Modified"
+                };
+
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("{} ", status_label),
+                        primary_style.add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        file_diff.path.clone(),
+                        text_style.add_modifier(Modifier::BOLD),
+                    ),
+                ]));
+
+                // Show stats
+                if file_diff.additions > 0 || file_diff.deletions > 0 {
+                    lines.push(Line::from(vec![
+                        Span::styled("  ", text_style),
+                        Span::styled(format!("+{}", file_diff.additions), added_style),
+                        Span::styled(format!(" -{}", file_diff.deletions), deleted_style),
+                    ]));
+                }
+                lines.push(Line::raw(""));
+
+                // Show diff hunks
+                if file_diff.is_binary {
+                    lines.push(Line::styled("  [Binary file]", muted_style));
+                } else if file_diff.hunks.is_empty() {
+                    lines.push(Line::styled("  [No diff content available]", muted_style));
+                } else {
+                    for hunk in &file_diff.hunks {
+                        // Hunk header
+                        lines.push(Line::styled(format!("  {}", hunk.header), header_style));
+
+                        // Diff lines with color coding
+                        for line in &hunk.lines {
+                            let (prefix, line_style) = match line.change_type {
+                                crate::core::models::ChangeType::Added => ("+", added_style),
+                                crate::core::models::ChangeType::Deleted => ("-", deleted_style),
+                                crate::core::models::ChangeType::Context => (" ", text_style),
+                                crate::core::models::ChangeType::Message => ("", muted_style),
+                            };
+
+                            lines.push(Line::from(vec![Span::styled(
+                                format!("  {}{}", prefix, line.content),
+                                line_style,
+                            )]));
+                        }
+                    }
+                }
+                lines.push(Line::raw(""));
+            }
+        }
+    } else if !state.commit_files.is_empty() {
+        // Fallback: show file list without diff content
         let total_additions: usize = state.commit_files.iter().map(|f| f.additions).sum();
         let total_deletions: usize = state.commit_files.iter().map(|f| f.deletions).sum();
 
         lines.push(Line::from(vec![
             Span::styled("Files (", text_style.add_modifier(Modifier::BOLD)),
-            Span::styled(state.commit_files.len().to_string(), text_style.add_modifier(Modifier::BOLD)),
+            Span::styled(
+                state.commit_files.len().to_string(),
+                text_style.add_modifier(Modifier::BOLD),
+            ),
             Span::styled(") ", text_style.add_modifier(Modifier::BOLD)),
             Span::styled(format!("+{}", total_additions), added_style),
             Span::styled(format!(" -{}", total_deletions), deleted_style),
@@ -567,15 +723,51 @@ fn build_file_line<'a>(file: &'a FileChange, is_selected: bool, theme: &'a Theme
     Line::from(spans)
 }
 
+fn build_commit_line<'a>(
+    hash: &'a str,
+    subject: &'a str,
+    is_selected: bool,
+    theme: &'a Theme,
+) -> Line<'a> {
+    let hash_style = if is_selected {
+        style_for_ui_element(theme, UiElement::ActiveItem)
+    } else {
+        style_for_ui_element(theme, UiElement::Secondary)
+    };
+
+    let subject_style = if is_selected {
+        style_for_ui_element(theme, UiElement::ActiveItem)
+    } else {
+        style_for_ui_element(theme, UiElement::Text)
+    };
+
+    let arrow = if is_selected { "▸ " } else { "  " };
+
+    Line::from(vec![
+        Span::styled(arrow, hash_style),
+        Span::styled(format!("{} ", hash), hash_style),
+        Span::styled(subject.to_string(), subject_style),
+    ])
+}
+
 /// Calculate scroll offset to keep selection visible
 fn calculate_scroll_offset(
-    _lines: &[Line],
-    _visible_height: usize,
-    _selected_file: Option<usize>,
+    total_lines: usize,
+    visible_height: usize,
+    selected_line: Option<usize>,
 ) -> usize {
-    // For now, simple implementation - always start from top
-    // A more sophisticated implementation would track the selected item's position
-    0
+    if total_lines <= visible_height || visible_height == 0 {
+        return 0;
+    }
+
+    let Some(selected_line) = selected_line else {
+        return 0;
+    };
+
+    let max_offset = total_lines.saturating_sub(visible_height);
+    selected_line
+        .saturating_sub(visible_height / 2)
+        .min(max_offset)
 }
 
 /// Render the status bar info

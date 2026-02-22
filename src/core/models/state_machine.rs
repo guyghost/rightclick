@@ -18,8 +18,7 @@ pub enum ViewMode {
 
 impl Default for ViewMode {
     fn default() -> Self {
-        // Default to History to show commits on startup (lazygit-style)
-        Self::History
+        Self::Status
     }
 }
 

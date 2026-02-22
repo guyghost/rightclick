@@ -80,6 +80,7 @@ pub struct ProjectConfig {
 
 /// Plugin-specific configurations.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct PluginsConfig {
     /// Git status plugin configuration.
     pub git_status: GitStatusPluginConfig,
@@ -87,8 +88,6 @@ pub struct PluginsConfig {
     pub conversations: ConversationsPluginConfig,
     /// File browser plugin configuration.
     pub file_browser: FileBrowserPluginConfig,
-    /// TD Monitor plugin configuration.
-    pub td_monitor: TDMonitorPluginConfig,
     /// Workspace plugin configuration.
     pub workspace: WorkspacePluginConfig,
 }
@@ -99,7 +98,6 @@ impl Default for PluginsConfig {
             git_status: GitStatusPluginConfig::default(),
             conversations: ConversationsPluginConfig::default(),
             file_browser: FileBrowserPluginConfig::default(),
-            td_monitor: TDMonitorPluginConfig::default(),
             workspace: WorkspacePluginConfig::default(),
         }
     }
@@ -184,34 +182,6 @@ impl Default for FileBrowserPluginConfig {
             ],
         }
     }
-}
-
-/// TD Monitor plugin configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct TDMonitorPluginConfig {
-    /// Whether the plugin is enabled.
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-    /// Auto-refresh interval in seconds (0 = disabled).
-    #[serde(default = "default_refresh_interval")]
-    pub refresh_interval: u64,
-    /// Default database path (relative to project root).
-    #[serde(default = "default_td_db_path")]
-    pub db_path: String,
-}
-
-impl Default for TDMonitorPluginConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            refresh_interval: 5,
-            db_path: ".td/db.sqlite3".to_string(),
-        }
-    }
-}
-
-fn default_td_db_path() -> String {
-    ".td/db.sqlite3".to_string()
 }
 
 /// Workspace plugin configuration.

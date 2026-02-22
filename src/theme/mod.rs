@@ -28,11 +28,11 @@ mod styles;
 
 pub use builtin::{all_themes, default_theme, dracula_theme, nord_theme, tokyo_night_theme};
 pub use resolver::{
-    get_default_theme, resolve_theme, resolve_theme_with_overrides, ResolvedTheme, CURRENT_THEME,
+    CURRENT_THEME, ResolvedTheme, get_default_theme, resolve_theme, resolve_theme_with_overrides,
 };
 pub use styles::{
-    color_from_hex, style_for_git_status, style_for_token, style_for_ui_element, style_from_color,
-    style_from_colors, style_with_modifier, UiElement,
+    UiElement, color_from_hex, style_for_git_status, style_for_token, style_for_ui_element,
+    style_from_color, style_from_colors, style_with_modifier,
 };
 
 use crate::core::models::{Theme, ThemeError};

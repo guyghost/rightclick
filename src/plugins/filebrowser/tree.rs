@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::theme::{style_for_ui_element, UiElement};
+use crate::theme::{UiElement, style_for_ui_element};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Modifier;
@@ -148,11 +148,7 @@ impl FileEntry {
     /// hidden file, git-ignored file, or regular file.
     pub fn icon(&self) -> &'static str {
         if self.is_dir {
-            if self.is_expanded {
-                "📂"
-            } else {
-                "📁"
-            }
+            if self.is_expanded { "📂" } else { "📁" }
         } else if self.is_ignored {
             "🚫"
         } else if self.is_hidden {
@@ -563,11 +559,7 @@ impl<'a> Widget for FileTreeWidget<'a> {
             // Icon
             if self.show_icons {
                 let icon = if entry.is_dir {
-                    if entry.is_expanded {
-                        "📂 "
-                    } else {
-                        "📁 "
-                    }
+                    if entry.is_expanded { "📂 " } else { "📁 " }
                 } else {
                     "📄 "
                 };

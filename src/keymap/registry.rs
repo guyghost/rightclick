@@ -223,7 +223,9 @@ impl Registry {
         let command_id = format!("action.{:?}", action).to_lowercase();
         // Register the command if not already present
         if !self.commands.contains_key(&command_id) {
-            let cmd = Command::new(&command_id, &command_id, move || Action::Custom(Box::new(())));
+            let cmd = Command::new(&command_id, &command_id, move || {
+                Action::Custom(Box::new(()))
+            });
             self.register_command(cmd);
         }
         let binding = Binding::new(key, command_id, context);
@@ -568,11 +570,6 @@ impl Registry {
             "Switch to Workspace",
             || Action::SwitchPlugin("workspace".to_string()),
         ));
-        self.register_command(Command::new(
-            "plugin.td_monitor",
-            "Switch to TD Monitor",
-            || Action::SwitchPlugin("td_monitor".to_string()),
-        ));
     }
 
     /// Registers all default key bindings.
@@ -667,7 +664,6 @@ impl Registry {
             FocusContext::Global,
         ));
         self.register_binding(Binding::new("4", "plugin.workspace", FocusContext::Global));
-        self.register_binding(Binding::new("5", "plugin.td_monitor", FocusContext::Global));
     }
 }
 

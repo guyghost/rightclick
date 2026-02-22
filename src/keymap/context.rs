@@ -35,9 +35,6 @@ pub enum FocusContext {
     /// Workspace in interactive mode (e.g., editing).
     WorkspaceInteractive,
 
-    /// TD Monitor (time-driven monitoring) is focused.
-    TDMonitor,
-
     /// A modal dialog is open.
     Modal,
 
@@ -72,7 +69,6 @@ impl FocusContext {
                 | Self::FileBrowserTree
                 | Self::Conversations
                 | Self::Workspace
-                | Self::TDMonitor
         )
     }
 }
@@ -90,7 +86,6 @@ mod tests {
         assert!(FocusContext::is_root_context(FocusContext::FileBrowserTree));
         assert!(FocusContext::is_root_context(FocusContext::Conversations));
         assert!(FocusContext::is_root_context(FocusContext::Workspace));
-        assert!(FocusContext::is_root_context(FocusContext::TDMonitor));
     }
 
     #[test]

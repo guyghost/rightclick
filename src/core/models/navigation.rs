@@ -299,6 +299,8 @@ impl NavigationTree {
             }
             (NavRegion::Main, NavDirection::Up) => NavigationResult::AtBoundary,
             (NavRegion::Main, NavDirection::Down) => NavigationResult::AtBoundary,
+            (NavRegion::Sidebar, NavDirection::Left) => NavigationResult::AtBoundary,
+            (NavRegion::Main, NavDirection::Right) => NavigationResult::AtBoundary,
             _ => NavigationResult::Stay,
         }
     }

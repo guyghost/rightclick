@@ -168,11 +168,7 @@ impl Checkbox {
 
     /// Returns the checked symbol for rendering
     pub fn symbol(&self) -> &'static str {
-        if self.checked {
-            "[x]"
-        } else {
-            "[ ]"
-        }
+        if self.checked { "[x]" } else { "[ ]" }
     }
 }
 

@@ -17,7 +17,7 @@ pub struct PluginState {
     pub selected_file: Option<usize>,
     /// Currently selected commit index in history
     pub selected_commit: Option<usize>,
-    /// Current diff being displayed
+    /// Current diff being displayed (for working tree changes)
     pub diff: Option<Diff>,
     /// Current view mode
     pub view_mode: ViewMode,
@@ -35,6 +35,8 @@ pub struct PluginState {
     pub is_dirty: bool,
     /// Changed files for the selected commit
     pub commit_files: Vec<FileDiff>,
+    /// Full diff for the selected commit (includes patch content)
+    pub commit_diff: Option<Diff>,
 }
 
 impl PluginState {
@@ -54,6 +56,7 @@ impl PluginState {
             behind: 0,
             is_dirty: false,
             commit_files: Vec::new(),
+            commit_diff: None,
         }
     }
 
@@ -165,6 +168,7 @@ impl PluginState {
         self.behind = 0;
         self.is_dirty = false;
         self.commit_files.clear();
+        self.commit_diff = None;
     }
 
     /// Update state from repo status

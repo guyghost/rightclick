@@ -163,8 +163,7 @@ impl ConfigRepository for FileConfigRepository {
                 .with_context(|| format!("Failed to create directory {}", parent.display()))?;
         }
 
-        let content = serde_json::to_string_pretty(config)
-            .context("Failed to serialize config")?;
+        let content = serde_json::to_string_pretty(config).context("Failed to serialize config")?;
 
         tokio::fs::write(&self.path, content)
             .await
@@ -240,8 +239,7 @@ impl StateRepository for FileStateRepository {
                 .with_context(|| format!("Failed to create directory {}", parent.display()))?;
         }
 
-        let content = serde_json::to_string_pretty(state)
-            .context("Failed to serialize state")?;
+        let content = serde_json::to_string_pretty(state).context("Failed to serialize state")?;
 
         tokio::fs::write(&self.path, content)
             .await
@@ -266,7 +264,10 @@ mod tests {
         let config = repo.load().await.unwrap();
 
         // Should return default config when file doesn't exist
-        assert_eq!(config.version, crate::core::models::config::CURRENT_CONFIG_VERSION);
+        assert_eq!(
+            config.version,
+            crate::core::models::config::CURRENT_CONFIG_VERSION
+        );
     }
 
     #[tokio::test]

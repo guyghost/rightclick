@@ -29,7 +29,10 @@ pub enum Command {
     /// Switch focus to a different pane
     SwitchFocus(FocusPane),
     /// Create a new worktree
-    CreateWorktree { name: String, branch: Option<String> },
+    CreateWorktree {
+        name: String,
+        branch: Option<String>,
+    },
     /// Delete a worktree
     DeleteWorktree(PathBuf),
     /// Link a task to the selected worktree
@@ -37,7 +40,10 @@ pub enum Command {
     /// Unlink task from the selected worktree
     UnlinkTask(String),
     /// Launch AI agent
-    LaunchAgent { worktree: String, task: Option<String> },
+    LaunchAgent {
+        worktree: String,
+        task: Option<String>,
+    },
     /// Enter interactive mode for a worktree
     EnterInteractive(PathBuf),
     /// Open merge workflow
@@ -153,28 +159,18 @@ impl WorkspacePlugin {
         // Worktree operations
         registry.bind("n", Action::NewFile, FocusContext::Workspace); // Create worktree
         registry.bind("D", Action::Delete, FocusContext::Workspace); // Delete worktree
-        registry.bind("t", Action::LinkTask, FocusContext::Workspace); // Link/unlink task
+        registry.bind("T", Action::LinkTask, FocusContext::Workspace); // Link/unlink task (shift+t)
         registry.bind("a", Action::LaunchAgent, FocusContext::Workspace); // Launch AI agent
         registry.bind("enter", Action::Enter, FocusContext::Workspace); // Enter interactive
         registry.bind("m", Action::Merge, FocusContext::Workspace); // Merge workflow
         registry.bind("r", Action::Refresh, FocusContext::Workspace); // Refresh
 
-        // Preview tabs
-        registry.bind("1", Action::SwitchTab(0), FocusContext::Workspace);
-        registry.bind("2", Action::SwitchTab(1), FocusContext::Workspace);
-        registry.bind("3", Action::SwitchTab(2), FocusContext::Workspace);
+        // Note: Preview tab switching uses [ and ] keys (handled in handle_event)
+        // to avoid conflict with global navigation keys 1-5
 
         // Pane switching
-        registry.bind(
-            "left",
-            Action::NavigateLeft,
-            FocusContext::Workspace,
-        );
-        registry.bind(
-            "right",
-            Action::NavigateRight,
-            FocusContext::Workspace,
-        );
+        registry.bind("left", Action::NavigateLeft, FocusContext::Workspace);
+        registry.bind("right", Action::NavigateRight, FocusContext::Workspace);
     }
 
     /// Get the plugin ID
@@ -357,21 +353,25 @@ impl WorkspacePlugin {
                             self.state.view_mode = new_mode;
                             commands.push(Command::SwitchMode(new_mode));
                         }
-                        "1" => {
-                            // Switch to Output tab
-                            self.state.preview_tab = PreviewTab::Output;
+                        "]" => {
+                            // Cycle to next preview tab (Output -> Diff -> Task -> Output)
+                            let new_tab = match self.state.preview_tab {
+                                PreviewTab::Output => PreviewTab::Diff,
+                                PreviewTab::Diff => PreviewTab::Task,
+                                PreviewTab::Task => PreviewTab::Output,
+                            };
+                            self.state.preview_tab = new_tab;
                             self.pending_preview_update = true;
                             commands.push(Command::Refresh);
                         }
-                        "2" => {
-                            // Switch to Diff tab
-                            self.state.preview_tab = PreviewTab::Diff;
-                            self.pending_preview_update = true;
-                            commands.push(Command::Refresh);
-                        }
-                        "3" => {
-                            // Switch to Task tab
-                            self.state.preview_tab = PreviewTab::Task;
+                        "[" => {
+                            // Cycle to previous preview tab (Output <- Diff <- Task <- Output)
+                            let new_tab = match self.state.preview_tab {
+                                PreviewTab::Output => PreviewTab::Task,
+                                PreviewTab::Diff => PreviewTab::Output,
+                                PreviewTab::Task => PreviewTab::Diff,
+                            };
+                            self.state.preview_tab = new_tab;
                             self.pending_preview_update = true;
                             commands.push(Command::Refresh);
                         }
@@ -385,8 +385,8 @@ impl WorkspacePlugin {
                                 self.state.modal_state = ModalState::DeleteConfirm;
                             }
                         }
-                        "t" => {
-                            // Link/unlink task
+                        "T" => {
+                            // Link/unlink task (shift+t to avoid conflict with tab navigation)
                             if self.state.selected_worktree().is_some() {
                                 self.state.modal_state = ModalState::LinkTask;
                                 if let Some(worktree) = self.state.selected_worktree() {
@@ -570,49 +570,43 @@ impl WorkspacePlugin {
                     _ => {}
                 }
             }
-            ModalState::DeleteConfirm => {
-                match action {
-                    Action::Confirm | Action::Delete => {
-                        if let Some(worktree) = self.state.selected_worktree() {
-                            commands.push(Command::DeleteWorktree(worktree.path.clone()));
+            ModalState::DeleteConfirm => match action {
+                Action::Confirm | Action::Delete => {
+                    if let Some(worktree) = self.state.selected_worktree() {
+                        commands.push(Command::DeleteWorktree(worktree.path.clone()));
+                    }
+                    self.state.close_modal();
+                }
+                Action::Cancel => {
+                    self.state.close_modal();
+                }
+                _ => {}
+            },
+            ModalState::LinkTask => match action {
+                Action::Confirm => {
+                    if let Some(worktree) = self.state.selected_worktree() {
+                        if self.state.task_id_buffer.is_empty() {
+                            commands.push(Command::UnlinkTask(worktree.name.clone()));
+                        } else {
+                            commands.push(Command::LinkTask {
+                                worktree: worktree.name.clone(),
+                                task_id: self.state.task_id_buffer.clone(),
+                            });
                         }
-                        self.state.close_modal();
                     }
-                    Action::Cancel => {
-                        self.state.close_modal();
-                    }
-                    _ => {}
+                    self.state.close_modal();
                 }
-            }
-            ModalState::LinkTask => {
-                match action {
-                    Action::Confirm => {
-                        if let Some(worktree) = self.state.selected_worktree() {
-                            if self.state.task_id_buffer.is_empty() {
-                                commands.push(Command::UnlinkTask(worktree.name.clone()));
-                            } else {
-                                commands.push(Command::LinkTask {
-                                    worktree: worktree.name.clone(),
-                                    task_id: self.state.task_id_buffer.clone(),
-                                });
-                            }
-                        }
-                        self.state.close_modal();
-                    }
-                    Action::Cancel => {
-                        self.state.close_modal();
-                    }
-                    _ => {}
+                Action::Cancel => {
+                    self.state.close_modal();
                 }
-            }
-            ModalState::MergeDialog => {
-                match action {
-                    Action::Cancel => {
-                        self.state.close_modal();
-                    }
-                    _ => {}
+                _ => {}
+            },
+            ModalState::MergeDialog => match action {
+                Action::Cancel => {
+                    self.state.close_modal();
                 }
-            }
+                _ => {}
+            },
             ModalState::None => {}
         }
     }
@@ -740,11 +734,7 @@ impl WorkspacePlugin {
     }
 
     /// Create a new worktree
-    pub async fn create_worktree(
-        &mut self,
-        name: &str,
-        branch: Option<&str>,
-    ) -> Result<PathBuf> {
+    pub async fn create_worktree(&mut self, name: &str, branch: Option<&str>) -> Result<PathBuf> {
         if let Some(ref manager) = self.worktree_manager {
             let path = manager.create_worktree(name, branch, None).await?;
             self.state
@@ -788,10 +778,8 @@ impl WorkspacePlugin {
     pub async fn unlink_task(&mut self, worktree_name: &str) -> Result<()> {
         if let Some(worktree) = self.state.get_worktree_mut(worktree_name) {
             worktree.linked_task = None;
-            self.state.add_output(format!(
-                "Unlinked task from worktree {}",
-                worktree_name
-            ));
+            self.state
+                .add_output(format!("Unlinked task from worktree {}", worktree_name));
             self.refresh().await?;
             Ok(())
         } else {
@@ -805,10 +793,8 @@ impl WorkspacePlugin {
             if AgentLauncher::is_kimi_available().await {
                 AgentLauncher::launch_agent(&worktree.path, task).await?;
                 worktree.agent_running = true;
-                self.state.add_output(format!(
-                    "Launched AI agent for worktree {}",
-                    worktree_name
-                ));
+                self.state
+                    .add_output(format!("Launched AI agent for worktree {}", worktree_name));
                 Ok(())
             } else {
                 Err(anyhow::anyhow!(
@@ -834,10 +820,8 @@ impl WorkspacePlugin {
         TmuxManager::attach_session(&session_name).await?;
 
         self.state.view_mode = ViewMode::Interactive;
-        self.state.add_output(format!(
-            "Entered interactive mode for {}",
-            path.display()
-        ));
+        self.state
+            .add_output(format!("Entered interactive mode for {}", path.display()));
 
         Ok(())
     }
@@ -858,7 +842,7 @@ impl Default for WorkspacePlugin {
 // Plugin Trait Implementation
 // ============================================================================
 
-use crate::plugin::{Plugin, PluginContext as PluginCtx, Command as PluginCmd};
+use crate::plugin::{Command as PluginCmd, Plugin, PluginContext as PluginCtx};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -878,9 +862,9 @@ impl Plugin for WorkspacePlugin {
     async fn init(&mut self, ctx: &PluginCtx) -> anyhow::Result<()> {
         self.repo_path = ctx.project_root.clone();
         self.worktree_manager = Some(WorktreeManager::new(self.repo_path.clone()));
-        
+
         let _ = self.refresh().await;
-        
+
         Ok(())
     }
 
@@ -890,7 +874,10 @@ impl Plugin for WorkspacePlugin {
 
     fn handle_event(&mut self, event: crate::event::Event) -> Vec<PluginCmd> {
         let commands = self.handle_event_internal(event);
-        commands.into_iter().map(|_cmd| PluginCmd::new("workspace", "action")).collect()
+        commands
+            .into_iter()
+            .map(|_cmd| PluginCmd::new("workspace", "action"))
+            .collect()
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &crate::core::models::Theme) {
@@ -907,14 +894,60 @@ impl Plugin for WorkspacePlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::with_context("create", "Create", 'n', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("delete", "Delete", 'D', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("link", "Link Task", 't', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("agent", "Launch Agent", 'a', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("merge", "Merge", 'm', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("diff", "Diff", 'd', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("interactive", "Interactive", 'o', crate::keymap::FocusContext::Workspace),
-            crate::plugin::PluginCommand::with_context("refresh", "Refresh", 'r', crate::keymap::FocusContext::Workspace),
+            crate::plugin::PluginCommand::with_context(
+                "create",
+                "Create",
+                'n',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "delete",
+                "Delete",
+                'D',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "link",
+                "Link Task",
+                'T',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "agent",
+                "Launch Agent",
+                'a',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "merge",
+                "Merge",
+                'm',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "prev-tab",
+                "Prev",
+                '[',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "next-tab",
+                "Next",
+                ']',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "interactive",
+                "Interactive",
+                'o',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "refresh",
+                "Refresh",
+                'r',
+                crate::keymap::FocusContext::Workspace,
+            ),
         ]
     }
 
@@ -986,7 +1019,7 @@ mod tests {
     #[test]
     fn test_modal_handling() {
         let mut plugin = WorkspacePlugin::new();
-        
+
         // Open create worktree modal
         plugin.handle_action(&Action::NewFile);
         assert!(plugin.state.is_modal_open());

@@ -27,7 +27,13 @@ impl WorktreeManager {
     /// List all worktrees in the repository
     pub async fn list_worktrees(&self) -> Result<Vec<Worktree>> {
         let output = Command::new("git")
-            .args(["-C", &self.repo_path.to_string_lossy(), "worktree", "list", "--porcelain"])
+            .args([
+                "-C",
+                &self.repo_path.to_string_lossy(),
+                "worktree",
+                "list",
+                "--porcelain",
+            ])
             .output()
             .await
             .context("Failed to execute git worktree list")?;
@@ -82,7 +88,10 @@ impl WorktreeManager {
         // Enhance worktree info
         for worktree in &mut worktrees {
             // Check if dirty
-            worktree.is_dirty = self.is_worktree_dirty(&worktree.path).await.unwrap_or(false);
+            worktree.is_dirty = self
+                .is_worktree_dirty(&worktree.path)
+                .await
+                .unwrap_or(false);
 
             // Get last commit
             worktree.last_commit = self.get_last_commit(&worktree.path).await.ok();
@@ -101,7 +110,11 @@ impl WorktreeManager {
         branch: Option<&str>,
         base_branch: Option<&str>,
     ) -> Result<PathBuf> {
-        let worktree_path = self.repo_path.parent().unwrap_or(&self.repo_path).join(name);
+        let worktree_path = self
+            .repo_path
+            .parent()
+            .unwrap_or(&self.repo_path)
+            .join(name);
 
         // Check if path already exists
         if worktree_path.exists() {
@@ -276,12 +289,7 @@ impl WorktreeManager {
     /// Get worktree status summary
     pub async fn get_status_summary(&self, path: &Path) -> Result<WorktreeStatus> {
         let output = Command::new("git")
-            .args([
-                "-C",
-                &path.to_string_lossy(),
-                "status",
-                "--porcelain",
-            ])
+            .args(["-C", &path.to_string_lossy(), "status", "--porcelain"])
             .output()
             .await
             .context("Failed to get status summary")?;
@@ -420,11 +428,7 @@ impl TmuxManager {
             if parts.len() >= 2 {
                 let name = parts[0].to_string();
                 let _id = parts[1].to_string();
-                sessions.push(ShellSession::new(
-                    format!("{}", idx),
-                    name.clone(),
-                    name,
-                ));
+                sessions.push(ShellSession::new(format!("{}", idx), name.clone(), name));
             }
         }
 
@@ -553,10 +557,7 @@ impl AgentLauncher {
 
         cmd.arg(agent_cmd);
 
-        let output = cmd
-            .output()
-            .await
-            .context("Failed to launch AI agent")?;
+        let output = cmd.output().await.context("Failed to launch AI agent")?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);

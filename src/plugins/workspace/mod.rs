@@ -35,7 +35,7 @@ mod state;
 mod worktree;
 
 // Re-export public types
-pub use plugin::{Command, PluginCommand, WorkspacePluginContext, WorkspacePlugin};
+pub use plugin::{Command, PluginCommand, WorkspacePlugin, WorkspacePluginContext};
 pub use render::{render_workspace, render_workspace_status};
 pub use state::{FocusPane, ModalState, PluginState, PreviewTab, ShellSession, ViewMode, Worktree};
 pub use worktree::{AgentLauncher, TmuxManager, WorktreeManager};

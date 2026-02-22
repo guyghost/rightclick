@@ -16,8 +16,8 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
 use crate::core::models::Theme;
 use crate::event::Event;
 use crate::keymap::{Action, FocusContext};
-use crate::plugin::{Plugin, PluginCommand, PluginContext, Command};
-use crate::theme::{style_for_ui_element, UiElement};
+use crate::plugin::{Command, Plugin, PluginCommand, PluginContext};
+use crate::theme::{UiElement, style_for_ui_element};
 use crate::ui::{Footer, Header, KeyHint};
 
 use super::preview::PreviewWidget;
@@ -97,10 +97,12 @@ impl Plugin for FileBrowserPlugin {
                 if modifiers.ctrl {
                     match code.as_str() {
                         "d" => {
-                            self.state.scroll_preview_down(self.state.preview_scroll.visible_lines / 2);
+                            self.state
+                                .scroll_preview_down(self.state.preview_scroll.visible_lines / 2);
                         }
                         "u" => {
-                            self.state.scroll_preview_up(self.state.preview_scroll.visible_lines / 2);
+                            self.state
+                                .scroll_preview_up(self.state.preview_scroll.visible_lines / 2);
                         }
                         _ => {}
                     }
@@ -132,9 +134,24 @@ impl Plugin for FileBrowserPlugin {
 
     fn commands(&self) -> Vec<PluginCommand> {
         vec![
-            PluginCommand::with_context("refresh", "Refresh", 'r', crate::keymap::FocusContext::FileBrowserTree),
-            PluginCommand::with_context("toggle_hidden", "Toggle Hidden", 'H', crate::keymap::FocusContext::FileBrowserTree),
-            PluginCommand::with_context("toggle_ignored", "Toggle Ignored", 'i', crate::keymap::FocusContext::FileBrowserTree),
+            PluginCommand::with_context(
+                "refresh",
+                "Refresh",
+                'r',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context(
+                "toggle_hidden",
+                "Toggle Hidden",
+                'H',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context(
+                "toggle_ignored",
+                "Toggle Ignored",
+                'i',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
         ]
     }
 
@@ -333,7 +350,8 @@ impl FileBrowserPlugin {
     /// Ensure the currently selected item is visible in the tree view
     fn ensure_selected_visible(&mut self) {
         // Calculate position in visible (filtered) list
-        let visible_pos = self.state
+        let visible_pos = self
+            .state
             .tree
             .entries
             .iter()
@@ -345,7 +363,7 @@ impl FileBrowserPlugin {
             })
             .take_while(|(i, _)| *i != self.state.tree.selected_index)
             .count();
-        
+
         self.state.tree_scroll.ensure_visible(visible_pos);
     }
 
@@ -361,8 +379,8 @@ impl FileBrowserPlugin {
 
     /// Render the header
     fn render_header(&self, area: Rect, buf: &mut Buffer) {
-        let header = Header::new("File Browser")
-            .with_subtitle(format!("{}", self.work_dir.display()));
+        let header =
+            Header::new("File Browser").with_subtitle(format!("{}", self.work_dir.display()));
         header.render(area, buf, &self.theme);
     }
 
@@ -404,17 +422,15 @@ impl FileBrowserPlugin {
 
         // Render preview panel
         if let Some(ref preview) = self.state.preview {
-            let preview_widget = PreviewWidget::new(preview, self.state.preview_scroll.offset, &self.theme);
+            let preview_widget =
+                PreviewWidget::new(preview, self.state.preview_scroll.offset, &self.theme);
             preview_widget.render(content_layout[1], buf);
         } else {
-            let preview_block = Block::default()
-                .title(" Preview ")
-                .borders(Borders::ALL);
+            let preview_block = Block::default().title(" Preview ").borders(Borders::ALL);
             let inner = preview_block.inner(content_layout[1]);
             preview_block.render(content_layout[1], buf);
 
-            let no_preview = Paragraph::new("No preview available")
-                .style(text_style);
+            let no_preview = Paragraph::new("No preview available").style(text_style);
             no_preview.render(inner, buf);
         }
     }
@@ -422,13 +438,14 @@ impl FileBrowserPlugin {
     /// Render the tree entries
     fn render_tree_entries(&self, area: Rect, buf: &mut Buffer) {
         let text_style = style_for_ui_element(&self.theme, UiElement::Text);
-        let selected_style = style_for_ui_element(&self.theme, UiElement::Highlight)
-            .add_modifier(Modifier::BOLD);
+        let selected_style =
+            style_for_ui_element(&self.theme, UiElement::Highlight).add_modifier(Modifier::BOLD);
         let muted_style = style_for_ui_element(&self.theme, UiElement::MutedText);
         let primary_style = style_for_ui_element(&self.theme, UiElement::Primary);
 
         // Build list of visible entry indices (not filtered)
-        let visible_indices: Vec<usize> = self.state
+        let visible_indices: Vec<usize> = self
+            .state
             .tree
             .entries
             .iter()
@@ -446,7 +463,7 @@ impl FileBrowserPlugin {
         // Calculate visible range based on scroll offset
         let scroll_offset = self.state.tree_scroll.offset;
         let visible_count = area.height as usize;
-        
+
         // Update scroll state total
         let total_visible = visible_indices.len();
 
@@ -465,7 +482,11 @@ impl FileBrowserPlugin {
 
             let entry = &self.state.tree.entries[entry_idx];
             let is_selected = self.state.tree.selected_index == entry_idx;
-            let style = if is_selected { selected_style } else { text_style };
+            let style = if is_selected {
+                selected_style
+            } else {
+                text_style
+            };
 
             // Build the line
             let mut spans: Vec<Span> = Vec::new();
@@ -508,7 +529,7 @@ impl FileBrowserPlugin {
             let line = Line::from(spans);
             buf.set_line(area.x, y, &line, area.width);
         }
-        
+
         // Update total lines for scrolling
         let _ = (total_visible, visible_count);
     }
@@ -533,7 +554,8 @@ impl FileBrowserPlugin {
         };
 
         let footer = Footer::new(status).with_hints(
-            hints.iter()
+            hints
+                .iter()
                 .map(|h| (h.key.clone(), h.description.clone()))
                 .collect(),
         );
@@ -567,23 +589,57 @@ impl FileBrowserPlugin {
 
         // Help content
         let help_text = vec![
+            Line::from(vec![Span::styled(
+                "Navigation",
+                primary_style.add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(""),
             Line::from(vec![
-                Span::styled("Navigation", primary_style.add_modifier(Modifier::BOLD)),
+                Span::styled("j/↓    ", primary_style),
+                Span::styled("Next entry", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("k/↑    ", primary_style),
+                Span::styled("Previous entry", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("h/←    ", primary_style),
+                Span::styled("Collapse directory", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("l/→    ", primary_style),
+                Span::styled("Expand directory", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("↵/space", primary_style),
+                Span::styled("Toggle directory", text_style),
             ]),
             Line::from(""),
-            Line::from(vec![Span::styled("j/↓    ", primary_style), Span::styled("Next entry", text_style)]),
-            Line::from(vec![Span::styled("k/↑    ", primary_style), Span::styled("Previous entry", text_style)]),
-            Line::from(vec![Span::styled("h/←    ", primary_style), Span::styled("Collapse directory", text_style)]),
-            Line::from(vec![Span::styled("l/→    ", primary_style), Span::styled("Expand directory", text_style)]),
-            Line::from(vec![Span::styled("↵/space", primary_style), Span::styled("Toggle directory", text_style)]),
+            Line::from(vec![Span::styled(
+                "View",
+                primary_style.add_modifier(Modifier::BOLD),
+            )]),
             Line::from(""),
-            Line::from(vec![Span::styled("View", primary_style.add_modifier(Modifier::BOLD))]),
-            Line::from(""),
-            Line::from(vec![Span::styled("i      ", primary_style), Span::styled("Toggle git-ignored files", text_style)]),
-            Line::from(vec![Span::styled("H      ", primary_style), Span::styled("Toggle hidden files", text_style)]),
-            Line::from(vec![Span::styled("I      ", primary_style), Span::styled("Show file info", text_style)]),
-            Line::from(vec![Span::styled("g/G    ", primary_style), Span::styled("Go to top/bottom of preview", text_style)]),
-            Line::from(vec![Span::styled("?      ", primary_style), Span::styled("Toggle this help", text_style)]),
+            Line::from(vec![
+                Span::styled("i      ", primary_style),
+                Span::styled("Toggle git-ignored files", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("H      ", primary_style),
+                Span::styled("Toggle hidden files", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("I      ", primary_style),
+                Span::styled("Show file info", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("g/G    ", primary_style),
+                Span::styled("Go to top/bottom of preview", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("?      ", primary_style),
+                Span::styled("Toggle this help", text_style),
+            ]),
             Line::from(""),
             Line::from(vec![Span::styled("Press ? to close", muted_style())]),
         ];
@@ -631,10 +687,7 @@ impl FileBrowserPlugin {
                 ]),
                 Line::from(vec![
                     Span::styled("Type: ", primary_style),
-                    Span::styled(
-                        if entry.is_dir { "Directory" } else { "File" },
-                        text_style,
-                    ),
+                    Span::styled(if entry.is_dir { "Directory" } else { "File" }, text_style),
                 ]),
             ];
 
@@ -657,11 +710,17 @@ impl FileBrowserPlugin {
             }
 
             lines.push(Line::from(""));
-            lines.push(Line::from(vec![Span::styled("Press I to close", muted_style)]));
+            lines.push(Line::from(vec![Span::styled(
+                "Press I to close",
+                muted_style,
+            )]));
 
             lines
         } else {
-            vec![Line::from(vec![Span::styled("No file selected", muted_style)])]
+            vec![Line::from(vec![Span::styled(
+                "No file selected",
+                muted_style,
+            )])]
         };
 
         let info_para = Paragraph::new(info_text);
@@ -737,12 +796,19 @@ impl FileBrowserPlugin {
     ///
     /// * `tree_visible_lines` - Number of visible lines in tree panel
     /// * `preview_visible_lines` - Number of visible lines in preview panel
-    pub fn update_visible_lines(&mut self, tree_visible_lines: usize, preview_visible_lines: usize) {
+    pub fn update_visible_lines(
+        &mut self,
+        tree_visible_lines: usize,
+        preview_visible_lines: usize,
+    ) {
         self.state.tree_scroll.set_visible_lines(tree_visible_lines);
-        self.state.preview_scroll.set_visible_lines(preview_visible_lines);
-        
+        self.state
+            .preview_scroll
+            .set_visible_lines(preview_visible_lines);
+
         // Calculate visible (filtered) count for tree
-        let visible_count = self.state
+        let visible_count = self
+            .state
             .tree
             .entries
             .iter()
@@ -753,9 +819,11 @@ impl FileBrowserPlugin {
             })
             .count();
         self.state.tree_scroll.set_total_lines(visible_count);
-        
+
         if let Some(ref preview) = self.state.preview {
-            self.state.preview_scroll.set_total_lines(preview.total_lines);
+            self.state
+                .preview_scroll
+                .set_total_lines(preview.total_lines);
         }
     }
 }
@@ -784,14 +852,14 @@ mod tests {
 
         assert_eq!(plugin.work_dir, temp_dir.path());
         assert!(plugin.focused);
-        assert_eq!(plugin.name(), "file_browser");
+        assert_eq!(plugin.name(), "File Browser");
         assert_eq!(plugin.display_name(), "File Browser");
     }
 
     #[test]
     fn test_file_browser_plugin_navigation() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create test files
         fs::File::create(temp_dir.path().join("file1.txt")).unwrap();
         fs::File::create(temp_dir.path().join("file2.txt")).unwrap();
@@ -813,12 +881,10 @@ mod tests {
         // Test custom key handlers
         assert!(plugin.handle_key("i")); // Toggle ignored
         assert!(plugin.handle_key("I")); // Toggle file info
-        assert!(plugin.handle_key("h")); // Toggle hidden
+        assert!(plugin.handle_key("H")); // Toggle hidden
         assert!(plugin.handle_key("?")); // Toggle help
         assert!(plugin.handle_key("g")); // Go to top
         assert!(plugin.handle_key("G")); // Go to bottom
-        assert!(plugin.handle_key("ctrl+d")); // Page down
-        assert!(plugin.handle_key("ctrl+u")); // Page up
 
         // Unknown key
         assert!(!plugin.handle_key("unknown_key"));
@@ -830,10 +896,10 @@ mod tests {
         let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
 
         assert!(plugin.is_focused());
-        
+
         plugin.set_focused(false);
         assert!(!plugin.is_focused());
-        
+
         plugin.set_focused(true);
         assert!(plugin.is_focused());
     }

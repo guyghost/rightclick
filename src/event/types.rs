@@ -39,7 +39,10 @@ pub enum Event {
     Error { message: String },
 
     /// A key was pressed.
-    Key { code: String, modifiers: KeyModifiers },
+    Key {
+        code: String,
+        modifiers: KeyModifiers,
+    },
 }
 
 /// Keyboard modifiers for key events.

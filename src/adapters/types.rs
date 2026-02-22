@@ -301,11 +301,7 @@ impl AdapterRegistry {
                 }
                 Err(e) => {
                     // Log error but don't fail the entire detection
-                    tracing::warn!(
-                        "Failed to detect adapter {}: {}",
-                        adapter.id(),
-                        e
-                    );
+                    tracing::warn!("Failed to detect adapter {}: {}", adapter.id(), e);
                 }
             }
         }
@@ -382,10 +378,7 @@ mod tests {
             "cursor".parse::<AdapterType>().unwrap(),
             AdapterType::Cursor
         );
-        assert_eq!(
-            "codex".parse::<AdapterType>().unwrap(),
-            AdapterType::Codex
-        );
+        assert_eq!("codex".parse::<AdapterType>().unwrap(), AdapterType::Codex);
         assert!("unknown".parse::<AdapterType>().is_err());
     }
 
