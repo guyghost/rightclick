@@ -102,10 +102,10 @@ src/
     - Stage/unstage/commit
 
 12. **Plugins** (`src/plugins/`)
-    - **Git Status** - Full implementation with diff view
+    - **Git Status** - Full implementation with diff view, state machine navigation, action guards
     - **File Browser** - Tree view with syntax highlighting
     - **Conversations** - AI conversation browser
-    - **TD Monitor** - Task management integration
+    - **Workers** - Intent/task management and worker tracking
     - **Workspaces** - Git worktree management
 
 13. **TTY Integration** (`src/tty/`)
@@ -171,7 +171,8 @@ Key crates used:
 
 - **84 Rust source files**
 - **~20,000 lines of code**
-- **5 plugins implemented**
+- **5 active plugins**
+- **112 state manager tests**
 - **3 AI adapters implemented**
 - **4 built-in themes**
 

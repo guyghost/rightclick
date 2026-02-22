@@ -232,10 +232,9 @@ pub enum FocusContext {
     FileBrowserTree,  // File browser tree pane
     Conversations,    // AI conversations
     Workspace,        // Workspace management
-    TDMonitor,        // TODO tracking
+    WorkspaceInteractive,  // Workspace input mode
     Modal,           // Modal dialogs
     Palette,          // Command palette
-    WorkspaceInteractive,  // Workspace input mode
 }
 ```
 

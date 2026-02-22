@@ -7,7 +7,7 @@ spec_version: "1.0"
 feature_id: "state-manager"
 author: "system"
 created: "2025-01-12"
-status: draft
+status: complete
 tdd: true
 priority: high
 ```
@@ -1424,28 +1424,28 @@ async fn test_git_stage_guard_no_selection() {
 ## 8. Implementation Checklist
 
 ### Phase 1: Core Models
-- [ ] Create `core/models/state_machine.rs` with `ViewState`, `StateContext`, `StateMachine`
-- [ ] Create `core/models/navigation.rs` with `NavRegion`, `NavDirection`, `NavigationTree`
-- [ ] Create `core/models/action.rs` with `ActionId`, `GuardError`, `GuardResult`
+- [x] Create `core/models/state_machine.rs` with `ViewState`, `StateContext`, `StateMachine`
+- [x] Create `core/models/navigation.rs` with `NavRegion`, `NavDirection`, `NavigationTree`
+- [x] Create `core/models/action.rs` with `ActionId`, `GuardError`, `GuardResult`
 
 ### Phase 2: Core Logic
-- [ ] Implement `core/logic/guards.rs` with authorization rules
-- [ ] Implement `core/logic/navigation.rs` with navigation calculations
+- [x] Implement `core/logic/guards.rs` with authorization rules
+- [x] Implement `core/logic/navigation.rs` with navigation calculations
 
 ### Phase 3: Shell
-- [ ] Create `shell/machines/mod.rs` with `StateMachineExecutor`
-- [ ] Create `shell/machines/git_state_machine.rs` with git-specific integration
+- [x] Create `shell/machines/mod.rs` with `StateMachineExecutor`
+- [x] Create `shell/machines/git_state_machine.rs` with git-specific integration
 
 ### Phase 4: Integration
-- [ ] Modify `GitStatusPlugin` to use `GitStateMachine`
-- [ ] Wire up callbacks for state changes
-- [ ] Update key handling to use state machine
+- [x] Modify `GitStatusPlugin` to use `GitStateMachine`
+- [x] Wire up callbacks for state changes
+- [x] Update key handling to use state machine
 
 ### Phase 5: Testing
-- [ ] Unit tests for guards
-- [ ] Unit tests for navigation
-- [ ] Integration tests for executor
-- [ ] E2E tests for git navigation fix
+- [x] Unit tests for guards
+- [x] Unit tests for navigation
+- [x] Integration tests for executor
+- [x] E2E tests for git navigation fix (plugin-level tests in gitstatus/plugin.rs)
 
 ## 9. Files Modified
 
