@@ -46,16 +46,10 @@ impl Default for Config {
 }
 
 /// Configuration for projects and project management.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct ProjectsConfig {
     /// List of configured projects.
     pub list: Vec<ProjectConfig>,
-}
-
-impl Default for ProjectsConfig {
-    fn default() -> Self {
-        Self { list: Vec::new() }
-    }
 }
 
 /// Configuration for a single project.
@@ -81,6 +75,7 @@ pub struct ProjectConfig {
 /// Plugin-specific configurations.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
+#[derive(Default)]
 pub struct PluginsConfig {
     /// Git status plugin configuration.
     pub git_status: GitStatusPluginConfig,
@@ -90,17 +85,8 @@ pub struct PluginsConfig {
     pub file_browser: FileBrowserPluginConfig,
     /// Workspace plugin configuration.
     pub workspace: WorkspacePluginConfig,
-}
-
-impl Default for PluginsConfig {
-    fn default() -> Self {
-        Self {
-            git_status: GitStatusPluginConfig::default(),
-            conversations: ConversationsPluginConfig::default(),
-            file_browser: FileBrowserPluginConfig::default(),
-            workspace: WorkspacePluginConfig::default(),
-        }
-    }
+    /// Workers plugin configuration.
+    pub workers: WorkersPluginConfig,
 }
 
 /// Git status plugin configuration.
@@ -212,6 +198,46 @@ impl Default for WorkspacePluginConfig {
     }
 }
 
+/// Workers plugin configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WorkersPluginConfig {
+    /// Whether the plugin is enabled.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Default AI agent command for worker execution.
+    #[serde(default = "default_worker_agent")]
+    pub default_agent: String,
+    /// Relative directory for intent specifications.
+    #[serde(default = "default_intents_dir")]
+    pub intents_dir: String,
+    /// Relative directory for worker logs.
+    #[serde(default = "default_worker_logs_dir")]
+    pub logs_dir: String,
+}
+
+impl Default for WorkersPluginConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            default_agent: "claude".to_string(),
+            intents_dir: ".rightclick/intents".to_string(),
+            logs_dir: ".rightclick/logs".to_string(),
+        }
+    }
+}
+
+fn default_worker_agent() -> String {
+    "claude".to_string()
+}
+
+fn default_intents_dir() -> String {
+    ".rightclick/intents".to_string()
+}
+
+fn default_worker_logs_dir() -> String {
+    ".rightclick/logs".to_string()
+}
+
 fn default_branch() -> String {
     "main".to_string()
 }
@@ -253,21 +279,13 @@ impl Default for UIConfig {
 }
 
 /// Keymap configuration for custom key bindings.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct KeymapConfig {
     /// Map of action names to key combinations.
     /// Keys are action names (e.g., "quit", "save", "open_palette").
     /// Values are key combinations (e.g., "Ctrl+q", "Ctrl+s", "Ctrl+p").
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub overrides: HashMap<String, String>,
-}
-
-impl Default for KeymapConfig {
-    fn default() -> Self {
-        Self {
-            overrides: HashMap::new(),
-        }
-    }
 }
 
 // Default value helpers for serde
@@ -347,6 +365,12 @@ mod tests {
                     "default_branch": "main",
                     "refresh_interval": 5,
                     "tmux_prefix": "rc"
+                },
+                "workers": {
+                    "enabled": true,
+                    "default_agent": "claude",
+                    "intents_dir": ".rightclick/intents",
+                    "logs_dir": ".rightclick/logs"
                 }
             },
             "ui": {

@@ -517,7 +517,7 @@ fn render_merge_dialog_modal(state: &PluginState, area: Rect, buf: &mut Buffer, 
         .unwrap_or_default();
 
     let text = format!(
-        "Worktree: {}\n\nMerge options:\n\n1. Merge to main\n2. Squash merge\n3. Rebase and merge\n4. Create PR\n\nPress number to select, Esc to cancel",
+        "Worktree: {}\n\nMerge options:\n\n1. git merge --no-ff <branch>\n2. git merge --squash <branch>\n3. gh pr create --fill --head <branch>\n\nCommands run from the main repository checkout.\n\nPress number to select, Esc to cancel",
         worktree_name
     );
 

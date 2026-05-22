@@ -5,11 +5,12 @@
 //! like buttons and checkboxes.
 
 /// Button variant for styling
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ButtonVariant {
     /// Primary action button (accent color, most prominent)
     Primary,
     /// Secondary action button (neutral, less prominent)
+    #[default]
     Secondary,
     /// Danger button for destructive actions (red/error color)
     Danger,
@@ -35,14 +36,8 @@ impl ButtonVariant {
     }
 }
 
-impl Default for ButtonVariant {
-    fn default() -> Self {
-        Self::Secondary
-    }
-}
-
 /// A button definition for modal button sections
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Button {
     /// Unique identifier for this button (used for focus and actions)
     pub id: String,
@@ -116,18 +111,8 @@ impl Button {
     }
 }
 
-impl Default for Button {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            label: String::new(),
-            variant: ButtonVariant::default(),
-        }
-    }
-}
-
 /// A checkbox state for modal checkbox sections
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Checkbox {
     /// Unique identifier for this checkbox
     pub id: String,
@@ -169,16 +154,6 @@ impl Checkbox {
     /// Returns the checked symbol for rendering
     pub fn symbol(&self) -> &'static str {
         if self.checked { "[x]" } else { "[ ]" }
-    }
-}
-
-impl Default for Checkbox {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            label: String::new(),
-            checked: false,
-        }
     }
 }
 

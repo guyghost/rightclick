@@ -39,7 +39,7 @@ pub use plugin::{
     register_default_bindings,
 };
 pub use render::{render_git_status, render_status_info};
-pub use state::{FocusPane, PluginState, ViewMode};
+pub use state::{FocusPane, GitModal, PluginState, ViewMode};
 
 /// Plugin metadata
 pub const PLUGIN_ID: &str = "git-status";

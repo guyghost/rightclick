@@ -40,6 +40,9 @@ pub enum FocusContext {
 
     /// Command palette is open.
     Palette,
+
+    /// Search overlay is open.
+    Search,
 }
 
 impl FocusContext {

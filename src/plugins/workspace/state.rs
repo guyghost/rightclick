@@ -114,9 +114,10 @@ impl ShellSession {
 }
 
 /// View mode for the workspace display
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ViewMode {
     /// List view showing all worktrees
+    #[default]
     List,
     /// Kanban view organized by status
     Kanban,
@@ -124,16 +125,11 @@ pub enum ViewMode {
     Interactive,
 }
 
-impl Default for ViewMode {
-    fn default() -> Self {
-        Self::List
-    }
-}
-
 /// Preview tab in the right pane
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PreviewTab {
     /// Command output
+    #[default]
     Output,
     /// Git diff
     Diff,
@@ -141,25 +137,14 @@ pub enum PreviewTab {
     Task,
 }
 
-impl Default for PreviewTab {
-    fn default() -> Self {
-        Self::Output
-    }
-}
-
 /// Which pane has keyboard focus
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum FocusPane {
     /// Worktree list pane
+    #[default]
     Sidebar,
     /// Preview pane
     Preview,
-}
-
-impl Default for FocusPane {
-    fn default() -> Self {
-        Self::Sidebar
-    }
 }
 
 /// Plugin state containing all mutable data

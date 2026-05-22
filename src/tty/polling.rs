@@ -284,7 +284,7 @@ impl AdaptivePoller {
     /// up to `max_backoff` times the base interval.
     pub fn should_poll(&self) -> bool {
         let multiplier = (self.empty_count + 1).min(self.max_backoff);
-        let effective_interval = self.base.interval * multiplier as u32;
+        let effective_interval = self.base.interval * multiplier;
         self.base.last_poll.elapsed() >= effective_interval
     }
 

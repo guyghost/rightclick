@@ -181,9 +181,12 @@ impl ConversationsRenderer {
             return;
         }
 
-        // Calculate visible range
-        let (start_idx, end_idx) = state.list_nav.visible_range();
-        let visible_sessions = &sessions[start_idx..end_idx.min(sessions.len())];
+        // Calculate visible range based on actual render area
+        let lines_per_item: usize = if self.compact { 1 } else { 3 };
+        let items_per_page = inner_area.height as usize / lines_per_item.max(1);
+        let start_idx = state.list_nav.scroll_offset;
+        let end_idx = (start_idx + items_per_page).min(sessions.len());
+        let visible_sessions = &sessions[start_idx..end_idx];
 
         let mut lines: Vec<Line> = Vec::new();
 
@@ -259,7 +262,7 @@ impl ConversationsRenderer {
         list.render(inner_area, buf);
 
         // Render scrollbar if needed
-        if sessions.len() > state.list_nav.viewport_height {
+        if sessions.len() > items_per_page {
             let scrollbar = Scrollbar::default()
                 .orientation(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some("↑"))
@@ -295,21 +298,15 @@ impl ConversationsRenderer {
         block.render(area, buf);
 
         // Build welcome content
-        let mut text_lines = Vec::new();
-
-        // Title
-        text_lines.push(Line::from(vec![Span::styled(
-            "Welcome to Conversations",
-            title_style,
-        )]));
-        text_lines.push(Line::from(""));
-
-        // Description
-        text_lines.push(Line::from(vec![Span::styled(
-            "View and search your AI coding sessions from multiple adapters.",
-            text_style,
-        )]));
-        text_lines.push(Line::from(""));
+        let mut text_lines = vec![
+            Line::from(vec![Span::styled("Welcome to Conversations", title_style)]),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "View and search your AI coding sessions from multiple adapters.",
+                text_style,
+            )]),
+            Line::from(""),
+        ];
 
         // Stats
         if !state.sessions.is_empty() {
@@ -459,7 +456,7 @@ impl ConversationsRenderer {
         let mut lines: Vec<Line> = Vec::new();
         let content_width = area.width.saturating_sub(4) as usize;
 
-        for (_idx, message) in state.messages.iter().enumerate() {
+        for message in state.messages.iter() {
             let is_expanded = state.is_message_expanded(&message.id);
 
             // Message header with role

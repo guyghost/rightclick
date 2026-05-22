@@ -4,7 +4,9 @@
 //! including view modes, focus panes, and selection state.
 
 pub use crate::core::models::state_machine::{FocusPane, ViewMode};
-use crate::core::models::{Commit, Diff, FileChange, FileDiff, FileStatus, RepoStatus};
+use crate::core::models::{
+    Branch, Commit, Diff, FileChange, FileDiff, FileStatus, RepoStatus, Stash,
+};
 
 /// Plugin state containing all mutable data
 #[derive(Clone, Debug)]
@@ -37,6 +39,33 @@ pub struct PluginState {
     pub commit_files: Vec<FileDiff>,
     /// Full diff for the selected commit (includes patch content)
     pub commit_diff: Option<Diff>,
+    /// Available branches
+    pub branches: Vec<Branch>,
+    /// Selected branch index
+    pub selected_branch: Option<usize>,
+    /// Available stashes
+    pub stashes: Vec<Stash>,
+    /// Selected stash index
+    pub selected_stash: Option<usize>,
+    /// Whether a modal is active (commit, branch create, etc.)
+    pub modal_active: bool,
+    /// Type of active modal
+    pub active_modal: Option<GitModal>,
+}
+
+/// Types of modal dialogs in the git plugin
+#[derive(Clone, Debug, PartialEq)]
+pub enum GitModal {
+    /// Commit message editor
+    CommitMessage,
+    /// Create new branch
+    CreateBranch,
+    /// Confirm branch delete
+    DeleteBranch { name: String },
+    /// Confirm stash drop
+    DropStash { index: usize },
+    /// Error display
+    Error { message: String },
 }
 
 impl PluginState {
@@ -57,6 +86,12 @@ impl PluginState {
             is_dirty: false,
             commit_files: Vec::new(),
             commit_diff: None,
+            branches: Vec::new(),
+            selected_branch: None,
+            stashes: Vec::new(),
+            selected_stash: None,
+            modal_active: false,
+            active_modal: None,
         }
     }
 
@@ -169,6 +204,82 @@ impl PluginState {
         self.is_dirty = false;
         self.commit_files.clear();
         self.commit_diff = None;
+        self.branches.clear();
+        self.selected_branch = None;
+        self.stashes.clear();
+        self.selected_stash = None;
+        self.modal_active = false;
+        self.active_modal = None;
+    }
+
+    /// Get the selected branch
+    pub fn selected_branch(&self) -> Option<&Branch> {
+        self.selected_branch.and_then(|idx| self.branches.get(idx))
+    }
+
+    /// Navigate branches down
+    pub fn select_next_branch(&mut self) {
+        if self.branches.is_empty() {
+            return;
+        }
+        match self.selected_branch {
+            None => self.selected_branch = Some(0),
+            Some(idx) => {
+                self.selected_branch = Some((idx + 1).min(self.branches.len() - 1));
+            }
+        }
+    }
+
+    /// Navigate branches up
+    pub fn select_prev_branch(&mut self) {
+        match self.selected_branch {
+            None if !self.branches.is_empty() => {
+                self.selected_branch = Some(self.branches.len() - 1);
+            }
+            Some(0) | None => {}
+            Some(idx) => self.selected_branch = Some(idx.saturating_sub(1)),
+        }
+    }
+
+    /// Get the selected stash
+    pub fn selected_stash(&self) -> Option<&Stash> {
+        self.selected_stash.and_then(|idx| self.stashes.get(idx))
+    }
+
+    /// Navigate stashes down
+    pub fn select_next_stash(&mut self) {
+        if self.stashes.is_empty() {
+            return;
+        }
+        match self.selected_stash {
+            None => self.selected_stash = Some(0),
+            Some(idx) => {
+                self.selected_stash = Some((idx + 1).min(self.stashes.len() - 1));
+            }
+        }
+    }
+
+    /// Navigate stashes up
+    pub fn select_prev_stash(&mut self) {
+        match self.selected_stash {
+            None if !self.stashes.is_empty() => {
+                self.selected_stash = Some(self.stashes.len() - 1);
+            }
+            Some(0) | None => {}
+            Some(idx) => self.selected_stash = Some(idx.saturating_sub(1)),
+        }
+    }
+
+    /// Open a modal
+    pub fn open_modal(&mut self, modal: GitModal) {
+        self.modal_active = true;
+        self.active_modal = Some(modal);
+    }
+
+    /// Close the current modal
+    pub fn close_modal(&mut self) {
+        self.modal_active = false;
+        self.active_modal = None;
     }
 
     /// Update state from repo status

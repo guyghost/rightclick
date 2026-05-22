@@ -238,11 +238,10 @@ impl Preview {
         // Get syntax set for extension detection
         let syntax_set = SyntaxSet::load_defaults_newlines();
 
-        if let Some(syntax) = syntax_set.find_syntax_for_file(path).ok()? {
-            Some(syntax.name.clone())
-        } else {
-            None
-        }
+        syntax_set
+            .find_syntax_for_file(path)
+            .ok()?
+            .map(|syntax| syntax.name.clone())
     }
 
     /// Format a size in bytes to a human-readable string
@@ -270,7 +269,7 @@ impl Preview {
         } else if self.is_binary {
             "Binary".to_string()
         } else if let Some(ref lang) = self.language {
-            format!("{}", lang)
+            lang.to_string()
         } else {
             "Text".to_string()
         }

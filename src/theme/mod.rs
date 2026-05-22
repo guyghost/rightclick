@@ -28,7 +28,8 @@ mod styles;
 
 pub use builtin::{all_themes, default_theme, dracula_theme, nord_theme, tokyo_night_theme};
 pub use resolver::{
-    CURRENT_THEME, ResolvedTheme, get_default_theme, resolve_theme, resolve_theme_with_overrides,
+    CURRENT_THEME, CustomThemeFile, PartialColorPalette, ResolvedTheme, get_default_theme,
+    load_custom_themes, resolve_theme, resolve_theme_with_overrides,
 };
 pub use styles::{
     UiElement, color_from_hex, style_for_git_status, style_for_token, style_for_ui_element,
@@ -126,8 +127,8 @@ pub fn get_current_theme() -> Option<Theme> {
 
 /// List all available themes
 ///
-/// Returns a vector of all built-in themes. Custom themes from the
-/// user's config directory are not yet supported.
+/// Returns a vector of all built-in themes plus any custom themes found
+/// in `~/.config/rightclick/themes/*.toml`.
 ///
 /// # Example
 ///
@@ -139,12 +140,14 @@ pub fn get_current_theme() -> Option<Theme> {
 /// }
 /// ```
 pub fn list_themes() -> Vec<Theme> {
-    all_themes()
+    let mut themes = all_themes();
+    themes.extend(resolver::load_custom_themes());
+    themes
 }
 
 /// Load a theme by name
 ///
-/// Searches built-in themes for a matching name (case-insensitive).
+/// Searches both built-in and custom themes for a matching name (case-insensitive).
 /// Returns an error if the theme is not found.
 ///
 /// # Example
@@ -158,11 +161,10 @@ pub fn list_themes() -> Vec<Theme> {
 /// }
 /// ```
 pub fn load_theme(name: &str) -> Result<Theme, ThemeError> {
-    let themes = all_themes();
+    let all = list_themes();
     let name_lower = name.to_lowercase();
 
-    themes
-        .into_iter()
+    all.into_iter()
         .find(|t| {
             t.name.to_lowercase() == name_lower || t.display_name.to_lowercase() == name_lower
         })
@@ -170,6 +172,8 @@ pub fn load_theme(name: &str) -> Result<Theme, ThemeError> {
 }
 
 /// Check if a theme with the given name exists
+///
+/// Searches both built-in and custom themes (case-insensitive).
 ///
 /// # Example
 ///
@@ -181,7 +185,7 @@ pub fn load_theme(name: &str) -> Result<Theme, ThemeError> {
 /// ```
 pub fn theme_exists(name: &str) -> bool {
     let name_lower = name.to_lowercase();
-    all_themes()
+    list_themes()
         .iter()
         .any(|t| t.name.to_lowercase() == name_lower || t.display_name.to_lowercase() == name_lower)
 }
@@ -211,7 +215,8 @@ mod tests {
     #[test]
     fn test_list_themes() {
         let themes = list_themes();
-        assert_eq!(themes.len(), 4);
+        // At least the 4 built-in themes; may include custom themes from filesystem
+        assert!(themes.len() >= 4);
         assert!(themes.iter().any(|t| t.name == "default"));
         assert!(themes.iter().any(|t| t.name == "dracula"));
         assert!(themes.iter().any(|t| t.name == "nord"));

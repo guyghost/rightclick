@@ -3,10 +3,12 @@
 //! This module implements the Workspace plugin for RightClick, providing
 //! a TUI interface for managing git worktrees and development sessions.
 
-use std::path::PathBuf;
+use std::collections::{HashMap, VecDeque};
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use ratatui::{buffer::Buffer, layout::Rect};
+use serde::{Deserialize, Serialize};
 
 use crate::core::models::Theme;
 use crate::event::Event;
@@ -14,13 +16,14 @@ use crate::keymap::registry::KeyBindingRegistry;
 use crate::keymap::{Action, FocusContext};
 
 use super::render::{render_workspace, render_workspace_status};
-use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
+use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 use super::worktree::{AgentLauncher, TmuxManager, WorktreeManager};
 
 /// A command that can be executed by the plugin
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum Command {
     /// No operation
+    #[default]
     None,
     /// Refresh the view
     Refresh,
@@ -56,14 +59,10 @@ pub enum Command {
     OpenTmuxSession(String),
     /// Execute a shell command
     ShellExec(Vec<String>),
+    /// Execute a shell command in a specific directory
+    ShellExecIn { cwd: PathBuf, args: Vec<String> },
     /// Emit an event
     EmitEvent(Event),
-}
-
-impl Default for Command {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 /// Context passed to workspace plugin during initialization
@@ -117,6 +116,13 @@ pub struct WorkspacePlugin {
     worktree_manager: Option<WorktreeManager>,
     /// Flag to indicate preview content needs update
     pending_preview_update: bool,
+    /// Commands queued from input handling and executed in update().
+    pending_commands: VecDeque<Command>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct PersistedWorkspaceState {
+    task_links: HashMap<String, String>,
 }
 
 impl WorkspacePlugin {
@@ -134,6 +140,7 @@ impl WorkspacePlugin {
             config: crate::core::models::WorkspacePluginConfig::default(),
             worktree_manager: None,
             pending_preview_update: false,
+            pending_commands: VecDeque::new(),
         }
     }
 
@@ -219,7 +226,8 @@ impl WorkspacePlugin {
     pub async fn refresh(&mut self) -> Result<()> {
         if let Some(ref manager) = self.worktree_manager {
             // Load worktrees
-            let worktrees = manager.list_worktrees().await?;
+            let mut worktrees = manager.list_worktrees().await?;
+            self.apply_persisted_links(&mut worktrees).await;
             self.state.worktrees = worktrees;
 
             // Ensure selection is valid
@@ -276,16 +284,77 @@ impl WorkspacePlugin {
     async fn load_task_details(&mut self) -> Result<()> {
         if let Some(worktree) = self.state.selected_worktree() {
             if let Some(ref task_id) = worktree.linked_task {
-                // In a real implementation, this would fetch from TD API
-                let content = format!(
-                    "Task: {}\n\nStatus: In Progress\n\nThis is a placeholder for task details that would be fetched from the TD (Task Driver) system.",
-                    task_id
-                );
-                self.state.set_task_content(content);
+                let output = tokio::process::Command::new("td")
+                    .arg("show")
+                    .arg(task_id)
+                    .current_dir(&self.repo_path)
+                    .output()
+                    .await;
+
+                match output {
+                    Ok(output) if output.status.success() => {
+                        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                        self.state.set_task_content(stdout);
+                    }
+                    Ok(output) => {
+                        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                        self.state.set_task_content(format!(
+                            "Task: {}\n\nUnable to load task details with td show.\n{}",
+                            task_id, stderr
+                        ));
+                    }
+                    Err(error) => {
+                        self.state.set_task_content(format!(
+                            "Task: {}\n\nUnable to run td show: {}",
+                            task_id, error
+                        ));
+                    }
+                }
             } else {
                 self.state.task_content = None;
             }
         }
+        Ok(())
+    }
+
+    async fn run_shell_command(&mut self, args: &[String]) -> Result<()> {
+        let cwd = self
+            .state
+            .selected_worktree()
+            .map(|worktree| worktree.path.clone())
+            .unwrap_or_else(|| self.repo_path.clone());
+
+        self.run_shell_command_in(cwd, args).await
+    }
+
+    async fn run_shell_command_in(&mut self, cwd: PathBuf, args: &[String]) -> Result<()> {
+        let Some((program, command_args)) = args.split_first() else {
+            anyhow::bail!("shell command is empty");
+        };
+
+        self.state
+            .add_output(format!("$ {} ({})", args.join(" "), cwd.display()));
+
+        let output = tokio::process::Command::new(program)
+            .args(command_args)
+            .current_dir(&cwd)
+            .output()
+            .await?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !stdout.is_empty() {
+            self.state.add_output(stdout);
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if !stderr.is_empty() {
+            self.state.add_output(stderr);
+        }
+
+        if !output.status.success() {
+            anyhow::bail!("command exited with {}", output.status);
+        }
+
         Ok(())
     }
 
@@ -310,6 +379,58 @@ impl WorkspacePlugin {
                         _ => {}
                     }
                 } else if !modifiers.alt {
+                    if self.state.modal_state == ModalState::MergeDialog {
+                        match code.as_str() {
+                            "1" => {
+                                if let Some(worktree) = self.state.selected_worktree() {
+                                    commands.push(Command::ShellExecIn {
+                                        cwd: self.repo_path.clone(),
+                                        args: vec![
+                                            "git".to_string(),
+                                            "merge".to_string(),
+                                            "--no-ff".to_string(),
+                                            worktree.branch.clone(),
+                                        ],
+                                    });
+                                }
+                                self.state.close_modal();
+                            }
+                            "2" => {
+                                if let Some(worktree) = self.state.selected_worktree() {
+                                    commands.push(Command::ShellExecIn {
+                                        cwd: self.repo_path.clone(),
+                                        args: vec![
+                                            "git".to_string(),
+                                            "merge".to_string(),
+                                            "--squash".to_string(),
+                                            worktree.branch.clone(),
+                                        ],
+                                    });
+                                }
+                                self.state.close_modal();
+                            }
+                            "3" => {
+                                if let Some(worktree) = self.state.selected_worktree() {
+                                    commands.push(Command::ShellExecIn {
+                                        cwd: self.repo_path.clone(),
+                                        args: vec![
+                                            "gh".to_string(),
+                                            "pr".to_string(),
+                                            "create".to_string(),
+                                            "--fill".to_string(),
+                                            "--head".to_string(),
+                                            worktree.branch.clone(),
+                                        ],
+                                    });
+                                }
+                                self.state.close_modal();
+                            }
+                            "Esc" | "Escape" => self.state.close_modal(),
+                            _ => {}
+                        }
+                        return commands;
+                    }
+
                     // Handle simple key presses
                     match code.as_str() {
                         "j" | "Down" => {
@@ -601,12 +722,11 @@ impl WorkspacePlugin {
                 }
                 _ => {}
             },
-            ModalState::MergeDialog => match action {
-                Action::Cancel => {
+            ModalState::MergeDialog => {
+                if let Action::Cancel = action {
                     self.state.close_modal();
                 }
-                _ => {}
-            },
+            }
             ModalState::None => {}
         }
     }
@@ -747,7 +867,7 @@ impl WorkspacePlugin {
     }
 
     /// Delete a worktree
-    pub async fn delete_worktree(&mut self, path: &PathBuf) -> Result<()> {
+    pub async fn delete_worktree(&mut self, path: &Path) -> Result<()> {
         if let Some(ref manager) = self.worktree_manager {
             manager.delete_worktree(path, false).await?;
             self.state
@@ -767,6 +887,7 @@ impl WorkspacePlugin {
                 "Linked task {} to worktree {}",
                 task_id, worktree_name
             ));
+            self.save_task_links().await?;
             self.refresh().await?;
             Ok(())
         } else {
@@ -780,6 +901,7 @@ impl WorkspacePlugin {
             worktree.linked_task = None;
             self.state
                 .add_output(format!("Unlinked task from worktree {}", worktree_name));
+            self.save_task_links().await?;
             self.refresh().await?;
             Ok(())
         } else {
@@ -807,7 +929,7 @@ impl WorkspacePlugin {
     }
 
     /// Enter interactive mode for a worktree
-    pub async fn enter_interactive(&mut self, path: &PathBuf) -> Result<()> {
+    pub async fn enter_interactive(&mut self, path: &Path) -> Result<()> {
         // Create or attach to tmux session
         let session_name = format!(
             "workspace-{}",
@@ -829,6 +951,89 @@ impl WorkspacePlugin {
     /// Switch to a specific preview tab
     pub fn switch_preview_tab(&mut self, tab: PreviewTab) {
         self.state.preview_tab = tab;
+    }
+
+    fn persistence_path(&self) -> PathBuf {
+        self.repo_path.join(".rightclick").join("workspaces.json")
+    }
+
+    async fn load_persisted_state(&self) -> PersistedWorkspaceState {
+        let path = self.persistence_path();
+        match tokio::fs::read_to_string(path).await {
+            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+            Err(_) => PersistedWorkspaceState::default(),
+        }
+    }
+
+    async fn apply_persisted_links(&self, worktrees: &mut [Worktree]) {
+        let persisted = self.load_persisted_state().await;
+        for worktree in worktrees {
+            if let Some(task_id) = persisted.task_links.get(&worktree.name) {
+                worktree.linked_task = Some(task_id.clone());
+            }
+        }
+    }
+
+    async fn save_task_links(&self) -> Result<()> {
+        let path = self.persistence_path();
+        if let Some(parent) = path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+
+        let task_links = self
+            .state
+            .worktrees
+            .iter()
+            .filter_map(|worktree| {
+                worktree
+                    .linked_task
+                    .as_ref()
+                    .map(|task_id| (worktree.name.clone(), task_id.clone()))
+            })
+            .collect();
+
+        let persisted = PersistedWorkspaceState { task_links };
+        let content = serde_json::to_string_pretty(&persisted)?;
+        tokio::fs::write(path, content).await?;
+        Ok(())
+    }
+
+    async fn process_pending_commands(&mut self) {
+        while let Some(command) = self.pending_commands.pop_front() {
+            let result = match command {
+                Command::None
+                | Command::SwitchMode(_)
+                | Command::SwitchFocus(_)
+                | Command::EmitEvent(_) => Ok(()),
+                Command::Refresh | Command::ShowDiff => self.refresh().await,
+                Command::CreateWorktree { name, branch } => self
+                    .create_worktree(&name, branch.as_deref())
+                    .await
+                    .map(|_| ()),
+                Command::DeleteWorktree(path) => self.delete_worktree(&path).await,
+                Command::LinkTask { worktree, task_id } => {
+                    self.link_task(&worktree, &task_id).await
+                }
+                Command::UnlinkTask(worktree) => self.unlink_task(&worktree).await,
+                Command::LaunchAgent { worktree, task } => {
+                    self.launch_agent(&worktree, task.as_deref()).await
+                }
+                Command::EnterInteractive(path) => self.enter_interactive(&path).await,
+                Command::OpenMergeDialog(_) => {
+                    self.state.modal_state = ModalState::MergeDialog;
+                    Ok(())
+                }
+                Command::ShowTask => self.load_task_details().await,
+                Command::OpenTmuxSession(session) => TmuxManager::attach_session(&session).await,
+                Command::ShellExec(args) => self.run_shell_command(&args).await,
+                Command::ShellExecIn { cwd, args } => self.run_shell_command_in(cwd, &args).await,
+            };
+
+            if let Err(e) = result {
+                tracing::warn!("Failed to execute workspace command: {}", e);
+                self.state.add_output(format!("Error: {}", e));
+            }
+        }
     }
 }
 
@@ -874,10 +1079,10 @@ impl Plugin for WorkspacePlugin {
 
     fn handle_event(&mut self, event: crate::event::Event) -> Vec<PluginCmd> {
         let commands = self.handle_event_internal(event);
-        commands
-            .into_iter()
-            .map(|_cmd| PluginCmd::new("workspace", "action"))
-            .collect()
+        for command in commands {
+            self.pending_commands.push_back(command);
+        }
+        Vec::new()
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &crate::core::models::Theme) {
@@ -956,6 +1161,8 @@ impl Plugin for WorkspacePlugin {
     }
 
     async fn update(&mut self) -> anyhow::Result<()> {
+        self.process_pending_commands().await;
+
         // Update preview content if tab was switched
         if self.pending_preview_update {
             self.pending_preview_update = false;
@@ -1028,5 +1235,103 @@ mod tests {
         // Cancel modal
         plugin.handle_action(&Action::Cancel);
         assert!(!plugin.state.is_modal_open());
+    }
+
+    #[test]
+    fn test_merge_dialog_number_builds_merge_command() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let mut plugin = WorkspacePlugin::new();
+        plugin.repo_path = temp_dir.path().to_path_buf();
+        plugin.state.worktrees.push(Worktree::new(
+            "feature-a",
+            temp_dir.path().join("feature-a"),
+            "feature/a",
+        ));
+        plugin.state.selected = Some(0);
+        plugin.state.modal_state = ModalState::MergeDialog;
+
+        let commands = plugin.handle_event_internal(Event::Key {
+            code: "1".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert!(!plugin.state.is_modal_open());
+        assert_eq!(
+            commands,
+            vec![Command::ShellExecIn {
+                cwd: temp_dir.path().to_path_buf(),
+                args: vec![
+                    "git".to_string(),
+                    "merge".to_string(),
+                    "--no-ff".to_string(),
+                    "feature/a".to_string(),
+                ],
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_task_links_persist_roundtrip() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let mut plugin = WorkspacePlugin::new();
+        plugin.repo_path = temp_dir.path().to_path_buf();
+        plugin.state.worktrees.push(Worktree::new(
+            "feature-a",
+            temp_dir.path().join("feature-a"),
+            "feature/a",
+        ));
+        plugin.state.worktrees[0].linked_task = Some("td-123".to_string());
+
+        plugin.save_task_links().await.unwrap();
+
+        let mut restored = vec![Worktree::new(
+            "feature-a",
+            temp_dir.path().join("feature-a"),
+            "feature/a",
+        )];
+        plugin.apply_persisted_links(&mut restored).await;
+
+        assert_eq!(restored[0].linked_task.as_deref(), Some("td-123"));
+    }
+
+    #[tokio::test]
+    async fn test_shell_exec_runs_in_selected_worktree() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let worktree_path = temp_dir.path().join("feature-a");
+        std::fs::create_dir(&worktree_path).unwrap();
+
+        let mut plugin = WorkspacePlugin::new();
+        plugin.repo_path = temp_dir.path().to_path_buf();
+        plugin.state.worktrees.push(Worktree::new(
+            "feature-a",
+            worktree_path.clone(),
+            "feature/a",
+        ));
+        plugin.state.selected = Some(0);
+
+        plugin
+            .run_shell_command(&[
+                "sh".to_string(),
+                "-c".to_string(),
+                "printf '%s' \"$PWD\"".to_string(),
+            ])
+            .await
+            .unwrap();
+
+        assert!(
+            plugin
+                .state
+                .output_text
+                .contains(&worktree_path.display().to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_shell_exec_rejects_empty_command() {
+        let mut plugin = WorkspacePlugin::new();
+
+        let err = plugin.run_shell_command(&[]).await.unwrap_err();
+
+        assert!(err.to_string().contains("shell command is empty"));
     }
 }

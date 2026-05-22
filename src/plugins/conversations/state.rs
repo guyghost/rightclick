@@ -9,20 +9,15 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// Current view mode for the conversations plugin
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ConversationView {
     /// List of all sessions
+    #[default]
     SessionsList,
     /// Individual conversation view
     Conversation,
     /// Search mode
     Search,
-}
-
-impl Default for ConversationView {
-    fn default() -> Self {
-        ConversationView::SessionsList
-    }
 }
 
 /// Information about a session with its adapter
@@ -264,7 +259,7 @@ impl MessageScroll {
 }
 
 /// Plugin state for conversations
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PluginState {
     /// All loaded sessions from all adapters
     pub sessions: Vec<SessionInfo>,
@@ -292,29 +287,14 @@ pub struct PluginState {
     pub total_tokens: Option<TokenUsage>,
 }
 
-impl Default for PluginState {
-    fn default() -> Self {
-        Self {
-            sessions: Vec::new(),
-            messages: Vec::new(),
-            selected_session: None,
-            view: ConversationView::default(),
-            search_query: None,
-            expanded_messages: HashSet::new(),
-            list_nav: ListNavigation::default(),
-            message_scroll: MessageScroll::default(),
-            is_loading: false,
-            error: None,
-            adapter_filter: None,
-            total_tokens: None,
-        }
-    }
-}
-
 impl PluginState {
     /// Create new empty state
     pub fn new() -> Self {
-        Self::default()
+        let mut state = Self::default();
+        // Set reasonable default viewport height so navigation works
+        // before the actual render area dimensions are known
+        state.list_nav.viewport_height = 20;
+        state
     }
 
     /// Set sessions and update navigation

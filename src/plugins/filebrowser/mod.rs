@@ -32,7 +32,7 @@ mod preview;
 mod state;
 mod tree;
 
-pub use plugin::FileBrowserPlugin;
+pub use plugin::{FileBrowserPlugin, FileCommand};
 pub use preview::Preview;
-pub use state::PluginState;
+pub use state::{FileOperationModal, PluginState};
 pub use tree::{FileEntry, FileTree};

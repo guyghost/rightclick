@@ -141,7 +141,7 @@ impl Section for TextSection {
         if text_width == 0 {
             return 1;
         }
-        let lines = (text_width + width - 1) / width;
+        let lines = text_width.div_ceil(width);
         lines.max(1)
     }
 }
@@ -496,7 +496,256 @@ pub fn checkbox(id: &str, label: &str, checked: bool) -> Box<dyn Section> {
     Box::new(CheckboxSection::new(id, label, checked))
 }
 
+/// Convenience function to create a single-line input section
+///
+/// # Example
+///
+/// ```rust
+/// use rightclick::modal::section;
+///
+/// let input = section::input("branch_name", "Enter branch name...");
+/// ```
+pub fn input<I: Into<String>, P: Into<String>>(id: I, placeholder: P) -> Box<dyn Section> {
+    Box::new(InputSection::new(id, placeholder))
+}
+
+/// Convenience function to create a multi-line text area section
+///
+/// # Example
+///
+/// ```rust
+/// use rightclick::modal::section;
+///
+/// let textarea = section::textarea("commit_msg", "Enter commit message...", 5);
+/// ```
+pub fn textarea<I: Into<String>, P: Into<String>>(
+    id: I,
+    placeholder: P,
+    height: u16,
+) -> Box<dyn Section> {
+    Box::new(TextAreaSection::new(id, placeholder, height))
+}
+
+use crate::core::models::text_input::{InputMode, TextInputState};
+use crate::ui::TextInputWidget;
+
 use std::str::FromStr;
+
+/// A single-line text input section for modals
+///
+/// Wraps `TextInputState` to provide interactive text input within modal dialogs.
+pub struct InputSection {
+    /// Unique ID for this input
+    pub id: String,
+    /// The text input state
+    pub state: TextInputState,
+}
+
+impl InputSection {
+    /// Creates a new single-line input section
+    pub fn new<I: Into<String>, P: Into<String>>(id: I, placeholder: P) -> Self {
+        let id = id.into();
+        Self {
+            state: TextInputState::new(InputMode::SingleLine).with_placeholder(placeholder),
+            id,
+        }
+    }
+
+    /// Creates an input section with initial text
+    pub fn with_text<S: Into<String>>(mut self, text: S) -> Self {
+        self.state.set_text(text);
+        self
+    }
+
+    /// Creates an input section with a character limit
+    pub fn with_char_limit(mut self, limit: usize) -> Self {
+        self.state = TextInputState::new(InputMode::SingleLine)
+            .with_placeholder(self.state.placeholder().to_string())
+            .with_char_limit(limit);
+        self
+    }
+
+    /// Returns the current text value
+    pub fn value(&self) -> &str {
+        self.state.text()
+    }
+}
+
+impl Section for InputSection {
+    fn render(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &crate::core::models::Theme,
+        focus_id: Option<&str>,
+        _hover_id: Option<&str>,
+    ) {
+        let is_focused = focus_id == Some(self.id.as_str());
+        let mut state_copy = self.state.clone();
+        state_copy.set_active(is_focused);
+        TextInputWidget::new(&state_copy, theme)
+            .bordered(true)
+            .render(area, buf);
+    }
+
+    fn handle_input(&mut self, key: KeyEvent, focus_id: Option<&str>) -> Option<Action> {
+        if focus_id != Some(self.id.as_str()) {
+            return None;
+        }
+
+        match key.code {
+            KeyCode::Char(c) => {
+                self.state.insert_char(c);
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Backspace => {
+                self.state.delete_char_before();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Delete => {
+                self.state.delete_char_after();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Left => {
+                self.state.move_cursor_left();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Right => {
+                self.state.move_cursor_right();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Home => {
+                self.state.move_cursor_home();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::End => {
+                self.state.move_cursor_end();
+                Some(Action::Custom(Box::new(())))
+            }
+            _ => None,
+        }
+    }
+
+    fn focusable_ids(&self) -> Vec<String> {
+        vec![self.id.clone()]
+    }
+
+    fn height(&self, _width: u16) -> u16 {
+        3 // Border top + content + border bottom
+    }
+}
+
+/// A multi-line text area section for modals
+///
+/// Wraps `TextInputState` in multi-line mode for longer text input
+/// like commit messages.
+pub struct TextAreaSection {
+    /// Unique ID for this text area
+    pub id: String,
+    /// The text input state (multi-line)
+    pub state: TextInputState,
+    /// Display height in lines
+    pub display_height: u16,
+}
+
+impl TextAreaSection {
+    /// Creates a new multi-line text area section
+    pub fn new<I: Into<String>, P: Into<String>>(id: I, placeholder: P, height: u16) -> Self {
+        let id = id.into();
+        Self {
+            state: TextInputState::new(InputMode::MultiLine).with_placeholder(placeholder),
+            id,
+            display_height: height.max(3),
+        }
+    }
+
+    /// Creates a text area with initial text
+    pub fn with_text<S: Into<String>>(mut self, text: S) -> Self {
+        self.state.set_text(text);
+        self
+    }
+
+    /// Returns the current text value
+    pub fn value(&self) -> &str {
+        self.state.text()
+    }
+}
+
+impl Section for TextAreaSection {
+    fn render(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &crate::core::models::Theme,
+        focus_id: Option<&str>,
+        _hover_id: Option<&str>,
+    ) {
+        let is_focused = focus_id == Some(self.id.as_str());
+        let mut state_copy = self.state.clone();
+        state_copy.set_active(is_focused);
+        TextInputWidget::new(&state_copy, theme)
+            .bordered(true)
+            .render(area, buf);
+    }
+
+    fn handle_input(&mut self, key: KeyEvent, focus_id: Option<&str>) -> Option<Action> {
+        if focus_id != Some(self.id.as_str()) {
+            return None;
+        }
+
+        match key.code {
+            KeyCode::Char(c) => {
+                self.state.insert_char(c);
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Enter => {
+                self.state.insert_newline();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Backspace => {
+                self.state.delete_char_before();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Delete => {
+                self.state.delete_char_after();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Left => {
+                self.state.move_cursor_left();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Right => {
+                self.state.move_cursor_right();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Up => {
+                self.state.move_cursor_up();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Down => {
+                self.state.move_cursor_down();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::Home => {
+                self.state.move_cursor_home();
+                Some(Action::Custom(Box::new(())))
+            }
+            KeyCode::End => {
+                self.state.move_cursor_end();
+                Some(Action::Custom(Box::new(())))
+            }
+            _ => None,
+        }
+    }
+
+    fn focusable_ids(&self) -> Vec<String> {
+        vec![self.id.clone()]
+    }
+
+    fn height(&self, _width: u16) -> u16 {
+        self.display_height + 2 // + borders
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -587,5 +836,97 @@ mod tests {
             button_id: "confirm".to_string(),
         };
         assert_eq!(action.button_id, "confirm");
+    }
+
+    #[test]
+    fn input_section_new() {
+        let section = InputSection::new("branch", "Enter branch name...");
+        assert_eq!(section.id, "branch");
+        assert_eq!(section.value(), "");
+        assert_eq!(section.state.placeholder(), "Enter branch name...");
+    }
+
+    #[test]
+    fn input_section_with_text() {
+        let section = InputSection::new("name", "Name").with_text("main");
+        assert_eq!(section.value(), "main");
+    }
+
+    #[test]
+    fn input_section_focusable_ids() {
+        let section = InputSection::new("test_input", "placeholder");
+        let ids = section.focusable_ids();
+        assert_eq!(ids, vec!["test_input"]);
+    }
+
+    #[test]
+    fn input_section_handle_char() {
+        let mut section = InputSection::new("test", "placeholder");
+        let key = KeyEvent::new(KeyCode::Char('a'), crossterm::event::KeyModifiers::NONE);
+        let result = section.handle_input(key, Some("test"));
+        assert!(result.is_some());
+        assert_eq!(section.value(), "a");
+    }
+
+    #[test]
+    fn input_section_ignores_unfocused() {
+        let mut section = InputSection::new("test", "placeholder");
+        let key = KeyEvent::new(KeyCode::Char('a'), crossterm::event::KeyModifiers::NONE);
+        let result = section.handle_input(key, Some("other_id"));
+        assert!(result.is_none());
+        assert_eq!(section.value(), "");
+    }
+
+    #[test]
+    fn input_section_height() {
+        let section = InputSection::new("test", "placeholder");
+        assert_eq!(section.height(80), 3);
+    }
+
+    #[test]
+    fn textarea_section_new() {
+        let section = TextAreaSection::new("commit", "Enter commit message...", 5);
+        assert_eq!(section.id, "commit");
+        assert_eq!(section.value(), "");
+        assert_eq!(section.display_height, 5);
+    }
+
+    #[test]
+    fn textarea_section_with_text() {
+        let section = TextAreaSection::new("msg", "Message", 5).with_text("Initial text");
+        assert_eq!(section.value(), "Initial text");
+    }
+
+    #[test]
+    fn textarea_section_focusable_ids() {
+        let section = TextAreaSection::new("ta", "placeholder", 5);
+        let ids = section.focusable_ids();
+        assert_eq!(ids, vec!["ta"]);
+    }
+
+    #[test]
+    fn textarea_section_handle_enter() {
+        let mut section = TextAreaSection::new("ta", "placeholder", 5);
+        // Type some text
+        let key_a = KeyEvent::new(KeyCode::Char('a'), crossterm::event::KeyModifiers::NONE);
+        section.handle_input(key_a, Some("ta"));
+        // Press enter for newline
+        let key_enter = KeyEvent::new(KeyCode::Enter, crossterm::event::KeyModifiers::NONE);
+        section.handle_input(key_enter, Some("ta"));
+        let key_b = KeyEvent::new(KeyCode::Char('b'), crossterm::event::KeyModifiers::NONE);
+        section.handle_input(key_b, Some("ta"));
+        assert_eq!(section.value(), "a\nb");
+    }
+
+    #[test]
+    fn textarea_section_height() {
+        let section = TextAreaSection::new("ta", "placeholder", 5);
+        assert_eq!(section.height(80), 7); // 5 + 2 borders
+    }
+
+    #[test]
+    fn convenience_input_textarea() {
+        let _ = input("test", "placeholder");
+        let _ = textarea("test", "placeholder", 5);
     }
 }

@@ -11,6 +11,26 @@ use crate::ui::ScrollState;
 use super::preview::Preview;
 use super::tree::FileTree;
 
+/// Types of file operation modals
+#[derive(Clone, Debug, PartialEq)]
+pub enum FileOperationModal {
+    /// Create a new file
+    CreateFile,
+    /// Create a new directory
+    CreateDir,
+    /// Delete a file or directory
+    Delete { path: PathBuf, is_dir: bool },
+    /// Rename a file or directory
+    Rename {
+        path: PathBuf,
+        original_name: String,
+    },
+    /// Filter visible file entries by name
+    Filter,
+    /// Error display
+    Error { message: String },
+}
+
 /// The complete state of the file browser plugin
 #[derive(Clone, Debug)]
 pub struct PluginState {
@@ -40,6 +60,12 @@ pub struct PluginState {
     pub filter_query: Option<String>,
     /// Filtered indices when searching
     pub filtered_indices: Vec<usize>,
+    /// Whether a modal is currently active
+    pub modal_active: bool,
+    /// The currently active modal, if any
+    pub active_modal: Option<FileOperationModal>,
+    /// Text input buffer for modal text fields (create file/dir, rename)
+    pub input_buffer: String,
 }
 
 impl PluginState {
@@ -74,6 +100,9 @@ impl PluginState {
             show_file_info: false,
             filter_query: None,
             filtered_indices: Vec::new(),
+            modal_active: false,
+            active_modal: None,
+            input_buffer: String::new(),
         }
     }
 
@@ -83,8 +112,32 @@ impl PluginState {
         self.update_preview();
     }
 
+    /// Open a modal dialog for a file operation
+    ///
+    /// # Arguments
+    ///
+    /// * `modal` - The type of modal to open
+    pub fn open_modal(&mut self, modal: FileOperationModal) {
+        self.input_buffer = match &modal {
+            FileOperationModal::Rename { original_name, .. } => original_name.clone(),
+            FileOperationModal::Filter => self.filter_query.clone().unwrap_or_default(),
+            _ => String::new(),
+        };
+        self.active_modal = Some(modal);
+        self.modal_active = true;
+    }
+
+    /// Close the currently active modal
+    pub fn close_modal(&mut self) {
+        self.active_modal = None;
+        self.modal_active = false;
+        self.input_buffer.clear();
+    }
+
     /// Get indices of visible entries (respecting hidden/ignored filters)
-    fn visible_indices(&self) -> Vec<usize> {
+    pub fn visible_indices(&self) -> Vec<usize> {
+        let lower_query = self.filter_query.as_ref().map(|query| query.to_lowercase());
+
         self.tree
             .entries
             .iter()
@@ -92,7 +145,11 @@ impl PluginState {
             .filter(|(_, e)| {
                 let show_hidden = self.show_hidden || !e.is_hidden;
                 let show_ignored = self.show_ignored || !e.is_ignored;
-                show_hidden && show_ignored
+                let matches_filter = lower_query.as_ref().is_none_or(|query| {
+                    e.name.to_lowercase().contains(query)
+                        || e.path.to_string_lossy().to_lowercase().contains(query)
+                });
+                show_hidden && show_ignored && matches_filter
             })
             .map(|(i, _)| i)
             .collect()
@@ -234,7 +291,10 @@ impl PluginState {
     ///
     /// * `query` - The search query (None to clear)
     pub fn set_filter(&mut self, query: Option<String>) {
-        self.filter_query = query;
+        self.filter_query = query.and_then(|q| {
+            let trimmed = q.trim().to_string();
+            (!trimmed.is_empty()).then_some(trimmed)
+        });
 
         if let Some(ref q) = self.filter_query {
             let lower_query = q.to_lowercase();
@@ -248,6 +308,16 @@ impl PluginState {
                 .collect();
         } else {
             self.filtered_indices.clear();
+        }
+
+        self.update_tree_scroll_total();
+        let visible = self.visible_indices();
+        if !visible.contains(&self.tree.selected_index) {
+            if let Some(first) = visible.first().copied() {
+                self.tree.selected_index = first;
+                self.update_selected_path_public();
+                self.update_preview();
+            }
         }
     }
 
@@ -420,6 +490,37 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_limits_visible_entries() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
+        fs::write(temp_dir.path().join("beta.txt"), "beta").unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        state.set_filter(Some("alpha".to_string()));
+
+        assert_eq!(state.filter_query.as_deref(), Some("alpha"));
+        assert_eq!(state.filter_count(), 1);
+        let visible_names: Vec<_> = state
+            .visible_indices()
+            .into_iter()
+            .map(|idx| state.tree.entries[idx].name.as_str())
+            .collect();
+        assert!(visible_names.contains(&"alpha.txt"));
+        assert!(!visible_names.contains(&"beta.txt"));
+    }
+
+    #[test]
+    fn test_empty_filter_clears_filter() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        state.set_filter(Some("   ".to_string()));
+
+        assert!(state.filter_query.is_none());
+        assert!(state.filtered_indices.is_empty());
+    }
+
+    #[test]
     fn test_plugin_state_scroll_preview() {
         let temp_dir = TempDir::new().unwrap();
         let mut state = PluginState::new(temp_dir.path().to_path_buf());
@@ -441,5 +542,112 @@ mod tests {
 
         state.scroll_preview_to_top();
         assert!(state.preview_scroll.is_at_top());
+    }
+
+    #[test]
+    fn test_modal_open_close() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        // Initially no modal
+        assert!(!state.modal_active);
+        assert!(state.active_modal.is_none());
+
+        // Open a CreateFile modal
+        state.open_modal(FileOperationModal::CreateFile);
+        assert!(state.modal_active);
+        assert_eq!(state.active_modal, Some(FileOperationModal::CreateFile));
+        assert!(state.input_buffer.is_empty());
+
+        // Close modal
+        state.close_modal();
+        assert!(!state.modal_active);
+        assert!(state.active_modal.is_none());
+        assert!(state.input_buffer.is_empty());
+    }
+
+    #[test]
+    fn test_modal_open_create_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        state.open_modal(FileOperationModal::CreateDir);
+        assert!(state.modal_active);
+        assert_eq!(state.active_modal, Some(FileOperationModal::CreateDir));
+    }
+
+    #[test]
+    fn test_modal_open_delete() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        let path = temp_dir.path().join("test.txt");
+        state.open_modal(FileOperationModal::Delete {
+            path: path.clone(),
+            is_dir: false,
+        });
+        assert!(state.modal_active);
+        assert_eq!(
+            state.active_modal,
+            Some(FileOperationModal::Delete {
+                path,
+                is_dir: false
+            })
+        );
+        // Delete modal should not pre-fill input buffer
+        assert!(state.input_buffer.is_empty());
+    }
+
+    #[test]
+    fn test_modal_open_rename_prefills_name() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        let path = temp_dir.path().join("original.txt");
+        state.open_modal(FileOperationModal::Rename {
+            path: path.clone(),
+            original_name: "original.txt".to_string(),
+        });
+        assert!(state.modal_active);
+        // Rename should pre-fill the input buffer with the original name
+        assert_eq!(state.input_buffer, "original.txt");
+    }
+
+    #[test]
+    fn test_modal_open_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        state.open_modal(FileOperationModal::Error {
+            message: "Something went wrong".to_string(),
+        });
+        assert!(state.modal_active);
+        assert_eq!(
+            state.active_modal,
+            Some(FileOperationModal::Error {
+                message: "Something went wrong".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_modal_close_clears_input_buffer() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        state.open_modal(FileOperationModal::CreateFile);
+        state.input_buffer.push_str("test.txt");
+        assert_eq!(state.input_buffer, "test.txt");
+
+        state.close_modal();
+        assert!(state.input_buffer.is_empty());
+    }
+
+    #[test]
+    fn test_modal_state_default_inactive() {
+        let state = PluginState::default();
+        assert!(!state.modal_active);
+        assert!(state.active_modal.is_none());
+        assert!(state.input_buffer.is_empty());
     }
 }

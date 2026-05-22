@@ -4,6 +4,7 @@
 //! the complete file browser functionality including tree view, file preview,
 //! and keyboard navigation.
 
+use std::collections::VecDeque;
 use std::path::PathBuf;
 
 use async_trait::async_trait;
@@ -21,8 +22,21 @@ use crate::theme::{UiElement, style_for_ui_element};
 use crate::ui::{Footer, Header, KeyHint};
 
 use super::preview::PreviewWidget;
-use super::state::PluginState;
+use super::state::{FileOperationModal, PluginState};
 use super::tree::FileTreeWidget;
+
+/// Commands for file operations that are executed asynchronously
+#[derive(Debug, Clone, PartialEq)]
+pub enum FileCommand {
+    /// Create a new file at the given path
+    CreateFile(PathBuf),
+    /// Create a new directory at the given path
+    CreateDir(PathBuf),
+    /// Delete a file or directory at the given path
+    DeletePath(PathBuf),
+    /// Rename a file or directory from one path to another
+    RenamePath { from: PathBuf, to: PathBuf },
+}
 
 /// The main file browser plugin
 ///
@@ -57,6 +71,8 @@ pub struct FileBrowserPlugin {
     theme: Theme,
     /// Show help overlay
     show_help: bool,
+    /// Pending file operation commands to execute asynchronously
+    pending_commands: VecDeque<FileCommand>,
 }
 
 #[async_trait]
@@ -93,22 +109,28 @@ impl Plugin for FileBrowserPlugin {
                 self.refresh();
             }
             Event::Key { code, modifiers } => {
-                // Handle Ctrl+key combinations first
-                if modifiers.ctrl {
-                    match code.as_str() {
-                        "d" => {
-                            self.state
-                                .scroll_preview_down(self.state.preview_scroll.visible_lines / 2);
+                // When a modal is active, route keys to modal handler
+                if self.state.modal_active {
+                    self.handle_modal_key(&code, &modifiers);
+                } else {
+                    // Handle Ctrl+key combinations first
+                    if modifiers.ctrl {
+                        match code.as_str() {
+                            "d" => {
+                                self.state.scroll_preview_down(
+                                    self.state.preview_scroll.visible_lines / 2,
+                                );
+                            }
+                            "u" => {
+                                self.state
+                                    .scroll_preview_up(self.state.preview_scroll.visible_lines / 2);
+                            }
+                            _ => {}
                         }
-                        "u" => {
-                            self.state
-                                .scroll_preview_up(self.state.preview_scroll.visible_lines / 2);
-                        }
-                        _ => {}
+                    } else if !modifiers.alt {
+                        // Handle simple key presses (including shift which affects the code)
+                        self.handle_key(&code);
                     }
-                } else if !modifiers.alt {
-                    // Handle simple key presses (including shift which affects the code)
-                    self.handle_key(&code);
                 }
             }
             _ => {}
@@ -158,6 +180,22 @@ impl Plugin for FileBrowserPlugin {
     fn focus_context(&self) -> FocusContext {
         FocusContext::FileBrowserTree
     }
+
+    fn consumes_text_input(&self) -> bool {
+        self.state.modal_active
+    }
+
+    async fn update(&mut self) -> anyhow::Result<()> {
+        while let Some(cmd) = self.pending_commands.pop_front() {
+            if let Err(e) = self.execute_file_command(cmd).await {
+                tracing::warn!("Failed to execute file command: {}", e);
+                self.state.open_modal(FileOperationModal::Error {
+                    message: e.to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
 }
 
 impl FileBrowserPlugin {
@@ -184,6 +222,7 @@ impl FileBrowserPlugin {
             focused: true,
             theme: Theme::default(),
             show_help: false,
+            pending_commands: VecDeque::new(),
         }
     }
 
@@ -246,11 +285,11 @@ impl FileBrowserPlugin {
                 true
             }
             Action::Search => {
-                // TODO: Open search input
+                self.state.open_modal(FileOperationModal::Filter);
                 true
             }
             Action::Filter => {
-                // TODO: Open filter input
+                self.state.open_modal(FileOperationModal::Filter);
                 true
             }
             _ => false,
@@ -281,6 +320,10 @@ impl FileBrowserPlugin {
             }
             "H" => {
                 self.state.toggle_hidden();
+                true
+            }
+            "f" => {
+                self.state.open_modal(FileOperationModal::Filter);
                 true
             }
             "?" => {
@@ -322,8 +365,178 @@ impl FileBrowserPlugin {
                 self.state.refresh();
                 true
             }
+            // File operations
+            "a" => {
+                self.state.open_modal(FileOperationModal::CreateFile);
+                true
+            }
+            "A" => {
+                self.state.open_modal(FileOperationModal::CreateDir);
+                true
+            }
+            "d" => {
+                if let Some(entry) = self.state.selected_entry() {
+                    let path = entry.path.clone();
+                    let is_dir = entry.is_dir;
+                    self.state
+                        .open_modal(FileOperationModal::Delete { path, is_dir });
+                }
+                true
+            }
+            "R" => {
+                if let Some(entry) = self.state.selected_entry() {
+                    let path = entry.path.clone();
+                    let original_name = entry.name.clone();
+                    self.state.open_modal(FileOperationModal::Rename {
+                        path,
+                        original_name,
+                    });
+                }
+                true
+            }
             _ => false,
         }
+    }
+
+    /// Handle key events when a modal is active
+    ///
+    /// Routes key presses to the appropriate modal handler based on
+    /// the type of modal currently displayed.
+    fn handle_modal_key(&mut self, key: &str, modifiers: &crate::event::KeyModifiers) {
+        let _ = modifiers;
+
+        match key {
+            "Escape" => {
+                self.state.close_modal();
+            }
+            "Enter" => {
+                self.confirm_modal_action();
+            }
+            "Backspace" => {
+                self.state.input_buffer.pop();
+            }
+            _ => {
+                // For text-input modals, append single characters to the input buffer
+                if key.len() == 1 {
+                    if let Some(modal) = &self.state.active_modal {
+                        match modal {
+                            FileOperationModal::CreateFile
+                            | FileOperationModal::CreateDir
+                            | FileOperationModal::Rename { .. }
+                            | FileOperationModal::Filter => {
+                                self.state.input_buffer.push_str(key);
+                            }
+                            FileOperationModal::Delete { .. }
+                            | FileOperationModal::Error { .. } => {
+                                // No text input for delete confirmation or error display
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Confirm the current modal action and queue the corresponding file command
+    fn confirm_modal_action(&mut self) {
+        let modal = match self.state.active_modal.clone() {
+            Some(m) => m,
+            None => return,
+        };
+
+        match modal {
+            FileOperationModal::CreateFile => {
+                let name = self.state.input_buffer.trim().to_string();
+                if !name.is_empty() {
+                    let base_dir = self.get_base_dir_for_create();
+                    let path = base_dir.join(&name);
+                    self.pending_commands
+                        .push_back(FileCommand::CreateFile(path));
+                }
+                self.state.close_modal();
+            }
+            FileOperationModal::CreateDir => {
+                let name = self.state.input_buffer.trim().to_string();
+                if !name.is_empty() {
+                    let base_dir = self.get_base_dir_for_create();
+                    let path = base_dir.join(&name);
+                    self.pending_commands
+                        .push_back(FileCommand::CreateDir(path));
+                }
+                self.state.close_modal();
+            }
+            FileOperationModal::Delete { path, .. } => {
+                self.pending_commands
+                    .push_back(FileCommand::DeletePath(path));
+                self.state.close_modal();
+            }
+            FileOperationModal::Rename { path, .. } => {
+                let new_name = self.state.input_buffer.trim().to_string();
+                if !new_name.is_empty() {
+                    let to = path.parent().unwrap_or(&self.work_dir).join(&new_name);
+                    self.pending_commands
+                        .push_back(FileCommand::RenamePath { from: path, to });
+                }
+                self.state.close_modal();
+            }
+            FileOperationModal::Filter => {
+                self.state
+                    .set_filter(Some(self.state.input_buffer.trim().to_string()));
+                self.ensure_selected_visible();
+                self.state.close_modal();
+            }
+            FileOperationModal::Error { .. } => {
+                self.state.close_modal();
+            }
+        }
+    }
+
+    /// Get the base directory for creating new files/directories.
+    ///
+    /// If the currently selected entry is a directory, use it as the base.
+    /// Otherwise use the parent of the selected file, or fall back to the work dir.
+    fn get_base_dir_for_create(&self) -> PathBuf {
+        if let Some(entry) = self.state.selected_entry() {
+            if entry.is_dir {
+                entry.path.clone()
+            } else {
+                entry.path.parent().unwrap_or(&self.work_dir).to_path_buf()
+            }
+        } else {
+            self.work_dir.clone()
+        }
+    }
+
+    /// Execute an async file operation command
+    async fn execute_file_command(&mut self, cmd: FileCommand) -> anyhow::Result<()> {
+        match cmd {
+            FileCommand::CreateFile(path) => {
+                tokio::fs::File::create(&path).await?;
+                tracing::info!("Created file: {:?}", path);
+                self.state.refresh();
+            }
+            FileCommand::CreateDir(path) => {
+                tokio::fs::create_dir_all(&path).await?;
+                tracing::info!("Created directory: {:?}", path);
+                self.state.refresh();
+            }
+            FileCommand::DeletePath(path) => {
+                if path.is_dir() {
+                    tokio::fs::remove_dir_all(&path).await?;
+                    tracing::info!("Deleted directory: {:?}", path);
+                } else {
+                    tokio::fs::remove_file(&path).await?;
+                    tracing::info!("Deleted file: {:?}", path);
+                }
+                self.state.refresh();
+            }
+            FileCommand::RenamePath { from, to } => {
+                tokio::fs::rename(&from, &to).await?;
+                tracing::info!("Renamed {:?} to {:?}", from, to);
+                self.state.refresh();
+            }
+        }
+        Ok(())
     }
 
     /// Refresh the file tree
@@ -352,16 +565,9 @@ impl FileBrowserPlugin {
         // Calculate position in visible (filtered) list
         let visible_pos = self
             .state
-            .tree
-            .entries
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| {
-                let show_hidden = self.state.show_hidden || !e.is_hidden;
-                let show_ignored = self.state.show_ignored || !e.is_ignored;
-                show_hidden && show_ignored
-            })
-            .take_while(|(i, _)| *i != self.state.tree.selected_index)
+            .visible_indices()
+            .into_iter()
+            .take_while(|idx| *idx != self.state.tree.selected_index)
             .count();
 
         self.state.tree_scroll.ensure_visible(visible_pos);
@@ -396,12 +602,16 @@ impl FileBrowserPlugin {
             .split(area);
 
         // Render tree panel
+        let tree_title = if let Some(query) = &self.state.filter_query {
+            format!(" Files (filter: {}) ", query)
+        } else if self.state.show_ignored {
+            " Files (showing ignored) ".to_string()
+        } else {
+            " Files ".to_string()
+        };
+
         let tree_block = Block::default()
-            .title(if self.state.show_ignored {
-                " Files (showing ignored) "
-            } else {
-                " Files "
-            })
+            .title(tree_title)
             .borders(Borders::ALL)
             .border_style(if self.focused {
                 style_for_ui_element(&self.theme, UiElement::Primary)
@@ -443,22 +653,7 @@ impl FileBrowserPlugin {
         let muted_style = style_for_ui_element(&self.theme, UiElement::MutedText);
         let primary_style = style_for_ui_element(&self.theme, UiElement::Primary);
 
-        // Build list of visible entry indices (not filtered)
-        let visible_indices: Vec<usize> = self
-            .state
-            .tree
-            .entries
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| {
-                // Filter hidden files
-                let show_hidden = self.state.show_hidden || !e.is_hidden;
-                // Filter git-ignored files
-                let show_ignored = self.state.show_ignored || !e.is_ignored;
-                show_hidden && show_ignored
-            })
-            .map(|(i, _)| i)
-            .collect();
+        let visible_indices = self.state.visible_indices();
 
         // Calculate visible range based on scroll offset
         let scroll_offset = self.state.tree_scroll.offset;
@@ -467,18 +662,17 @@ impl FileBrowserPlugin {
         // Update scroll state total
         let total_visible = visible_indices.len();
 
-        let mut row = 0u16;
-        for (_vis_pos, &entry_idx) in visible_indices
+        for (row, (_vis_pos, &entry_idx)) in visible_indices
             .iter()
             .enumerate()
             .skip(scroll_offset)
             .take(visible_count)
+            .enumerate()
         {
-            let y = area.y + row;
+            let y = area.y + row as u16;
             if y >= area.y + area.height {
                 break;
             }
-            row += 1;
 
             let entry = &self.state.tree.entries[entry_idx];
             let is_selected = self.state.tree.selected_index == entry_idx;
@@ -536,15 +730,16 @@ impl FileBrowserPlugin {
 
     /// Render the footer
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
-        let hints = vec![
+        let hints = [
             KeyHint::new("j/k", "Navigate"),
             KeyHint::new("↵/space", "Expand/Collapse"),
+            KeyHint::new("a/A", "New file/dir"),
+            KeyHint::new("d", "Delete"),
+            KeyHint::new("R", "Rename"),
+            KeyHint::new("f", "Filter"),
             KeyHint::new("i", "Toggle ignored"),
             KeyHint::new("H", "Toggle hidden"),
-            KeyHint::new("I", "File info"),
-            KeyHint::new("Ctrl+d/u", "Page scroll"),
             KeyHint::new("?", "Help"),
-            KeyHint::new("q", "Quit"),
         ];
 
         let status = if let Some(ref path) = self.state.selected_path {
@@ -570,7 +765,7 @@ impl FileBrowserPlugin {
 
         // Calculate popup size
         let popup_width = 50u16;
-        let popup_height = 20u16;
+        let popup_height = 30u16;
         let popup_x = (area.width.saturating_sub(popup_width)) / 2;
         let popup_y = (area.height.saturating_sub(popup_height)) / 2;
 
@@ -641,6 +836,28 @@ impl FileBrowserPlugin {
                 Span::styled("Toggle this help", text_style),
             ]),
             Line::from(""),
+            Line::from(vec![Span::styled(
+                "File Operations",
+                primary_style.add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("a      ", primary_style),
+                Span::styled("Create new file", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("A      ", primary_style),
+                Span::styled("Create new directory", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("d      ", primary_style),
+                Span::styled("Delete selected", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled("R      ", primary_style),
+                Span::styled("Rename selected", text_style),
+            ]),
+            Line::from(""),
             Line::from(vec![Span::styled("Press ? to close", muted_style())]),
         ];
 
@@ -675,7 +892,7 @@ impl FileBrowserPlugin {
         block.render(popup_area, buf);
 
         // File info content
-        let info_text = if let Some(ref entry) = self.state.selected_entry() {
+        let info_text = if let Some(entry) = self.state.selected_entry() {
             let mut lines = vec![
                 Line::from(vec![
                     Span::styled("Name: ", primary_style),
@@ -725,6 +942,153 @@ impl FileBrowserPlugin {
 
         let info_para = Paragraph::new(info_text);
         info_para.render(inner, buf);
+    }
+
+    /// Render the file operation modal overlay
+    fn render_modal(&self, area: Rect, buf: &mut Buffer) {
+        let modal = match &self.state.active_modal {
+            Some(m) => m,
+            None => return,
+        };
+
+        let primary_style = style_for_ui_element(&self.theme, UiElement::Primary);
+        let text_style = style_for_ui_element(&self.theme, UiElement::Text);
+        let error_style = Style::default().fg(ratatui::style::Color::Red);
+
+        let (title, variant_style, lines) = match modal {
+            FileOperationModal::CreateFile => {
+                let lines = vec![
+                    Line::from(vec![Span::styled("Enter file name:", text_style)]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        format!("> {}_", &self.state.input_buffer),
+                        primary_style,
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        "Enter: create  |  Esc: cancel",
+                        muted_style(),
+                    )]),
+                ];
+                (" Create File ", primary_style, lines)
+            }
+            FileOperationModal::CreateDir => {
+                let lines = vec![
+                    Line::from(vec![Span::styled("Enter directory name:", text_style)]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        format!("> {}_", &self.state.input_buffer),
+                        primary_style,
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        "Enter: create  |  Esc: cancel",
+                        muted_style(),
+                    )]),
+                ];
+                (" Create Directory ", primary_style, lines)
+            }
+            FileOperationModal::Delete { path, is_dir } => {
+                let type_str = if *is_dir { "directory" } else { "file" };
+                let name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown");
+                let lines = vec![
+                    Line::from(vec![Span::styled(
+                        format!("Delete {} \"{}\"?", type_str, name),
+                        text_style,
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        format!("{}", path.display()),
+                        muted_style(),
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        "Enter: delete  |  Esc: cancel",
+                        muted_style(),
+                    )]),
+                ];
+                (" Confirm Delete ", error_style, lines)
+            }
+            FileOperationModal::Rename { path, .. } => {
+                let name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown");
+                let lines = vec![
+                    Line::from(vec![Span::styled(
+                        format!("Rename \"{}\" to:", name),
+                        text_style,
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        format!("> {}_", &self.state.input_buffer),
+                        primary_style,
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        "Enter: rename  |  Esc: cancel",
+                        muted_style(),
+                    )]),
+                ];
+                (" Rename ", primary_style, lines)
+            }
+            FileOperationModal::Filter => {
+                let lines = vec![
+                    Line::from(vec![Span::styled(
+                        "Filter files by name or path:",
+                        text_style,
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        format!("> {}_", &self.state.input_buffer),
+                        primary_style,
+                    )]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        "Enter: apply  |  Empty: clear  |  Esc: cancel",
+                        muted_style(),
+                    )]),
+                ];
+                (" Filter Files ", primary_style, lines)
+            }
+            FileOperationModal::Error { message } => {
+                let lines = vec![
+                    Line::from(vec![Span::styled(message.as_str(), error_style)]),
+                    Line::from(""),
+                    Line::from(vec![Span::styled(
+                        "Press Enter or Esc to close",
+                        muted_style(),
+                    )]),
+                ];
+                (" Error ", error_style, lines)
+            }
+        };
+
+        // Calculate popup size
+        let popup_width = 50u16;
+        let popup_height = (lines.len() as u16) + 2; // +2 for border
+        let popup_x = (area.width.saturating_sub(popup_width)) / 2;
+        let popup_y = (area.height.saturating_sub(popup_height)) / 2;
+
+        let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+        // Clear background
+        Clear.render(popup_area, buf);
+
+        // Render border
+        let block = Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_style(variant_style);
+        let inner = block.inner(popup_area);
+        block.render(popup_area, buf);
+
+        // Render content
+        let para = Paragraph::new(lines);
+        para.render(inner, buf);
     }
 
     /// Get the plugin ID (public API)
@@ -785,6 +1149,11 @@ impl FileBrowserPlugin {
         // Render file info panel if active
         if self.state.show_file_info {
             self.render_file_info(area, buf);
+        }
+
+        // Render file operation modal if active
+        if self.state.modal_active {
+            self.render_modal(area, buf);
         }
     }
 
@@ -922,5 +1291,431 @@ mod tests {
         plugin.navigate_to(sub_dir.clone());
 
         assert_eq!(plugin.selected_path(), Some(&sub_dir));
+    }
+
+    #[test]
+    fn test_key_a_opens_create_file_modal() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        assert!(!plugin.state.modal_active);
+        assert!(plugin.handle_key("a"));
+        assert!(plugin.state.modal_active);
+        assert_eq!(
+            plugin.state.active_modal,
+            Some(FileOperationModal::CreateFile)
+        );
+    }
+
+    #[test]
+    fn test_key_shift_a_opens_create_dir_modal() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        assert!(plugin.handle_key("A"));
+        assert!(plugin.state.modal_active);
+        assert_eq!(
+            plugin.state.active_modal,
+            Some(FileOperationModal::CreateDir)
+        );
+    }
+
+    #[test]
+    fn test_key_d_opens_delete_modal() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("target.txt");
+        fs::File::create(&test_file).unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+
+        // Navigate to the file (entry 0 is root ".", entry 1 should be the file)
+        plugin.state.tree.selected_index = 1;
+        plugin.state.update_selected_path_public();
+
+        assert!(plugin.handle_key("d"));
+        assert!(plugin.state.modal_active);
+        match &plugin.state.active_modal {
+            Some(FileOperationModal::Delete { path, is_dir }) => {
+                assert_eq!(path, &test_file);
+                assert!(!is_dir);
+            }
+            other => panic!("Expected Delete modal, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_key_shift_r_opens_rename_modal() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("original.txt");
+        fs::File::create(&test_file).unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+
+        // Navigate to the file
+        plugin.state.tree.selected_index = 1;
+        plugin.state.update_selected_path_public();
+
+        assert!(plugin.handle_key("R"));
+        assert!(plugin.state.modal_active);
+        match &plugin.state.active_modal {
+            Some(FileOperationModal::Rename {
+                path,
+                original_name,
+            }) => {
+                assert_eq!(path, &test_file);
+                assert_eq!(original_name, "original.txt");
+                // Input buffer should be pre-filled with original name
+                assert_eq!(plugin.state.input_buffer, "original.txt");
+            }
+            other => panic!("Expected Rename modal, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_consumes_text_input_when_modal_active() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        // No modal active -> does not consume text input
+        assert!(!plugin.consumes_text_input());
+
+        // Open a modal -> consumes text input
+        plugin.state.open_modal(FileOperationModal::CreateFile);
+        assert!(plugin.consumes_text_input());
+
+        // Close modal -> no longer consumes
+        plugin.state.close_modal();
+        assert!(!plugin.consumes_text_input());
+    }
+
+    #[test]
+    fn test_modal_escape_closes_modal() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::CreateFile);
+        assert!(plugin.state.modal_active);
+
+        let modifiers = crate::event::KeyModifiers::default();
+        plugin.handle_modal_key("Escape", &modifiers);
+
+        assert!(!plugin.state.modal_active);
+        assert!(plugin.state.active_modal.is_none());
+    }
+
+    #[test]
+    fn test_modal_text_input() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::CreateFile);
+        let modifiers = crate::event::KeyModifiers::default();
+
+        // Type characters
+        plugin.handle_modal_key("t", &modifiers);
+        plugin.handle_modal_key("e", &modifiers);
+        plugin.handle_modal_key("s", &modifiers);
+        plugin.handle_modal_key("t", &modifiers);
+        assert_eq!(plugin.state.input_buffer, "test");
+
+        // Backspace
+        plugin.handle_modal_key("Backspace", &modifiers);
+        assert_eq!(plugin.state.input_buffer, "tes");
+    }
+
+    #[test]
+    fn test_modal_confirm_create_file_queues_command() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::CreateFile);
+        plugin.state.input_buffer = "new_file.txt".to_string();
+
+        plugin.confirm_modal_action();
+
+        assert!(!plugin.state.modal_active);
+        assert_eq!(plugin.pending_commands.len(), 1);
+        match &plugin.pending_commands[0] {
+            FileCommand::CreateFile(path) => {
+                assert!(path.to_string_lossy().contains("new_file.txt"));
+            }
+            other => panic!("Expected CreateFile command, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_modal_confirm_create_dir_queues_command() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::CreateDir);
+        plugin.state.input_buffer = "new_dir".to_string();
+
+        plugin.confirm_modal_action();
+
+        assert!(!plugin.state.modal_active);
+        assert_eq!(plugin.pending_commands.len(), 1);
+        match &plugin.pending_commands[0] {
+            FileCommand::CreateDir(path) => {
+                assert!(path.to_string_lossy().contains("new_dir"));
+            }
+            other => panic!("Expected CreateDir command, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_modal_confirm_delete_queues_command() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("to_delete.txt");
+        fs::File::create(&test_file).unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::Delete {
+            path: test_file.clone(),
+            is_dir: false,
+        });
+
+        plugin.confirm_modal_action();
+
+        assert!(!plugin.state.modal_active);
+        assert_eq!(plugin.pending_commands.len(), 1);
+        assert_eq!(
+            plugin.pending_commands[0],
+            FileCommand::DeletePath(test_file)
+        );
+    }
+
+    #[test]
+    fn test_modal_confirm_rename_queues_command() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("old_name.txt");
+        fs::File::create(&test_file).unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::Rename {
+            path: test_file.clone(),
+            original_name: "old_name.txt".to_string(),
+        });
+        plugin.state.input_buffer = "new_name.txt".to_string();
+
+        plugin.confirm_modal_action();
+
+        assert!(!plugin.state.modal_active);
+        assert_eq!(plugin.pending_commands.len(), 1);
+        match &plugin.pending_commands[0] {
+            FileCommand::RenamePath { from, to } => {
+                assert_eq!(from, &test_file);
+                assert_eq!(to, &temp_dir.path().join("new_name.txt"));
+            }
+            other => panic!("Expected RenamePath command, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_filter_modal_applies_filter_without_file_command() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::Filter);
+        plugin.state.input_buffer = "src".to_string();
+
+        plugin.confirm_modal_action();
+
+        assert!(!plugin.state.modal_active);
+        assert_eq!(plugin.state.filter_query.as_deref(), Some("src"));
+        assert!(plugin.pending_commands.is_empty());
+    }
+
+    #[test]
+    fn test_modal_confirm_empty_input_does_not_queue() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::CreateFile);
+        // Leave input buffer empty
+
+        plugin.confirm_modal_action();
+
+        assert!(!plugin.state.modal_active);
+        assert!(plugin.pending_commands.is_empty());
+    }
+
+    #[test]
+    fn test_modal_error_closes_on_confirm() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::Error {
+            message: "Test error".to_string(),
+        });
+        assert!(plugin.state.modal_active);
+
+        plugin.confirm_modal_action();
+        assert!(!plugin.state.modal_active);
+        assert!(plugin.pending_commands.is_empty());
+    }
+
+    #[test]
+    fn test_delete_modal_does_not_accept_text_input() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        plugin.state.open_modal(FileOperationModal::Delete {
+            path: temp_dir.path().join("file.txt"),
+            is_dir: false,
+        });
+
+        let modifiers = crate::event::KeyModifiers::default();
+        plugin.handle_modal_key("x", &modifiers);
+        plugin.handle_modal_key("y", &modifiers);
+        plugin.handle_modal_key("z", &modifiers);
+
+        // Input buffer should remain empty for delete modals
+        assert!(plugin.state.input_buffer.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_execute_file_command_create_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        let new_file = temp_dir.path().join("created.txt");
+
+        let result = plugin
+            .execute_file_command(FileCommand::CreateFile(new_file.clone()))
+            .await;
+        assert!(result.is_ok());
+        assert!(new_file.exists());
+    }
+
+    #[tokio::test]
+    async fn test_execute_file_command_create_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        let new_dir = temp_dir.path().join("created_dir");
+
+        let result = plugin
+            .execute_file_command(FileCommand::CreateDir(new_dir.clone()))
+            .await;
+        assert!(result.is_ok());
+        assert!(new_dir.exists());
+        assert!(new_dir.is_dir());
+    }
+
+    #[tokio::test]
+    async fn test_execute_file_command_delete_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        let file_to_delete = temp_dir.path().join("to_delete.txt");
+        fs::File::create(&file_to_delete).unwrap();
+        assert!(file_to_delete.exists());
+
+        let result = plugin
+            .execute_file_command(FileCommand::DeletePath(file_to_delete.clone()))
+            .await;
+        assert!(result.is_ok());
+        assert!(!file_to_delete.exists());
+    }
+
+    #[tokio::test]
+    async fn test_execute_file_command_delete_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        let dir_to_delete = temp_dir.path().join("to_delete_dir");
+        fs::create_dir(&dir_to_delete).unwrap();
+        fs::File::create(dir_to_delete.join("inner.txt")).unwrap();
+        assert!(dir_to_delete.exists());
+
+        let result = plugin
+            .execute_file_command(FileCommand::DeletePath(dir_to_delete.clone()))
+            .await;
+        assert!(result.is_ok());
+        assert!(!dir_to_delete.exists());
+    }
+
+    #[tokio::test]
+    async fn test_execute_file_command_rename() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        let from = temp_dir.path().join("old_name.txt");
+        let to = temp_dir.path().join("new_name.txt");
+        fs::File::create(&from).unwrap();
+
+        let result = plugin
+            .execute_file_command(FileCommand::RenamePath {
+                from: from.clone(),
+                to: to.clone(),
+            })
+            .await;
+        assert!(result.is_ok());
+        assert!(!from.exists());
+        assert!(to.exists());
+    }
+
+    #[test]
+    fn test_get_base_dir_for_create_with_dir_selected() {
+        let temp_dir = TempDir::new().unwrap();
+        let sub_dir = temp_dir.path().join("subdir");
+        fs::create_dir(&sub_dir).unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+
+        // Select the subdirectory (entry after root)
+        for (i, entry) in plugin.state.tree.entries.iter().enumerate() {
+            if entry.path == sub_dir {
+                plugin.state.tree.selected_index = i;
+                break;
+            }
+        }
+        plugin.state.update_selected_path_public();
+
+        let base = plugin.get_base_dir_for_create();
+        assert_eq!(base, sub_dir);
+    }
+
+    #[test]
+    fn test_get_base_dir_for_create_with_file_selected() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("test.txt");
+        fs::File::create(&test_file).unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+
+        // Select the file
+        for (i, entry) in plugin.state.tree.entries.iter().enumerate() {
+            if entry.path == test_file {
+                plugin.state.tree.selected_index = i;
+                break;
+            }
+        }
+        plugin.state.update_selected_path_public();
+
+        let base = plugin.get_base_dir_for_create();
+        // Should return parent of file, which is the temp_dir
+        assert_eq!(base, temp_dir.path().to_path_buf());
+    }
+
+    #[test]
+    fn test_event_handling_routes_to_modal_when_active() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        // Open a modal
+        plugin.state.open_modal(FileOperationModal::CreateFile);
+
+        // Send a key event - should route to modal handler, not normal handler
+        let event = Event::Key {
+            code: "t".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        };
+        plugin.handle_event(event);
+
+        // The "t" should have been added to input buffer (modal text input)
+        assert_eq!(plugin.state.input_buffer, "t");
     }
 }

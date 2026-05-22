@@ -54,6 +54,30 @@ pub fn check_guard(ctx: &ActionContext) -> GuardResult {
         // Push/Pull - always authorized
         ActionId::Push | ActionId::Pull => GuardResult::Authorized,
 
+        // Branch operations - authorized when in Branches view with selection
+        ActionId::Checkout | ActionId::DeleteBranch => check_requires_selection(ctx, |ctx| {
+            if ctx.context.view_mode != ViewMode::Branches {
+                return GuardResult::Denied(GuardError::WrongViewMode {
+                    current: ctx.context.view_mode,
+                    required: ViewMode::Branches,
+                });
+            }
+            GuardResult::Authorized
+        }),
+        ActionId::CreateBranch => GuardResult::Authorized,
+
+        // Stash operations
+        ActionId::StashSave => GuardResult::Authorized,
+        ActionId::StashPop | ActionId::StashDrop => check_requires_selection(ctx, |ctx| {
+            if ctx.context.view_mode != ViewMode::Stash {
+                return GuardResult::Denied(GuardError::WrongViewMode {
+                    current: ctx.context.view_mode,
+                    required: ViewMode::Stash,
+                });
+            }
+            GuardResult::Authorized
+        }),
+
         // View mode switching - always authorized
         ActionId::SwitchMode(_) => GuardResult::Authorized,
 
@@ -267,6 +291,82 @@ mod tests {
             FocusPane::Sidebar,
             5,
         );
+        let result = check_guard(&ctx);
+        assert_eq!(result, GuardResult::Authorized);
+    }
+
+    #[test]
+    fn test_checkout_requires_branches_mode() {
+        let ctx = full_action_context(
+            ActionId::Checkout,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Status,
+            FocusPane::Sidebar,
+            5,
+        );
+        let result = check_guard(&ctx);
+        assert!(matches!(
+            result,
+            GuardResult::Denied(GuardError::WrongViewMode { .. })
+        ));
+    }
+
+    #[test]
+    fn test_checkout_authorized_in_branches_mode() {
+        let ctx = full_action_context(
+            ActionId::Checkout,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Branches,
+            FocusPane::Sidebar,
+            5,
+        );
+        let result = check_guard(&ctx);
+        assert_eq!(result, GuardResult::Authorized);
+    }
+
+    #[test]
+    fn test_stash_pop_requires_stash_mode() {
+        let ctx = full_action_context(
+            ActionId::StashPop,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Status,
+            FocusPane::Sidebar,
+            5,
+        );
+        let result = check_guard(&ctx);
+        assert!(matches!(
+            result,
+            GuardResult::Denied(GuardError::WrongViewMode { .. })
+        ));
+    }
+
+    #[test]
+    fn test_stash_pop_authorized_in_stash_mode() {
+        let ctx = full_action_context(
+            ActionId::StashPop,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Stash,
+            FocusPane::Sidebar,
+            5,
+        );
+        let result = check_guard(&ctx);
+        assert_eq!(result, GuardResult::Authorized);
+    }
+
+    #[test]
+    fn test_create_branch_always_authorized() {
+        let ctx = action_context(ActionId::CreateBranch, None, ViewMode::Status);
+        let result = check_guard(&ctx);
+        assert_eq!(result, GuardResult::Authorized);
+    }
+
+    #[test]
+    fn test_stash_save_always_authorized() {
+        let ctx = action_context(ActionId::StashSave, None, ViewMode::Status);
         let result = check_guard(&ctx);
         assert_eq!(result, GuardResult::Authorized);
     }

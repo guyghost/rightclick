@@ -105,6 +105,7 @@
 use async_trait::async_trait;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use thiserror::Error;
 
 use crate::core::models::Theme;
 use crate::event::Event;
@@ -182,6 +183,32 @@ impl Command {
             args: Some(args.into()),
         }
     }
+}
+
+/// Successful plugin command execution metadata.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PluginCommandExecution {
+    /// Plugin that handled the command.
+    pub plugin_id: String,
+    /// Command identifier that was executed.
+    pub command_id: String,
+    /// Display name of the command.
+    pub command_name: String,
+    /// Commands emitted by the plugin while handling the execution event.
+    pub emitted_commands: Vec<Command>,
+}
+
+/// Error returned when a plugin command cannot be executed.
+#[derive(Debug, Clone, Error, PartialEq, Eq)]
+pub enum PluginCommandError {
+    /// The plugin does not expose the requested command identifier.
+    #[error("plugin '{plugin_id}' does not expose command '{command_id}'")]
+    UnknownCommand {
+        /// Plugin that was asked to execute the command.
+        plugin_id: String,
+        /// Command identifier that could not be found.
+        command_id: String,
+    },
 }
 
 /// Category represents a logical grouping of commands for the command palette.
@@ -727,6 +754,41 @@ pub trait Plugin: Send + Sync + std::fmt::Debug {
     /// by the user.
     fn commands(&self) -> Vec<PluginCommand>;
 
+    /// Execute a command exposed by this plugin by command identifier.
+    ///
+    /// The default implementation keeps command activation centralized by
+    /// translating command metadata into the same key event path used for
+    /// direct keyboard shortcuts.
+    fn execute_command(
+        &mut self,
+        command_id: &str,
+    ) -> Result<PluginCommandExecution, PluginCommandError> {
+        let plugin_id = self.id().to_string();
+        let command = self
+            .commands()
+            .into_iter()
+            .find(|command| command.id == command_id)
+            .ok_or_else(|| PluginCommandError::UnknownCommand {
+                plugin_id: plugin_id.clone(),
+                command_id: command_id.to_string(),
+            })?;
+
+        let emitted_commands = self.handle_event(Event::Key {
+            code: command.key.to_string(),
+            modifiers: crate::event::KeyModifiers {
+                shift: command.key.is_ascii_uppercase(),
+                ..Default::default()
+            },
+        });
+
+        Ok(PluginCommandExecution {
+            plugin_id,
+            command_id: command.id,
+            command_name: command.name,
+            emitted_commands,
+        })
+    }
+
     /// Get the current focus context for this plugin.
     ///
     /// This is used to determine which keyboard shortcuts are active
@@ -786,6 +848,65 @@ pub trait Plugin: Send + Sync + std::fmt::Debug {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
+
+    #[derive(Debug, Default)]
+    struct TestPlugin {
+        last_code: Option<String>,
+        last_shift: bool,
+    }
+
+    #[async_trait]
+    impl Plugin for TestPlugin {
+        fn id(&self) -> &str {
+            "test"
+        }
+
+        fn name(&self) -> &str {
+            "Test"
+        }
+
+        fn icon(&self) -> char {
+            'T'
+        }
+
+        async fn init(&mut self, _ctx: &PluginContext) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn shutdown(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn handle_event(&mut self, event: Event) -> Vec<Command> {
+            if let Event::Key { code, modifiers } = event {
+                self.last_code = Some(code);
+                self.last_shift = modifiers.shift;
+            }
+            Vec::new()
+        }
+
+        fn render(&self, _area: Rect, _buf: &mut Buffer, _theme: &Theme) {}
+
+        fn is_focused(&self) -> bool {
+            false
+        }
+
+        fn set_focused(&mut self, _focused: bool) {}
+
+        fn commands(&self) -> Vec<PluginCommand> {
+            vec![PluginCommand::minimal(
+                "delete",
+                "Delete",
+                Category::Actions,
+                'D',
+            )]
+        }
+
+        fn focus_context(&self) -> FocusContext {
+            FocusContext::Global
+        }
+    }
 
     #[test]
     fn test_command_new() {
@@ -825,5 +946,36 @@ mod tests {
         );
         assert_eq!(cmd.id, "stage");
         assert_eq!(cmd.name, "Stage");
+    }
+
+    #[test]
+    fn test_execute_command_dispatches_declared_key_event() {
+        let mut plugin = TestPlugin::default();
+
+        let result = plugin.execute_command("delete");
+
+        let execution = result.expect("command should execute");
+        assert_eq!(execution.plugin_id, "test");
+        assert_eq!(execution.command_id, "delete");
+        assert_eq!(execution.command_name, "Delete");
+        assert!(execution.emitted_commands.is_empty());
+        assert_eq!(plugin.last_code.as_deref(), Some("D"));
+        assert!(plugin.last_shift);
+    }
+
+    #[test]
+    fn test_execute_command_returns_error_for_unknown_command() {
+        let mut plugin = TestPlugin::default();
+
+        let result = plugin.execute_command("missing");
+
+        assert_eq!(
+            result,
+            Err(PluginCommandError::UnknownCommand {
+                plugin_id: "test".to_string(),
+                command_id: "missing".to_string(),
+            })
+        );
+        assert!(plugin.last_code.is_none());
     }
 }

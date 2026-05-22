@@ -50,6 +50,7 @@
 //!
 //! Custom sections can be created by implementing the [`Section`] trait.
 
+#[allow(clippy::module_inception)]
 pub mod modal;
 pub mod options;
 pub mod section;
@@ -57,11 +58,11 @@ pub mod section;
 // Re-export main types
 pub use modal::{Modal, ModalVariant};
 pub use options::{Button, ButtonVariant, Checkbox};
-pub use section::{ButtonAction, Section};
+pub use section::{ButtonAction, InputSection, Section, TextAreaSection};
 
 /// Convenience re-export of section constructors
 pub mod section_helpers {
-    pub use super::section::{buttons, checkbox, spacer, spacer_lines, text};
+    pub use super::section::{buttons, checkbox, input, spacer, spacer_lines, text, textarea};
 }
 
 // Deprecated: Use `section::text` etc. directly

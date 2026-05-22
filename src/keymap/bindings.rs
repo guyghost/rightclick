@@ -42,6 +42,12 @@ pub enum Action {
     /// Navigate right (e.g., expand tree, go forward).
     NavigateRight,
 
+    /// Navigate to the first item in a list or view.
+    NavigateFirst,
+
+    /// Navigate to the last item in a list or view.
+    NavigateLast,
+
     /// Select the current item.
     Select,
 
@@ -159,6 +165,8 @@ impl Action {
             Self::NavigateDown => "Navigate Down",
             Self::NavigateLeft => "Navigate Left",
             Self::NavigateRight => "Navigate Right",
+            Self::NavigateFirst => "Navigate First",
+            Self::NavigateLast => "Navigate Last",
             Self::Select => "Select",
             Self::Back => "Back",
             Self::Open => "Open",

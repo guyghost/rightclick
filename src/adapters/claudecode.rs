@@ -211,7 +211,7 @@ impl Adapter for ClaudeCodeAdapter {
                 return Ok(raw_messages
                     .into_iter()
                     .enumerate()
-                    .map(|(idx, msg)| msg.to_message(format!("{}-{}", session_id, idx)))
+                    .map(|(idx, msg)| msg.into_message(format!("{}-{}", session_id, idx)))
                     .collect());
             }
         }
@@ -271,7 +271,7 @@ struct ClaudeMessage {
 }
 
 impl ClaudeMessage {
-    fn to_message(self, id: String) -> Message {
+    fn into_message(self, id: String) -> Message {
         let role = match self.role.as_deref() {
             Some("user") => Role::User,
             Some("assistant") => Role::Assistant,
@@ -293,7 +293,7 @@ impl ClaudeMessage {
         let content_blocks = self
             .content_blocks
             .into_iter()
-            .filter_map(|block| block.to_content_block())
+            .filter_map(|block| block.into_content_block())
             .collect();
 
         let tokens = self
@@ -350,7 +350,7 @@ impl ClaudeContentBlock {
         }
     }
 
-    fn to_content_block(self) -> Option<ContentBlock> {
+    fn into_content_block(self) -> Option<ContentBlock> {
         match self {
             ClaudeContentBlock::Text { text } => Some(ContentBlock::Text { content: text }),
             ClaudeContentBlock::Thinking { thinking } => Some(ContentBlock::Markdown {

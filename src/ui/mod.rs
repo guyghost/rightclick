@@ -31,13 +31,19 @@
 //! ```
 
 mod components;
+pub mod notifications;
 mod overlay;
+pub mod progress;
 mod scroll;
 mod selection;
 mod spinner;
+pub mod text_input;
 
 pub use components::{Footer, Header, KeyHint};
+pub use notifications::{NotificationLevel, NotificationManager};
 pub use overlay::Overlay;
+pub use progress::ProgressBar;
 pub use scroll::ScrollState;
 pub use selection::Selection;
 pub use spinner::Spinner;
+pub use text_input::TextInputWidget;

@@ -35,14 +35,14 @@ mod state;
 
 // Re-export public types
 pub use plugin::{Command, PluginCommand, WorkersPlugin, WorkersPluginContext};
-pub use render::{render_workers, render_workers_status};
+pub use render::{render_kanban, render_workers, render_workers_status};
 pub use runner::{WorkerRunner, WorkerRunnerError};
 pub use state::{
-    FocusPane, IntentEntry, ModalState, PluginState, PreviewTab, ViewMode, WorkerEntry,
+    FocusPane, IntentEntry, KanbanState, ModalState, PluginState, PreviewTab, ViewMode, WorkerEntry,
 };
 
 /// Plugin metadata
-pub const PLUGIN_ID: &str = "workspace"; // Keep "workspace" for tab compatibility
+pub const PLUGIN_ID: &str = "workers";
 pub const PLUGIN_NAME: &str = "workers";
 pub const PLUGIN_ICON: char = '🤖';
 pub const PLUGIN_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -60,7 +60,7 @@ pub fn create_plugin() -> WorkersPlugin {
 
 /// Create a new plugin instance with the given configuration
 pub fn create_plugin_with_config(
-    config: crate::core::models::WorkspacePluginConfig,
+    config: crate::core::models::WorkersPluginConfig,
 ) -> WorkersPlugin {
     WorkersPlugin::with_config(config)
 }
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn test_plugin_constants() {
-        assert_eq!(PLUGIN_ID, "workspace"); // Keep for tab compatibility
+        assert_eq!(PLUGIN_ID, "workers");
         assert_eq!(PLUGIN_NAME, "workers");
         assert_eq!(PLUGIN_ICON, '🤖');
     }

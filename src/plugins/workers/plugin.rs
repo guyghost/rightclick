@@ -25,9 +25,10 @@ use super::runner::{WorkerOutput, WorkerRunner};
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
 
 /// A command that can be executed by the plugin
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum Command {
     /// No operation
+    #[default]
     None,
     /// Refresh the view
     Refresh,
@@ -51,12 +52,6 @@ pub enum Command {
     SwitchTab(PreviewTab),
     /// Emit an event
     EmitEvent(Event),
-}
-
-impl Default for Command {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 /// Context passed to workers plugin during initialization
@@ -105,7 +100,7 @@ pub struct WorkersPlugin {
     #[allow(dead_code)]
     key_bindings: KeyBindingRegistry,
     /// Configuration
-    config: crate::core::models::WorkspacePluginConfig,
+    config: crate::core::models::WorkersPluginConfig,
     /// Worker runner
     worker_runner: WorkerRunner,
     /// Output receivers for running workers
@@ -129,7 +124,7 @@ impl WorkersPlugin {
             focused: false,
             focus_pane: FocusPane::default(),
             key_bindings,
-            config: crate::core::models::WorkspacePluginConfig::default(),
+            config: crate::core::models::WorkersPluginConfig::default(),
             worker_runner: WorkerRunner::new(),
             output_receivers: HashMap::new(),
             pending_commands: VecDeque::new(),
@@ -137,7 +132,7 @@ impl WorkersPlugin {
     }
 
     /// Create a new plugin with custom configuration
-    pub fn with_config(config: crate::core::models::WorkspacePluginConfig) -> Self {
+    pub fn with_config(config: crate::core::models::WorkersPluginConfig) -> Self {
         let mut plugin = Self::new();
         plugin.config = config;
         plugin
@@ -170,9 +165,9 @@ impl WorkersPlugin {
         registry.bind("right", Action::NavigateRight, FocusContext::Workspace);
     }
 
-    /// Get the plugin ID (keep "workspace" for tab compatibility)
+    /// Get the plugin ID.
     pub fn id(&self) -> &str {
-        "workspace"
+        super::PLUGIN_ID
     }
 
     /// Get the plugin name
@@ -188,7 +183,10 @@ impl WorkersPlugin {
     /// Initialize the plugin
     pub async fn init_with_context(&mut self, ctx: &WorkersPluginContext) -> Result<()> {
         self.repo_path = ctx.project_root.clone();
-        self.config = ctx.config.plugins.workspace.clone();
+        self.config = ctx.config.plugins.workers.clone();
+
+        self.state.intents_dir = PathBuf::from(&self.config.intents_dir);
+        self.state.logs_dir = PathBuf::from(&self.config.logs_dir);
 
         // Update paths to be absolute
         self.state.intents_dir = self.repo_path.join(&self.state.intents_dir);
@@ -357,6 +355,7 @@ impl WorkersPlugin {
 
         let now = chrono::Utc::now().to_rfc3339();
         let branch = sanitize_branch_name(&intent.title);
+        let agent = self.config.default_agent.clone();
 
         // Create workers in sequence: Investigator -> Implementer -> Verifier
         let investigator = Worker::new(
@@ -365,7 +364,7 @@ impl WorkersPlugin {
             intent_id,
             self.repo_path.clone(),
             &branch,
-            "claude",
+            agent.clone(),
             self.state
                 .logs_dir
                 .join(format!("{}-investigator.log", intent_id)),
@@ -378,7 +377,7 @@ impl WorkersPlugin {
             intent_id,
             self.repo_path.clone(),
             &branch,
-            "claude",
+            agent.clone(),
             self.state
                 .logs_dir
                 .join(format!("{}-implementer.log", intent_id)),
@@ -392,7 +391,7 @@ impl WorkersPlugin {
             intent_id,
             self.repo_path.clone(),
             &branch,
-            "claude",
+            agent,
             self.state
                 .logs_dir
                 .join(format!("{}-verifier.log", intent_id)),
@@ -498,6 +497,7 @@ impl WorkersPlugin {
         // Clean up completed receivers
         for worker_id in completed_workers {
             self.output_receivers.remove(&worker_id);
+            self.worker_runner.mark_completed(&worker_id);
         }
 
         // Start next workers after releasing borrows
@@ -601,23 +601,40 @@ impl WorkersPlugin {
                     // Handle simple key presses
                     match code.as_str() {
                         "j" | "Down" => {
-                            if self.focus_pane == FocusPane::Sidebar {
+                            if self.state.view_mode == ViewMode::Kanban {
+                                let groups = self.state.workers_by_status();
+                                let col = self.state.kanban_state.focused_column;
+                                let count = match col {
+                                    0 => groups.pending.len(),
+                                    1 => groups.running.len(),
+                                    2 => groups.completed.len(),
+                                    3 => groups.failed.len(),
+                                    _ => 0,
+                                };
+                                self.state.kanban_state.next_row(count);
+                            } else if self.focus_pane == FocusPane::Sidebar {
                                 self.state.select_next();
                             }
                         }
                         "k" | "Up" => {
-                            if self.focus_pane == FocusPane::Sidebar {
+                            if self.state.view_mode == ViewMode::Kanban {
+                                self.state.kanban_state.prev_row();
+                            } else if self.focus_pane == FocusPane::Sidebar {
                                 self.state.select_prev();
                             }
                         }
                         "h" | "Left" => {
-                            if self.focus_pane == FocusPane::Preview {
+                            if self.state.view_mode == ViewMode::Kanban {
+                                self.state.kanban_state.prev_column();
+                            } else if self.focus_pane == FocusPane::Preview {
                                 self.focus_pane = FocusPane::Sidebar;
                                 commands.push(Command::SwitchFocus(FocusPane::Sidebar));
                             }
                         }
                         "l" | "Right" => {
-                            if self.focus_pane == FocusPane::Sidebar {
+                            if self.state.view_mode == ViewMode::Kanban {
+                                self.state.kanban_state.next_column();
+                            } else if self.focus_pane == FocusPane::Sidebar {
                                 self.focus_pane = FocusPane::Preview;
                                 commands.push(Command::SwitchFocus(FocusPane::Preview));
                             }
@@ -680,9 +697,14 @@ impl WorkersPlugin {
                             commands.push(Command::StopWorkers);
                         }
                         "Enter" | "o" => {
-                            // Open intent
-                            if let Some(intent) = self.state.selected_intent() {
-                                commands.push(Command::OpenIntent(intent.intent.id.clone()));
+                            if self.state.view_mode == ViewMode::Kanban {
+                                // Transition worker status in kanban view
+                                self.kanban_transition_worker();
+                            } else {
+                                // Open intent
+                                if let Some(intent) = self.state.selected_intent() {
+                                    commands.push(Command::OpenIntent(intent.intent.id.clone()));
+                                }
                             }
                         }
                         "f" => {
@@ -697,6 +719,36 @@ impl WorkersPlugin {
         }
 
         commands
+    }
+
+    /// Transition the focused worker's status in kanban view
+    /// Pending -> Running, Failed -> Pending
+    fn kanban_transition_worker(&mut self) {
+        let groups = self.state.workers_by_status();
+        let col = self.state.kanban_state.focused_column;
+        let row = self.state.kanban_state.focused_row;
+
+        let worker_id = match col {
+            0 => groups.pending.get(row).cloned(),
+            3 => groups.failed.get(row).cloned(),
+            _ => None,
+        };
+
+        if let Some(id) = worker_id {
+            if let Some(entry) = self.state.get_worker_mut(&id) {
+                match entry.worker.status {
+                    WorkerStatus::Pending => {
+                        entry.worker.mark_running();
+                    }
+                    WorkerStatus::Failed => {
+                        entry.worker.status = WorkerStatus::Pending;
+                        entry.worker.exit_code = None;
+                        entry.worker.completed_at = None;
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 
     /// Handle an action from key bindings
@@ -820,13 +872,10 @@ impl WorkersPlugin {
             return Vec::new();
         }
 
-        match self.state.modal_state {
-            ModalState::CreateIntent => {
-                if c.is_alphanumeric() || c.is_whitespace() || c == '-' || c == '_' {
-                    self.state.new_intent_title.push(c);
-                }
-            }
-            _ => {}
+        if self.state.modal_state == ModalState::CreateIntent
+            && (c.is_alphanumeric() || c.is_whitespace() || c == '-' || c == '_')
+        {
+            self.state.new_intent_title.push(c);
         }
 
         Vec::new()
@@ -838,11 +887,8 @@ impl WorkersPlugin {
             return;
         }
 
-        match self.state.modal_state {
-            ModalState::CreateIntent => {
-                self.state.new_intent_title.pop();
-            }
-            _ => {}
+        if self.state.modal_state == ModalState::CreateIntent {
+            self.state.new_intent_title.pop();
         }
     }
 
@@ -937,7 +983,7 @@ use async_trait::async_trait;
 #[async_trait]
 impl Plugin for WorkersPlugin {
     fn id(&self) -> &str {
-        "workspace"
+        super::PLUGIN_ID
     }
 
     fn name(&self) -> &str {
@@ -1064,7 +1110,7 @@ mod tests {
     #[test]
     fn test_plugin_id() {
         let plugin = WorkersPlugin::new();
-        assert_eq!(plugin.id(), "workspace"); // Keep for compatibility
+        assert_eq!(plugin.id(), "workers");
         assert_eq!(plugin.name(), "workers");
         assert_eq!(plugin.icon(), '🤖');
     }

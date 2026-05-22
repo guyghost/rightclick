@@ -38,11 +38,33 @@ pub enum Event {
     /// An error occurred that should be propagated.
     Error { message: String },
 
+    /// A notification should be displayed to the user.
+    Notification {
+        message: String,
+        level: NotificationEventLevel,
+    },
+
     /// A key was pressed.
     Key {
         code: String,
         modifiers: KeyModifiers,
     },
+}
+
+/// Notification severity level for events
+///
+/// This is separate from the UI NotificationLevel to keep the event
+/// system independent of the UI layer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotificationEventLevel {
+    /// Informational message
+    Info,
+    /// Success message
+    Success,
+    /// Warning message
+    Warning,
+    /// Error message
+    Error,
 }
 
 /// Keyboard modifiers for key events.
@@ -102,12 +124,13 @@ impl Topic {
 ///
 /// When a subscriber's channel buffer is full, the dispatcher must decide
 /// how to handle new events. This enum defines the available strategies.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OverflowStrategy {
     /// Drop new events when the buffer is full.
     ///
     /// Use this strategy when you only care about the most recent events
     /// and don't want to block the publisher.
+    #[default]
     Drop,
 
     /// Drop the oldest events when the buffer is full.
@@ -115,12 +138,6 @@ pub enum OverflowStrategy {
     /// Use this strategy when you need to process all events eventually
     /// and prefer to lose older events rather than newer ones.
     DropOldest,
-}
-
-impl Default for OverflowStrategy {
-    fn default() -> Self {
-        OverflowStrategy::Drop
-    }
 }
 
 #[cfg(test)]

@@ -50,6 +50,8 @@ use crate::core::models::state_machine::{StateContext, StateMachine, ViewState};
 
 pub use git_state_machine::{GitCommand, GitStateMachine};
 
+type StateChangeCallback = Box<dyn Fn(&ViewState, &ViewState) + Send + Sync>;
+
 /// Executor for state machines - handles side effects
 ///
 /// This is the imperative shell that wraps the pure state machine
@@ -110,7 +112,7 @@ pub struct StateMachineExecutor {
     /// The state machine (wrapped for interior mutability)
     machine: Arc<Mutex<StateMachine>>,
     /// Callback for state changes: (old_state, new_state)
-    on_state_change: Option<Box<dyn Fn(&ViewState, &ViewState) + Send + Sync>>,
+    on_state_change: Option<StateChangeCallback>,
     /// Callback for action execution
     on_action: Option<Box<dyn Fn(ActionId) + Send + Sync>>,
 }

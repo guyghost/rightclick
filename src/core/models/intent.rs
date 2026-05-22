@@ -140,7 +140,7 @@ impl Intent {
                 true
             });
 
-        self.status = match (self.status.clone(), all_workers_done, self.is_complete()) {
+        self.status = match (self.status, all_workers_done, self.is_complete()) {
             (IntentStatus::Draft, _, _) => IntentStatus::Draft,
             (IntentStatus::Ready, _, _) => IntentStatus::Ready,
             (IntentStatus::InProgress, true, true) => IntentStatus::Completed,
@@ -301,6 +301,7 @@ impl Worker {
     /// assert_eq!(worker.worker_type, WorkerType::Investigator);
     /// assert_eq!(worker.status.to_string(), "pending");
     /// ```
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         name: impl Into<String>,
         worker_type: WorkerType,
@@ -664,7 +665,7 @@ mod tests {
         .depends_on(worker1.id.clone());
 
         assert!(!worker2.can_start(&[]));
-        assert!(worker2.can_start(&[worker1.id.clone()]));
+        assert!(worker2.can_start(std::slice::from_ref(&worker1.id)));
     }
 
     #[test]

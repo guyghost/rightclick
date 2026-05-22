@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use super::bindings::{Action, Binding};
 use super::context::FocusContext;
+use super::sequence::{KeySequenceBuffer, SequenceResult};
 
 /// A command that can be triggered by a keyboard shortcut.
 ///
@@ -121,6 +122,9 @@ pub struct Registry {
     /// User-defined key overrides mapping key strings to command IDs.
     /// These take precedence over default bindings.
     user_overrides: HashMap<String, String>,
+
+    /// Buffer for multi-key sequence detection (e.g., `gg`, `dd`).
+    sequence_buffer: KeySequenceBuffer,
 }
 
 /// Type alias for backward compatibility with plugins
@@ -147,6 +151,7 @@ impl Registry {
             commands: HashMap::new(),
             bindings: HashMap::new(),
             user_overrides: HashMap::new(),
+            sequence_buffer: KeySequenceBuffer::new(),
         }
     }
 
@@ -350,6 +355,81 @@ impl Registry {
         None
     }
 
+    /// Handles a key press with multi-key sequence support.
+    ///
+    /// This method first feeds the key into the sequence buffer. If the
+    /// buffer resolves a sequence, the corresponding command is executed.
+    /// If the key passes through (not part of any sequence), normal
+    /// [`handle`](Self::handle) is called as a fallback.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key combination that was pressed
+    /// * `context` - The current focus context
+    ///
+    /// # Returns
+    ///
+    /// A tuple of `(Action, Option<usize>)` where the second element is
+    /// an optional count prefix, or `None` if no binding was found.
+    pub fn handle_with_sequence(
+        &mut self,
+        key: &str,
+        context: FocusContext,
+    ) -> Option<(Action, Option<usize>)> {
+        match self.sequence_buffer.feed(key, context) {
+            SequenceResult::Resolved { command_id, count } => self
+                .commands
+                .get(&command_id)
+                .map(|command| (command.execute(), count)),
+            SequenceResult::PassThrough { key, count } => {
+                self.handle(&key, context).map(|action| (action, count))
+            }
+            SequenceResult::Pending { .. } => None,
+            SequenceResult::Timeout { key } => {
+                self.handle(&key, context).map(|action| (action, None))
+            }
+        }
+    }
+
+    /// Checks for sequence timeout and returns the resolved action if timed out.
+    ///
+    /// This should be called from the application's tick loop.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of `(Action, Option<usize>)` if the timed-out key maps to
+    /// a command, or `None` otherwise.
+    pub fn check_sequence_timeout(&mut self) -> Option<(Action, Option<usize>)> {
+        if let Some(result) = self.sequence_buffer.check_timeout() {
+            match result {
+                SequenceResult::Timeout { key } => {
+                    // We don't have context here, so try Global
+                    self.handle(&key, FocusContext::Global)
+                        .map(|action| (action, None))
+                }
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns the current pending display from the sequence buffer.
+    ///
+    /// This can be used to show the user what keys have been typed so far
+    /// in the footer or status bar.
+    pub fn pending_sequence_display(&self) -> Option<String> {
+        self.sequence_buffer.pending_display()
+    }
+
+    /// Returns a mutable reference to the sequence buffer.
+    ///
+    /// This allows callers to register custom sequences or configure
+    /// the buffer directly.
+    pub fn sequence_buffer_mut(&mut self) -> &mut KeySequenceBuffer {
+        &mut self.sequence_buffer
+    }
+
     /// Returns a reference to a command by its ID.
     ///
     /// # Arguments
@@ -485,6 +565,20 @@ impl Registry {
         self.register_command(
             Command::new("nav.select", "Select", || Action::Select)
                 .with_description("Select the current item"),
+        );
+        self.register_command(
+            Command::new("nav.first", "Navigate First", || Action::NavigateFirst)
+                .with_description("Navigate to the first item"),
+        );
+        self.register_command(
+            Command::new("nav.last", "Navigate Last", || Action::NavigateLast)
+                .with_description("Navigate to the last item"),
+        );
+
+        // Clipboard operations
+        self.register_command(
+            Command::new("clipboard.copy", "Copy to Clipboard", || Action::Copy)
+                .with_description("Copy the current item to clipboard"),
         );
 
         // File operations

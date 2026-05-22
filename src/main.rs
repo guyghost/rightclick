@@ -19,15 +19,38 @@ use ratatui::{
 };
 use tracing::{info, warn};
 
+use rightclick::palette::fuzzy::fuzzy_match_simple;
 use rightclick::{
     adapters::create_default_registry,
     config,
     core::models::Theme,
-    plugin::{Plugin, PluginContext},
-    plugins::{conversations, filebrowser, gitstatus, workers},
+    plugin::{Plugin, PluginCommandError, PluginCommandExecution, PluginContext},
+    plugins::{conversations, filebrowser, gitstatus, workers, workspace},
+    search::{
+        SearchOverlayAction, SearchOverlayState, SearchScope, render_search_overlay,
+        search_conversations, search_files,
+    },
     state,
     theme::{self, resolve_theme},
+    ui::NotificationManager,
 };
+
+#[derive(Debug)]
+enum SearchCommandError {
+    InvalidRoute(String),
+    PluginUnavailable(String),
+    PluginCommand(PluginCommandError),
+}
+
+impl SearchCommandError {
+    fn notification_message(&self) -> String {
+        match self {
+            Self::InvalidRoute(route) => format!("Invalid command route: {}", route),
+            Self::PluginUnavailable(plugin_id) => format!("Plugin not available: {}", plugin_id),
+            Self::PluginCommand(error) => error.to_string(),
+        }
+    }
+}
 
 /// Command-line arguments
 #[derive(Parser, Debug)]
@@ -160,8 +183,19 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Workers plugin
+    // Workspaces plugin
     if config.plugins.workspace.enabled {
+        info!("Loading workspaces plugin");
+        let mut plugin = workspace::WorkspacePlugin::new();
+        if let Err(e) = plugin.init(&plugin_ctx).await {
+            warn!("Failed to init workspace plugin: {}", e);
+        } else {
+            plugins.push(Box::new(plugin));
+        }
+    }
+
+    // Workers plugin
+    if config.plugins.workers.enabled {
         info!("Loading workers plugin");
         let mut plugin = workers::WorkersPlugin::new();
         if let Err(e) = plugin.init(&plugin_ctx).await {
@@ -179,6 +213,10 @@ async fn main() -> Result<()> {
         plugins.push(Box::new(plugin));
 
         let mut plugin = filebrowser::FileBrowserPlugin::new(work_dir.clone());
+        let _ = plugin.init(&plugin_ctx).await;
+        plugins.push(Box::new(plugin));
+
+        let mut plugin = workspace::WorkspacePlugin::new();
         let _ = plugin.init(&plugin_ctx).await;
         plugins.push(Box::new(plugin));
 
@@ -202,7 +240,7 @@ async fn main() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // Create app
-    let mut app = App::new(plugins, theme);
+    let mut app = App::new(plugins, theme, work_dir.clone());
 
     // Run main loop
     let result = run_app(&mut terminal, &mut app).await;
@@ -230,23 +268,60 @@ struct App {
     theme: Theme,
     active_plugin: usize,
     should_quit: bool,
+    notifications: NotificationManager,
+    search: SearchOverlayState,
+    work_dir: PathBuf,
 }
 
 impl App {
-    fn new(plugins: Vec<Box<dyn Plugin>>, theme: Theme) -> Self {
+    fn new(plugins: Vec<Box<dyn Plugin>>, theme: Theme, work_dir: PathBuf) -> Self {
         Self {
             plugins,
             theme,
             active_plugin: 0,
             should_quit: false,
+            notifications: NotificationManager::new(),
+            search: SearchOverlayState::new(),
+            work_dir,
         }
     }
 
-    fn handle_event(&mut self, event: crossterm::event::Event) -> Result<()> {
+    async fn handle_event(&mut self, event: crossterm::event::Event) -> Result<()> {
         use crossterm::event::{Event as CEvent, KeyCode, KeyEventKind};
 
         match event {
             CEvent::Key(key) if key.kind == KeyEventKind::Press => {
+                // Ctrl+C always quits regardless of any mode
+                if key.code == KeyCode::Char('c')
+                    && key
+                        .modifiers
+                        .contains(crossterm::event::KeyModifiers::CONTROL)
+                {
+                    self.should_quit = true;
+                    return Ok(());
+                }
+
+                // If search overlay is visible, route all input to it
+                if self.search.visible {
+                    let key_code = key_code_to_string(key.code);
+                    let ctrl = key
+                        .modifiers
+                        .contains(crossterm::event::KeyModifiers::CONTROL);
+                    let action = self.search.handle_key(&key_code, ctrl);
+                    match action {
+                        SearchOverlayAction::QueryChanged | SearchOverlayAction::ScopeChanged => {
+                            self.run_search().await;
+                        }
+                        SearchOverlayAction::ResultSelected => {
+                            self.activate_selected_search_result();
+                            // Close overlay on result selection
+                            self.search.close();
+                        }
+                        _ => {}
+                    }
+                    return Ok(());
+                }
+
                 let active_plugin_id = self
                     .plugins
                     .get(self.active_plugin)
@@ -255,47 +330,54 @@ impl App {
                 let active_is_workspace = active_plugin_id == "workspace";
                 let active_is_gitstatus = active_plugin_id == "git-status";
 
-                // Global keys first
-                match key.code {
-                    KeyCode::Char('q') | KeyCode::Char('Q') => {
-                        self.should_quit = true;
-                        return Ok(());
-                    }
-                    KeyCode::Char('c')
-                        if key
-                            .modifiers
-                            .contains(crossterm::event::KeyModifiers::CONTROL) =>
-                    {
-                        self.should_quit = true;
-                        return Ok(());
-                    }
-                    KeyCode::Char(c) if c.is_ascii_digit() => {
-                        // Always use digits 1-9 for global plugin navigation
-                        let idx = c.to_digit(10).unwrap() as usize;
-                        if idx > 0 && idx <= self.plugins.len() {
-                            self.switch_plugin(idx - 1);
+                // Check if the active plugin is consuming text input (e.g., modal with text field)
+                let consumes_text = self
+                    .plugins
+                    .get(self.active_plugin)
+                    .map(|p| p.consumes_text_input())
+                    .unwrap_or(false);
+
+                // When a plugin is consuming text input, skip global shortcuts
+                // that would conflict with typing (q, digits, etc.)
+                if !consumes_text {
+                    // Global keys first
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Char('Q') => {
+                            self.should_quit = true;
                             return Ok(());
                         }
+                        KeyCode::Char('/') => {
+                            self.search.open();
+                            return Ok(());
+                        }
+                        KeyCode::Char(c) if c.is_ascii_digit() => {
+                            // Always use digits 1-9 for global plugin navigation
+                            let idx = c.to_digit(10).unwrap() as usize;
+                            if idx > 0 && idx <= self.plugins.len() {
+                                self.switch_plugin(idx - 1);
+                                return Ok(());
+                            }
+                        }
+                        KeyCode::Tab
+                            if (!active_is_workspace && !active_is_gitstatus)
+                                || key
+                                    .modifiers
+                                    .contains(crossterm::event::KeyModifiers::CONTROL) =>
+                        {
+                            self.next_plugin();
+                            return Ok(());
+                        }
+                        KeyCode::BackTab
+                            if (!active_is_workspace && !active_is_gitstatus)
+                                || key
+                                    .modifiers
+                                    .contains(crossterm::event::KeyModifiers::CONTROL) =>
+                        {
+                            self.prev_plugin();
+                            return Ok(());
+                        }
+                        _ => {}
                     }
-                    KeyCode::Tab
-                        if (!active_is_workspace && !active_is_gitstatus)
-                            || key
-                                .modifiers
-                                .contains(crossterm::event::KeyModifiers::CONTROL) =>
-                    {
-                        self.next_plugin();
-                        return Ok(());
-                    }
-                    KeyCode::BackTab
-                        if (!active_is_workspace && !active_is_gitstatus)
-                            || key
-                                .modifiers
-                                .contains(crossterm::event::KeyModifiers::CONTROL) =>
-                    {
-                        self.prev_plugin();
-                        return Ok(());
-                    }
-                    _ => {}
                 }
 
                 // Send key event to active plugin
@@ -382,6 +464,138 @@ impl App {
         self.switch_plugin(prev);
     }
 
+    /// Run search based on current query and scope
+    async fn run_search(&mut self) {
+        let query = self.search.query().to_string();
+        if query.is_empty() {
+            self.search.set_results(Vec::new());
+            return;
+        }
+
+        let scope = self.search.scope;
+        let mut all_results = Vec::new();
+
+        // File content search (async ripgrep subprocess)
+        if matches!(scope, SearchScope::All | SearchScope::Files) {
+            let file_results = search_files(&query, &self.work_dir, 30).await;
+            all_results.extend(file_results);
+        }
+
+        // Command search (synchronous, always available)
+        if matches!(scope, SearchScope::All | SearchScope::Commands) {
+            let cmd_results = self.search_plugin_commands(&query, 20);
+            all_results.extend(cmd_results);
+        }
+
+        // Conversation search (synchronous fuzzy match)
+        if matches!(scope, SearchScope::All | SearchScope::Conversations) {
+            let conversations: Vec<(String, String)> = self
+                .plugins
+                .iter()
+                .filter(|p| p.id() == "conversations")
+                .flat_map(|p| {
+                    p.commands()
+                        .into_iter()
+                        .map(|c| (c.name.to_string(), c.description.to_string()))
+                })
+                .collect();
+            if !conversations.is_empty() {
+                let conv_results = search_conversations(&query, &conversations, 20);
+                all_results.extend(conv_results);
+            }
+        }
+
+        // Sort all results by score descending
+        all_results.sort_by(|a, b| b.score.cmp(&a.score));
+        all_results.truncate(50);
+        self.search.set_results(all_results);
+    }
+
+    fn activate_selected_search_result(&mut self) {
+        use rightclick::search::SearchResultKind;
+
+        let Some(result) = self.search.selected_result().cloned() else {
+            return;
+        };
+
+        match result.kind {
+            SearchResultKind::FileContent { path, line, .. } => {
+                self.notifications.info(format!("{}:{}", path, line));
+            }
+            SearchResultKind::Conversation { id } => {
+                self.notifications.info(format!("Conversation: {}", id));
+            }
+            SearchResultKind::Command { id } => match self.execute_search_command(&id) {
+                Ok(execution) => {
+                    self.notifications
+                        .info(format!("Command: {}", execution.command_name));
+                }
+                Err(error) => {
+                    self.notifications.warning(error.notification_message());
+                }
+            },
+        }
+    }
+
+    fn search_plugin_commands(
+        &self,
+        query: &str,
+        max_results: usize,
+    ) -> Vec<rightclick::search::SearchResult> {
+        use rightclick::search::{SearchResult, SearchResultKind};
+
+        let mut results = Vec::new();
+        for plugin in &self.plugins {
+            for command in plugin.commands() {
+                let name_score = fuzzy_match_simple(&command.name, query).unwrap_or(0);
+                let desc_score = fuzzy_match_simple(&command.description, query).unwrap_or(0);
+                let id_score = fuzzy_match_simple(&command.id, query).unwrap_or(0);
+                let score = name_score.max(desc_score).max(id_score);
+                if score == 0 {
+                    continue;
+                }
+
+                results.push(SearchResult {
+                    kind: SearchResultKind::Command {
+                        id: format!("{}:{}", plugin.id(), command.id),
+                    },
+                    title: format!("{}: {}", plugin.name(), command.name),
+                    preview: if command.description.is_empty() {
+                        format!("Shortcut '{}'", command.key)
+                    } else {
+                        command.description.clone()
+                    },
+                    score,
+                });
+            }
+        }
+
+        results.sort_by(|a, b| b.score.cmp(&a.score));
+        results.truncate(max_results);
+        results
+    }
+
+    fn execute_search_command(
+        &mut self,
+        id: &str,
+    ) -> Result<PluginCommandExecution, SearchCommandError> {
+        let Some((plugin_id, command_id)) = id.split_once(':') else {
+            return Err(SearchCommandError::InvalidRoute(id.to_string()));
+        };
+
+        let Some(plugin) = self
+            .plugins
+            .iter_mut()
+            .find(|plugin| plugin.id() == plugin_id)
+        else {
+            return Err(SearchCommandError::PluginUnavailable(plugin_id.to_string()));
+        };
+
+        plugin
+            .execute_command(command_id)
+            .map_err(SearchCommandError::PluginCommand)
+    }
+
     fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
         terminal.draw(|f| {
             let size = f.area();
@@ -407,6 +621,12 @@ impl App {
 
             // Footer
             self.render_footer(f, chunks[2]);
+
+            // Search overlay (on top of content)
+            render_search_overlay(&self.search, size, f.buffer_mut(), &self.theme);
+
+            // Notification toasts (overlay on top of everything)
+            self.notifications.render(size, f.buffer_mut(), &self.theme);
         })?;
 
         Ok(())
@@ -493,17 +713,44 @@ impl App {
                 spans.push(Span::styled("switch ", Style::default().fg(Color::Gray)));
             }
             spans.push(Span::styled("1-9:", Style::default().fg(Color::Magenta)));
-            spans.push(Span::styled("goto", Style::default().fg(Color::Gray)));
+            spans.push(Span::styled("goto ", Style::default().fg(Color::Gray)));
+            spans.push(Span::styled("/:", Style::default().fg(Color::Magenta)));
+            spans.push(Span::styled("search", Style::default().fg(Color::Gray)));
 
             let line = Line::from(spans);
             let footer = Paragraph::new(line).alignment(Alignment::Center);
             f.render_widget(footer, area);
         } else {
-            let footer = Paragraph::new(" q:quit | Tab:switch | 1-9:goto ")
+            let footer = Paragraph::new(" q:quit | Tab:switch | 1-9:goto | /:search ")
                 .style(Style::default().fg(Color::Gray))
                 .alignment(Alignment::Center);
             f.render_widget(footer, area);
         }
+    }
+}
+
+/// Convert a crossterm KeyCode to a string representation
+fn key_code_to_string(code: crossterm::event::KeyCode) -> String {
+    use crossterm::event::KeyCode;
+    match code {
+        KeyCode::Char(c) => c.to_string(),
+        KeyCode::Up => "Up".to_string(),
+        KeyCode::Down => "Down".to_string(),
+        KeyCode::Left => "Left".to_string(),
+        KeyCode::Right => "Right".to_string(),
+        KeyCode::Enter => "Enter".to_string(),
+        KeyCode::Esc => "Esc".to_string(),
+        KeyCode::Backspace => "Backspace".to_string(),
+        KeyCode::Tab => "Tab".to_string(),
+        KeyCode::BackTab => "BackTab".to_string(),
+        KeyCode::Home => "Home".to_string(),
+        KeyCode::End => "End".to_string(),
+        KeyCode::PageUp => "PageUp".to_string(),
+        KeyCode::PageDown => "PageDown".to_string(),
+        KeyCode::Delete => "Delete".to_string(),
+        KeyCode::Insert => "Insert".to_string(),
+        KeyCode::F(n) => format!("F{}", n),
+        _ => code.to_string(),
     }
 }
 
@@ -521,11 +768,11 @@ async fn run_app(
         // Handle events with timeout
         if crossterm::event::poll(tick_rate)? {
             let event = crossterm::event::read()?;
-            app.handle_event(event)?;
+            app.handle_event(event).await?;
         }
 
-        // Update active plugin for async operations
-        if let Some(plugin) = app.plugins.get_mut(app.active_plugin) {
+        // Update plugins for async operations, even when they are not focused.
+        for plugin in app.plugins.iter_mut() {
             let _ = plugin.update().await;
         }
 

@@ -16,7 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core async runtime
-tokio = { version = "1.43", features = ["rt-multi-thread", "macros", "sync", "time", "process", "fs"] }
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros", "sync", "time", "process", "fs", "io-util"] }
 
 # TUI framework
 crossterm = "0.28"
@@ -59,6 +59,9 @@ colored = "3.0"
 
 # Fuzzy matching (lightweight)
 nucleo = "0.5"
+
+# Clipboard
+arboard = "3.4"
 
 # SQLite
 rusqlite = { version = "0.34", features = ["bundled", "chrono"] }

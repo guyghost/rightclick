@@ -137,8 +137,8 @@ pub fn generate_spec_document(frontmatter: &SpecFrontmatter, content: &str) -> S
 pub fn extract_title(content: &str) -> Option<String> {
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("# ") {
-            return Some(trimmed[2..].trim().to_string());
+        if let Some(title) = trimmed.strip_prefix("# ") {
+            return Some(title.trim().to_string());
         }
     }
     None
@@ -249,9 +249,9 @@ pub fn extract_acceptance_criteria(content: &str) -> Vec<Criterion> {
 /// Parse a single criterion line.
 fn parse_criterion_line(line: &str) -> Option<Criterion> {
     // Match - [ ] or - [x] patterns
-    if line.starts_with("- [ ] ") {
+    if let Some(description) = line.strip_prefix("- [ ] ") {
         Some(Criterion {
-            description: line[6..].trim().to_string(),
+            description: description.trim().to_string(),
             completed: false,
         })
     } else if line.starts_with("- [x] ") || line.starts_with("- [X] ") {

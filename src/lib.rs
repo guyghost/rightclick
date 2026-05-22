@@ -19,6 +19,9 @@ pub mod modal;
 pub mod palette;
 pub mod ui;
 
+// Search system
+pub mod search;
+
 // Plugin system (always available)
 pub mod plugin;
 

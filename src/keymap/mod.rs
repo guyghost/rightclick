@@ -52,11 +52,13 @@
 pub mod bindings;
 pub mod context;
 pub mod registry;
+pub mod sequence;
 
 // Re-export commonly used types
 pub use bindings::{Action, Binding, KeyBinding, KeyContext, KeyHandler};
 pub use context::FocusContext;
 pub use registry::{Command, Registry};
+pub use sequence::{KeySequenceBuffer, SequenceDefinition, SequenceResult, SequenceState};
 
 #[cfg(test)]
 mod integration_tests {

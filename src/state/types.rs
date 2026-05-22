@@ -83,7 +83,7 @@ impl Default for State {
 ///
 /// Tracks the user's position and expansion state in the file tree,
 /// allowing the UI to restore the exact view when returning to a directory.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct FileBrowserState {
     /// Path of the currently selected file, relative to the workdir.
     pub selected_file: Option<String>,
@@ -95,21 +95,11 @@ pub struct FileBrowserState {
     pub scroll_offset: usize,
 }
 
-impl Default for FileBrowserState {
-    fn default() -> Self {
-        Self {
-            selected_file: None,
-            expanded_dirs: Vec::new(),
-            scroll_offset: 0,
-        }
-    }
-}
-
 /// Workspace state for a specific working directory.
 ///
 /// Tracks workspace-specific UI preferences like view mode and
 /// selected workspace folder.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct WorkspaceState {
     /// Name or path of the selected workspace folder.
     pub selected_workspace: Option<String>,
@@ -118,45 +108,28 @@ pub struct WorkspaceState {
     pub view_mode: ViewMode,
 }
 
-impl Default for WorkspaceState {
-    fn default() -> Self {
-        Self {
-            selected_workspace: None,
-            view_mode: ViewMode::default(),
-        }
-    }
-}
-
 /// Diff display mode for comparing file versions.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum DiffMode {
     /// Unified diff format (single column with +/- markers).
+    #[default]
     Unified,
     /// Side-by-side diff format (two columns, before and after).
     SideBySide,
 }
 
-impl Default for DiffMode {
-    fn default() -> Self {
-        Self::Unified
-    }
-}
-
 /// View mode for workspace display.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ViewMode {
     /// List view with file/folder names in a column.
+    #[default]
     List,
     /// Kanban-style board view for task-oriented workflows.
     Kanban,
-}
-
-impl Default for ViewMode {
-    fn default() -> Self {
-        Self::List
-    }
 }
 
 #[cfg(test)]

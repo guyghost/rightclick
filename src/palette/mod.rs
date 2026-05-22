@@ -39,6 +39,7 @@
 
 pub mod entries;
 pub mod fuzzy;
+#[allow(clippy::module_inception)]
 pub mod palette;
 
 // Re-export commonly used types

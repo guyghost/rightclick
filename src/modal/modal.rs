@@ -18,9 +18,10 @@ use crate::keymap::Action;
 use super::section::Section;
 
 /// Visual variant of a modal
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ModalVariant {
     /// Default neutral styling
+    #[default]
     Default,
     /// Danger/error styling (red accents)
     Danger,
@@ -72,12 +73,6 @@ impl ModalVariant {
     /// Returns the vertical border character
     pub fn vertical(&self) -> &'static str {
         "│"
-    }
-}
-
-impl Default for ModalVariant {
-    fn default() -> Self {
-        Self::Default
     }
 }
 

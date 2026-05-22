@@ -41,6 +41,18 @@ pub enum ActionId {
     Push,
     /// Pull from remote
     Pull,
+    /// Checkout a branch
+    Checkout,
+    /// Create a new branch
+    CreateBranch,
+    /// Delete a branch
+    DeleteBranch,
+    /// Save to stash
+    StashSave,
+    /// Pop from stash
+    StashPop,
+    /// Drop a stash entry
+    StashDrop,
 
     // Modal
     /// Confirm action in modal
@@ -66,6 +78,12 @@ impl std::fmt::Display for ActionId {
             ActionId::Commit => write!(f, "Commit"),
             ActionId::Push => write!(f, "Push"),
             ActionId::Pull => write!(f, "Pull"),
+            ActionId::Checkout => write!(f, "Checkout"),
+            ActionId::CreateBranch => write!(f, "Create Branch"),
+            ActionId::DeleteBranch => write!(f, "Delete Branch"),
+            ActionId::StashSave => write!(f, "Stash Save"),
+            ActionId::StashPop => write!(f, "Stash Pop"),
+            ActionId::StashDrop => write!(f, "Stash Drop"),
             ActionId::Confirm => write!(f, "Confirm"),
             ActionId::Cancel => write!(f, "Cancel"),
         }

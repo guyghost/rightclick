@@ -253,7 +253,7 @@ impl FileDiff {
 }
 
 /// A complete diff between two commits or trees
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct Diff {
     /// Individual file diffs
     pub files: Vec<FileDiff>,
@@ -263,17 +263,6 @@ pub struct Diff {
     pub total_additions: usize,
     /// Total deletions across all files
     pub total_deletions: usize,
-}
-
-impl Default for Diff {
-    fn default() -> Self {
-        Self {
-            files: Vec::new(),
-            files_changed: 0,
-            total_additions: 0,
-            total_deletions: 0,
-        }
-    }
 }
 
 /// Branch information

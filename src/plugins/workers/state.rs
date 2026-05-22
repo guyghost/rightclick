@@ -99,9 +99,10 @@ impl WorkerEntry {
 }
 
 /// View mode for the workers display
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ViewMode {
     /// List view showing all intents
+    #[default]
     List,
     /// Kanban view organized by status
     Kanban,
@@ -109,16 +110,11 @@ pub enum ViewMode {
     Detail,
 }
 
-impl Default for ViewMode {
-    fn default() -> Self {
-        Self::List
-    }
-}
-
 /// Preview tab in the right pane
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PreviewTab {
     /// Intent spec content
+    #[default]
     Spec,
     /// Worker output
     Output,
@@ -126,25 +122,14 @@ pub enum PreviewTab {
     Criteria,
 }
 
-impl Default for PreviewTab {
-    fn default() -> Self {
-        Self::Spec
-    }
-}
-
 /// Which pane has keyboard focus
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum FocusPane {
     /// Intent list pane
+    #[default]
     Sidebar,
     /// Preview/detail pane
     Preview,
-}
-
-impl Default for FocusPane {
-    fn default() -> Self {
-        Self::Sidebar
-    }
 }
 
 /// Modal dialog state
@@ -192,6 +177,8 @@ pub struct PluginState {
     pub intents_dir: PathBuf,
     /// Logs directory path
     pub logs_dir: PathBuf,
+    /// Kanban board navigation state
+    pub kanban_state: KanbanState,
 }
 
 impl PluginState {
@@ -211,6 +198,7 @@ impl PluginState {
             output_text: String::new(),
             intents_dir,
             logs_dir,
+            kanban_state: KanbanState::new(),
         }
     }
 
@@ -465,6 +453,60 @@ impl PluginState {
     }
 }
 
+/// State for the Kanban board view
+#[derive(Debug, Clone, Default)]
+pub struct KanbanState {
+    /// Currently focused column index (0=Pending, 1=Running, 2=Completed, 3=Failed)
+    pub focused_column: usize,
+    /// Currently focused row within the column
+    pub focused_row: usize,
+}
+
+impl KanbanState {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Move focus to the next column (right)
+    pub fn next_column(&mut self) {
+        if self.focused_column < 3 {
+            self.focused_column += 1;
+            self.focused_row = 0; // Reset row when switching columns
+        }
+    }
+
+    /// Move focus to the previous column (left)
+    pub fn prev_column(&mut self) {
+        if self.focused_column > 0 {
+            self.focused_column -= 1;
+            self.focused_row = 0;
+        }
+    }
+
+    /// Move focus down within the current column
+    pub fn next_row(&mut self, max_rows: usize) {
+        if max_rows > 0 && self.focused_row < max_rows - 1 {
+            self.focused_row += 1;
+        }
+    }
+
+    /// Move focus up within the current column
+    pub fn prev_row(&mut self) {
+        if self.focused_row > 0 {
+            self.focused_row -= 1;
+        }
+    }
+
+    /// Clamp focused_row to be within bounds
+    pub fn clamp_row(&mut self, max_rows: usize) {
+        if max_rows == 0 {
+            self.focused_row = 0;
+        } else if self.focused_row >= max_rows {
+            self.focused_row = max_rows - 1;
+        }
+    }
+}
+
 /// Grouped intent indices for kanban view
 #[derive(Clone, Debug, Default)]
 pub struct IntentGroups {
@@ -637,5 +679,129 @@ mod tests {
 
         state.close_modal();
         assert!(!state.is_modal_open());
+    }
+
+    // ========================================================================
+    // KanbanState tests
+    // ========================================================================
+
+    #[test]
+    fn test_kanban_state_default() {
+        let ks = KanbanState::new();
+        assert_eq!(ks.focused_column, 0);
+        assert_eq!(ks.focused_row, 0);
+    }
+
+    #[test]
+    fn test_kanban_next_column() {
+        let mut ks = KanbanState::new();
+        ks.next_column();
+        assert_eq!(ks.focused_column, 1);
+        assert_eq!(ks.focused_row, 0);
+
+        ks.next_column();
+        assert_eq!(ks.focused_column, 2);
+
+        ks.next_column();
+        assert_eq!(ks.focused_column, 3);
+
+        // Should not go past 3
+        ks.next_column();
+        assert_eq!(ks.focused_column, 3);
+    }
+
+    #[test]
+    fn test_kanban_prev_column() {
+        let mut ks = KanbanState::new();
+        // Already at 0, should stay
+        ks.prev_column();
+        assert_eq!(ks.focused_column, 0);
+
+        ks.focused_column = 2;
+        ks.focused_row = 5;
+        ks.prev_column();
+        assert_eq!(ks.focused_column, 1);
+        // Row should reset when switching columns
+        assert_eq!(ks.focused_row, 0);
+    }
+
+    #[test]
+    fn test_kanban_next_column_resets_row() {
+        let mut ks = KanbanState::new();
+        ks.focused_row = 3;
+        ks.next_column();
+        assert_eq!(ks.focused_column, 1);
+        assert_eq!(ks.focused_row, 0);
+    }
+
+    #[test]
+    fn test_kanban_next_row() {
+        let mut ks = KanbanState::new();
+
+        // With 0 max_rows, nothing should happen
+        ks.next_row(0);
+        assert_eq!(ks.focused_row, 0);
+
+        // With 3 max_rows
+        ks.next_row(3);
+        assert_eq!(ks.focused_row, 1);
+
+        ks.next_row(3);
+        assert_eq!(ks.focused_row, 2);
+
+        // Should not go past max_rows - 1
+        ks.next_row(3);
+        assert_eq!(ks.focused_row, 2);
+    }
+
+    #[test]
+    fn test_kanban_prev_row() {
+        let mut ks = KanbanState::new();
+
+        // Already at 0, should stay
+        ks.prev_row();
+        assert_eq!(ks.focused_row, 0);
+
+        ks.focused_row = 2;
+        ks.prev_row();
+        assert_eq!(ks.focused_row, 1);
+
+        ks.prev_row();
+        assert_eq!(ks.focused_row, 0);
+
+        ks.prev_row();
+        assert_eq!(ks.focused_row, 0);
+    }
+
+    #[test]
+    fn test_kanban_clamp_row() {
+        let mut ks = KanbanState::new();
+
+        // Clamp with 0 rows
+        ks.focused_row = 5;
+        ks.clamp_row(0);
+        assert_eq!(ks.focused_row, 0);
+
+        // Clamp when within bounds
+        ks.focused_row = 1;
+        ks.clamp_row(5);
+        assert_eq!(ks.focused_row, 1);
+
+        // Clamp when out of bounds
+        ks.focused_row = 10;
+        ks.clamp_row(3);
+        assert_eq!(ks.focused_row, 2);
+
+        // Clamp at exact boundary
+        ks.focused_row = 3;
+        ks.clamp_row(3);
+        assert_eq!(ks.focused_row, 2);
+    }
+
+    #[test]
+    fn test_plugin_state_has_kanban_state() {
+        let state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
+        assert_eq!(state.kanban_state.focused_column, 0);
+        assert_eq!(state.kanban_state.focused_row, 0);
     }
 }

@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use anyhow::Result;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
@@ -55,7 +56,7 @@ pub enum WorkerOutput {
 #[derive(Debug)]
 pub struct WorkerRunner {
     /// Currently running processes
-    running: std::collections::HashMap<String, Child>,
+    running: std::collections::HashMap<String, u32>,
 }
 
 impl WorkerRunner {
@@ -110,7 +111,7 @@ impl WorkerRunner {
         if let Some(parent) = worker.output_log.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
-                .map_err(|e| WorkerRunnerError::Io(e))?;
+                .map_err(WorkerRunnerError::Io)?;
         }
 
         // Spawn the agent process
@@ -139,9 +140,9 @@ impl WorkerRunner {
             WorkerRunnerError::SpawnFailed("Failed to capture stderr".to_string())
         })?;
 
-        // Spawn output handling task
+        // Spawn output and exit handling task.
         tokio::spawn(async move {
-            let result = handle_output(stdout, stderr, log_path, tx.clone()).await;
+            let result = handle_process_output(child, stdout, stderr, log_path, tx.clone()).await;
             if let Err(e) = result {
                 error!(
                     "Output handling error for worker {}: {}",
@@ -151,33 +152,26 @@ impl WorkerRunner {
             }
         });
 
-        // Store the child process
-        self.running.insert(worker_id, child);
+        // Store the process id for later cancellation.
+        if let Ok(pid) = pid.parse::<u32>() {
+            self.running.insert(worker_id, pid);
+        }
 
         Ok(rx)
     }
 
     /// Stop a running worker
     pub async fn stop_worker(&mut self, worker_id: &str) -> Result<(), WorkerRunnerError> {
-        if let Some(mut child) = self.running.remove(worker_id) {
+        if let Some(pid) = self.running.remove(worker_id) {
             info!("Stopping worker {}", worker_id);
 
-            // Try graceful shutdown first
-            if let Err(e) = child.start_kill() {
-                warn!("Failed to kill worker {}: {}", worker_id, e);
-            }
-
-            // Wait for process to exit
-            match tokio::time::timeout(tokio::time::Duration::from_secs(5), child.wait()).await {
-                Ok(Ok(status)) => {
-                    info!("Worker {} exited with status: {}", worker_id, status);
-                }
-                Ok(Err(e)) => {
-                    error!("Failed to wait for worker {}: {}", worker_id, e);
-                }
-                Err(_) => {
-                    warn!("Timeout waiting for worker {} to exit", worker_id);
-                }
+            let status = Command::new("kill")
+                .arg("-TERM")
+                .arg(pid.to_string())
+                .status()
+                .await;
+            if let Err(e) = status {
+                warn!("Failed to signal worker {}: {}", worker_id, e);
             }
 
             Ok(())
@@ -196,21 +190,14 @@ impl WorkerRunner {
         self.running.keys().collect()
     }
 
+    /// Remove a worker from the running set after its output task observed exit.
+    pub fn mark_completed(&mut self, worker_id: &str) {
+        self.running.remove(worker_id);
+    }
+
     /// Clean up completed processes
     pub async fn cleanup_completed(&mut self) {
-        let completed: Vec<String> = self
-            .running
-            .iter_mut()
-            .filter_map(|(id, child)| match child.try_wait() {
-                Ok(Some(_)) => Some(id.clone()),
-                _ => None,
-            })
-            .collect();
-
-        for id in completed {
-            self.running.remove(&id);
-            debug!("Cleaned up completed worker {}", id);
-        }
+        debug!("Worker cleanup is handled by output tasks");
     }
 
     /// Stop all running workers
@@ -481,15 +468,69 @@ async fn spawn_agent_process(
     Ok(child)
 }
 
-/// Handle output streaming from a process
-async fn handle_output(
-    _stdout: tokio::process::ChildStdout,
-    _stderr: tokio::process::ChildStderr,
-    _log_path: PathBuf,
-    _tx: mpsc::Sender<WorkerOutput>,
+/// Handle output streaming and process completion.
+async fn handle_process_output(
+    mut child: Child,
+    stdout: tokio::process::ChildStdout,
+    stderr: tokio::process::ChildStderr,
+    log_path: PathBuf,
+    tx: mpsc::Sender<WorkerOutput>,
 ) -> Result<()> {
-    // Simplified implementation - full output streaming requires tokio io-util feature
-    // For now, just return Ok - output will be written to log files by the agent itself
+    let file = tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)
+        .await?;
+    let file = std::sync::Arc::new(tokio::sync::Mutex::new(file));
+
+    let stdout_task = tokio::spawn(read_stream(
+        stdout,
+        file.clone(),
+        tx.clone(),
+        OutputStream::Stdout,
+    ));
+    let stderr_task = tokio::spawn(read_stream(stderr, file, tx.clone(), OutputStream::Stderr));
+
+    let status = child.wait().await?;
+    let _ = stdout_task.await;
+    let _ = stderr_task.await;
+
+    let code = status.code().unwrap_or(1);
+    let _ = tx.send(WorkerOutput::Exited(code)).await;
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+enum OutputStream {
+    Stdout,
+    Stderr,
+}
+
+async fn read_stream<R>(
+    stream: R,
+    log_file: std::sync::Arc<tokio::sync::Mutex<tokio::fs::File>>,
+    tx: mpsc::Sender<WorkerOutput>,
+    stream_type: OutputStream,
+) -> Result<()>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    let mut lines = BufReader::new(stream).lines();
+    while let Some(line) = lines.next_line().await? {
+        {
+            let mut file = log_file.lock().await;
+            file.write_all(line.as_bytes()).await?;
+            file.write_all(b"\n").await?;
+        }
+
+        let output = match stream_type {
+            OutputStream::Stdout => WorkerOutput::Stdout(line),
+            OutputStream::Stderr => WorkerOutput::Stderr(line),
+        };
+        if tx.send(output).await.is_err() {
+            break;
+        }
+    }
     Ok(())
 }
 

@@ -39,8 +39,13 @@ pub fn render_git_status(
             render_sidebar(state, state.focus_pane, focused, sidebar_area, buf, theme);
         }
         ViewMode::History => {
-            // In History mode, sidebar shows commit list
             render_commit_list(state, state.focus_pane, focused, sidebar_area, buf, theme);
+        }
+        ViewMode::Branches => {
+            render_branch_list(state, state.focus_pane, focused, sidebar_area, buf, theme);
+        }
+        ViewMode::Stash => {
+            render_stash_list(state, state.focus_pane, focused, sidebar_area, buf, theme);
         }
     }
 
@@ -50,9 +55,19 @@ pub fn render_git_status(
             render_diff_view(state, state.focus_pane, focused, main_area, buf, theme);
         }
         ViewMode::History => {
-            // In History mode, main pane shows commit details (full width)
             render_commit_details(state, state.focus_pane, focused, main_area, buf, theme);
         }
+        ViewMode::Branches => {
+            render_branch_details(state, state.focus_pane, main_area, buf, theme);
+        }
+        ViewMode::Stash => {
+            render_stash_details(state, state.focus_pane, main_area, buf, theme);
+        }
+    }
+
+    // Render modal overlay if active
+    if state.modal_active {
+        render_modal_overlay(state, area, buf, theme);
     }
 }
 
@@ -540,7 +555,7 @@ fn render_commit_details(
             for file_diff in &diff.files {
                 // File header with separator
                 lines.push(Line::styled(
-                    format!("─────────────────────────────────────────"),
+                    "─────────────────────────────────────────".to_string(),
                     muted_style,
                 ));
 
@@ -768,6 +783,398 @@ fn calculate_scroll_offset(
     selected_line
         .saturating_sub(visible_height / 2)
         .min(max_offset)
+}
+
+/// Render the branch list sidebar
+fn render_branch_list(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    focused: bool,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let is_sidebar_focused = focus_pane == FocusPane::Sidebar;
+    let border_style = if is_sidebar_focused && focused {
+        style_for_ui_element(theme, UiElement::Primary)
+    } else {
+        style_for_ui_element(theme, UiElement::Border)
+    };
+
+    let title = format!(" Branches ({}) ", state.branches.len());
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let inner = block.inner(area);
+    block.render(area, buf);
+
+    if state.branches.is_empty() {
+        let empty = Paragraph::new("No branches")
+            .alignment(Alignment::Center)
+            .style(style_for_ui_element(theme, UiElement::MutedText));
+        empty.render(inner, buf);
+        return;
+    }
+
+    let available_height = inner.height as usize;
+    if available_height == 0 {
+        return;
+    }
+
+    let mut lines: Vec<Line> = Vec::new();
+    for (idx, branch) in state.branches.iter().enumerate() {
+        let is_selected = state.selected_branch == Some(idx);
+        let is_current = branch.is_current;
+
+        let marker = if is_current { "● " } else { "  " };
+        let name_style = if is_selected {
+            style_for_ui_element(theme, UiElement::ActiveItem)
+        } else if is_current {
+            style_for_ui_element(theme, UiElement::Primary)
+        } else if branch.is_remote {
+            style_for_ui_element(theme, UiElement::MutedText)
+        } else {
+            style_for_ui_element(theme, UiElement::Text)
+        };
+
+        let arrow = if is_selected { "▸ " } else { "  " };
+
+        lines.push(Line::from(vec![
+            Span::styled(arrow, name_style),
+            Span::styled(
+                marker,
+                if is_current {
+                    style_for_ui_element(theme, UiElement::Success)
+                } else {
+                    Style::default()
+                },
+            ),
+            Span::styled(branch.name.clone(), name_style),
+        ]));
+    }
+
+    let scroll_offset =
+        calculate_scroll_offset(lines.len(), available_height, state.selected_branch);
+    let visible_lines: Vec<Line> = lines
+        .iter()
+        .skip(scroll_offset)
+        .take(available_height)
+        .cloned()
+        .collect();
+
+    Paragraph::new(visible_lines).render(inner, buf);
+}
+
+/// Render branch details in the main pane
+fn render_branch_details(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let is_main_focused = focus_pane == FocusPane::Main;
+    let border_style = if is_main_focused {
+        style_for_ui_element(theme, UiElement::Primary)
+    } else {
+        style_for_ui_element(theme, UiElement::Border)
+    };
+
+    let block = Block::default()
+        .title(" Branch Details ")
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let inner = block.inner(area);
+    block.render(area, buf);
+
+    let text_style = style_for_ui_element(theme, UiElement::Text);
+    let muted_style = style_for_ui_element(theme, UiElement::MutedText);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    if let Some(branch) = state.selected_branch() {
+        lines.push(Line::from(vec![
+            Span::styled("Branch: ", muted_style),
+            Span::styled(branch.name.clone(), text_style.add_modifier(Modifier::BOLD)),
+        ]));
+        if branch.is_current {
+            lines.push(Line::styled(
+                "  ● Current branch",
+                style_for_ui_element(theme, UiElement::Success),
+            ));
+        }
+        if branch.is_remote {
+            lines.push(Line::styled("  Remote tracking branch", muted_style));
+        }
+        lines.push(Line::raw(""));
+        lines.push(Line::styled("Shortcuts:", muted_style));
+        lines.push(Line::styled("  Enter  Checkout branch", text_style));
+        lines.push(Line::styled("  n      Create new branch", text_style));
+        lines.push(Line::styled("  d      Delete branch", text_style));
+        lines.push(Line::styled("  y      Copy branch name", text_style));
+        lines.push(Line::styled("  S      Back to Status", text_style));
+    } else {
+        lines.push(Line::styled("Select a branch", muted_style));
+    }
+
+    Paragraph::new(lines).render(inner, buf);
+}
+
+/// Render the stash list sidebar
+fn render_stash_list(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    focused: bool,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let is_sidebar_focused = focus_pane == FocusPane::Sidebar;
+    let border_style = if is_sidebar_focused && focused {
+        style_for_ui_element(theme, UiElement::Primary)
+    } else {
+        style_for_ui_element(theme, UiElement::Border)
+    };
+
+    let title = format!(" Stash ({}) ", state.stashes.len());
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let inner = block.inner(area);
+    block.render(area, buf);
+
+    if state.stashes.is_empty() {
+        let empty = Paragraph::new("No stashes")
+            .alignment(Alignment::Center)
+            .style(style_for_ui_element(theme, UiElement::MutedText));
+        empty.render(inner, buf);
+        return;
+    }
+
+    let available_height = inner.height as usize;
+    if available_height == 0 {
+        return;
+    }
+
+    let mut lines: Vec<Line> = Vec::new();
+    for (idx, stash) in state.stashes.iter().enumerate() {
+        let is_selected = state.selected_stash == Some(idx);
+
+        let style = if is_selected {
+            style_for_ui_element(theme, UiElement::ActiveItem)
+        } else {
+            style_for_ui_element(theme, UiElement::Text)
+        };
+
+        let idx_style = if is_selected {
+            style_for_ui_element(theme, UiElement::ActiveItem)
+        } else {
+            style_for_ui_element(theme, UiElement::Secondary)
+        };
+
+        let arrow = if is_selected { "▸ " } else { "  " };
+
+        lines.push(Line::from(vec![
+            Span::styled(arrow, style),
+            Span::styled(format!("@{{{}}} ", stash.index), idx_style),
+            Span::styled(stash.message.clone(), style),
+        ]));
+    }
+
+    let scroll_offset =
+        calculate_scroll_offset(lines.len(), available_height, state.selected_stash);
+    let visible_lines: Vec<Line> = lines
+        .iter()
+        .skip(scroll_offset)
+        .take(available_height)
+        .cloned()
+        .collect();
+
+    Paragraph::new(visible_lines).render(inner, buf);
+}
+
+/// Render stash details in the main pane
+fn render_stash_details(
+    state: &PluginState,
+    focus_pane: FocusPane,
+    area: Rect,
+    buf: &mut Buffer,
+    theme: &Theme,
+) {
+    let is_main_focused = focus_pane == FocusPane::Main;
+    let border_style = if is_main_focused {
+        style_for_ui_element(theme, UiElement::Primary)
+    } else {
+        style_for_ui_element(theme, UiElement::Border)
+    };
+
+    let block = Block::default()
+        .title(" Stash Details ")
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let inner = block.inner(area);
+    block.render(area, buf);
+
+    let text_style = style_for_ui_element(theme, UiElement::Text);
+    let muted_style = style_for_ui_element(theme, UiElement::MutedText);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    if let Some(stash) = state.selected_stash() {
+        lines.push(Line::from(vec![
+            Span::styled("Stash: ", muted_style),
+            Span::styled(
+                format!("stash@{{{}}}", stash.index),
+                text_style.add_modifier(Modifier::BOLD),
+            ),
+        ]));
+        lines.push(Line::from(vec![
+            Span::styled("Message: ", muted_style),
+            Span::styled(stash.message.clone(), text_style),
+        ]));
+        if let Some(ref branch) = stash.branch {
+            if !branch.is_empty() {
+                lines.push(Line::from(vec![
+                    Span::styled("Branch: ", muted_style),
+                    Span::styled(branch.clone(), text_style),
+                ]));
+            }
+        }
+        lines.push(Line::raw(""));
+        lines.push(Line::styled("Shortcuts:", muted_style));
+        lines.push(Line::styled(
+            "  Enter  Pop stash (apply & drop)",
+            text_style,
+        ));
+        lines.push(Line::styled("  s      Stash current changes", text_style));
+        lines.push(Line::styled("  d      Drop stash entry", text_style));
+        lines.push(Line::styled("  y      Copy stash info", text_style));
+        lines.push(Line::styled("  S      Back to Status", text_style));
+    } else {
+        lines.push(Line::styled("Select a stash entry", muted_style));
+    }
+
+    Paragraph::new(lines).render(inner, buf);
+}
+
+/// Render a modal overlay
+fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
+    let Some(ref modal) = state.active_modal else {
+        return;
+    };
+
+    // Calculate centered modal area
+    let modal_width = area.width.clamp(20, 50);
+    let modal_height = 7u16;
+    let x = area.x + (area.width.saturating_sub(modal_width)) / 2;
+    let y = area.y + (area.height.saturating_sub(modal_height)) / 2;
+    let modal_area = Rect::new(x, y, modal_width, modal_height);
+
+    // Clear the area
+    for row in modal_area.y..modal_area.y + modal_area.height {
+        for col in modal_area.x..modal_area.x + modal_area.width {
+            if let Some(cell) = buf.cell_mut((col, row)) {
+                cell.set_char(' ');
+                cell.set_style(Style::default());
+            }
+        }
+    }
+
+    let (title, body) = match modal {
+        super::state::GitModal::CommitMessage => ("Commit", "Enter commit message..."),
+        super::state::GitModal::CreateBranch => ("Create Branch", "Enter branch name..."),
+        super::state::GitModal::DeleteBranch { name } => {
+            // Can't return a reference to a temporary, so handle inline
+            let block = Block::default()
+                .title(" Delete Branch ")
+                .borders(Borders::ALL)
+                .border_style(style_for_ui_element(theme, UiElement::Error));
+            let inner = block.inner(modal_area);
+            block.render(modal_area, buf);
+
+            let text = Paragraph::new(vec![
+                Line::styled(
+                    format!("Delete branch '{}'?", name),
+                    style_for_ui_element(theme, UiElement::Text),
+                ),
+                Line::raw(""),
+                Line::styled(
+                    "Enter=Confirm  Escape=Cancel",
+                    style_for_ui_element(theme, UiElement::MutedText),
+                ),
+            ]);
+            text.render(inner, buf);
+            return;
+        }
+        super::state::GitModal::DropStash { index } => {
+            let block = Block::default()
+                .title(" Drop Stash ")
+                .borders(Borders::ALL)
+                .border_style(style_for_ui_element(theme, UiElement::Error));
+            let inner = block.inner(modal_area);
+            block.render(modal_area, buf);
+
+            let text = Paragraph::new(vec![
+                Line::styled(
+                    format!("Drop stash@{{{}}}?", index),
+                    style_for_ui_element(theme, UiElement::Text),
+                ),
+                Line::raw(""),
+                Line::styled(
+                    "Enter=Confirm  Escape=Cancel",
+                    style_for_ui_element(theme, UiElement::MutedText),
+                ),
+            ]);
+            text.render(inner, buf);
+            return;
+        }
+        super::state::GitModal::Error { message } => {
+            let block = Block::default()
+                .title(" Error ")
+                .borders(Borders::ALL)
+                .border_style(style_for_ui_element(theme, UiElement::Error));
+            let inner = block.inner(modal_area);
+            block.render(modal_area, buf);
+
+            let text = Paragraph::new(vec![
+                Line::styled(
+                    message.clone(),
+                    style_for_ui_element(theme, UiElement::Error),
+                ),
+                Line::raw(""),
+                Line::styled(
+                    "Escape=Close",
+                    style_for_ui_element(theme, UiElement::MutedText),
+                ),
+            ])
+            .wrap(ratatui::widgets::Wrap { trim: false });
+            text.render(inner, buf);
+            return;
+        }
+    };
+
+    let block = Block::default()
+        .title(format!(" {} ", title))
+        .borders(Borders::ALL)
+        .border_style(style_for_ui_element(theme, UiElement::Primary));
+    let inner = block.inner(modal_area);
+    block.render(modal_area, buf);
+
+    let text = Paragraph::new(vec![
+        Line::styled(body, style_for_ui_element(theme, UiElement::Text)),
+        Line::raw(""),
+        Line::styled(
+            "Escape=Cancel",
+            style_for_ui_element(theme, UiElement::MutedText),
+        ),
+    ]);
+    text.render(inner, buf);
 }
 
 /// Render the status bar info

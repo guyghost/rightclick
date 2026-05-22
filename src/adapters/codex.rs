@@ -238,7 +238,7 @@ impl Adapter for CodexAdapter {
         Ok(raw_messages
             .into_iter()
             .enumerate()
-            .map(|(idx, msg)| msg.to_message(format!("{}-{}", session_id, idx)))
+            .map(|(idx, msg)| msg.into_message(format!("{}-{}", session_id, idx)))
             .collect())
     }
 
@@ -321,7 +321,7 @@ struct CodexMessage {
 }
 
 impl CodexMessage {
-    fn to_message(self, id: String) -> Message {
+    fn into_message(self, id: String) -> Message {
         let role = match self.role.as_str() {
             "user" => Role::User,
             "assistant" => Role::Assistant,
@@ -342,7 +342,7 @@ impl CodexMessage {
         let content_blocks = self
             .content_blocks
             .into_iter()
-            .filter_map(|block| block.to_content_block())
+            .filter_map(|block| block.into_content_block())
             .collect();
 
         let tokens = self
@@ -395,7 +395,7 @@ impl CodexContentBlock {
         }
     }
 
-    fn to_content_block(self) -> Option<ContentBlock> {
+    fn into_content_block(self) -> Option<ContentBlock> {
         match self {
             CodexContentBlock::Text { text } => Some(ContentBlock::Text { content: text }),
             CodexContentBlock::Reasoning { content } => Some(ContentBlock::Markdown {

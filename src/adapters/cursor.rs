@@ -212,7 +212,7 @@ impl Adapter for CursorAdapter {
 
             // Parse metadata for token usage and content blocks
             let (tokens, content_blocks) = if let Some(ref meta_str) = metadata {
-                parse_cursor_metadata(&meta_str)
+                parse_cursor_metadata(meta_str)
             } else {
                 (None, Vec::new())
             };
@@ -284,7 +284,7 @@ fn parse_cursor_metadata(metadata: &str) -> (Option<TokenUsage>, Vec<ContentBloc
     let content_blocks = meta
         .content_blocks
         .into_iter()
-        .filter_map(|block| parse_content_block(block))
+        .filter_map(parse_content_block)
         .collect();
 
     (tokens, content_blocks)

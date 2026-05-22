@@ -185,8 +185,22 @@ impl ConversationsPlugin {
             }
         };
 
-        let registry = self.adapter_registry.read();
-        let detected = registry.detect_all(&project_root).await?;
+        let adapters = {
+            let registry = self.adapter_registry.read();
+            registry.adapters().to_vec()
+        };
+        let mut detected = HashMap::new();
+        for adapter in adapters {
+            match adapter.detect(&project_root).await {
+                Ok(true) => {
+                    detected.insert(adapter.id().to_string(), adapter);
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    warn!("Failed to detect adapter {}: {}", adapter.id(), e);
+                }
+            }
+        }
 
         debug!("Detected {} adapters with data", detected.len());
 
@@ -220,7 +234,7 @@ impl ConversationsPlugin {
 
         // Publish event if we have a dispatcher
         if let Some(ref dispatcher) = self.event_dispatcher {
-            let _ = dispatcher.publish(Topic::AdapterWatch, Event::SessionUpdate);
+            dispatcher.publish(Topic::AdapterWatch, Event::SessionUpdate);
         }
 
         Ok(())
@@ -347,7 +361,7 @@ impl ConversationsPlugin {
 
             // Refresh
             (KeyCode::Char('r'), KeyModifiers::NONE) => {
-                return false; // Signal to refresh
+                false // Signal to refresh
             }
 
             _ => false,
@@ -416,6 +430,14 @@ impl ConversationsPlugin {
             // Collapse all messages
             (KeyCode::Char('c'), KeyModifiers::NONE) => {
                 self.state.collapse_all_messages();
+                true
+            }
+
+            // Copy message content to clipboard
+            (KeyCode::Char('y'), KeyModifiers::NONE) => {
+                if let Some(msg) = self.state.get_message(self.state.message_scroll.scroll_y) {
+                    let _ = crate::shell::clipboard::copy_to_clipboard(&msg.content);
+                }
                 true
             }
 
@@ -534,10 +556,10 @@ impl ConversationsPlugin {
     }
 
     /// Update viewport dimensions
-    pub fn update_dimensions(&mut self, sessions_width: u16, messages_height: u16) {
+    pub fn update_dimensions(&mut self, sessions_height: u16, messages_height: u16) {
         self.state
             .list_nav
-            .set_viewport_height(sessions_width as usize);
+            .set_viewport_height(sessions_height as usize);
         self.state
             .message_scroll
             .set_viewport_height(messages_height as usize);

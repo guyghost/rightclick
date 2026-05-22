@@ -6,20 +6,19 @@
 use super::action::ActionId;
 
 /// The plugin's view mode determines what content is displayed
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum ViewMode {
     /// Show working directory status (staged/unstaged files)
+    #[default]
     Status,
     /// Show diff for selected file
     Diff,
     /// Show commit history
     History,
-}
-
-impl Default for ViewMode {
-    fn default() -> Self {
-        Self::Status
-    }
+    /// Show branches list
+    Branches,
+    /// Show stash list
+    Stash,
 }
 
 impl std::fmt::Display for ViewMode {
@@ -28,6 +27,8 @@ impl std::fmt::Display for ViewMode {
             ViewMode::Status => write!(f, "Status"),
             ViewMode::Diff => write!(f, "Diff"),
             ViewMode::History => write!(f, "History"),
+            ViewMode::Branches => write!(f, "Branches"),
+            ViewMode::Stash => write!(f, "Stash"),
         }
     }
 }
@@ -52,9 +53,10 @@ impl std::fmt::Display for FocusPane {
 }
 
 /// A state in the state machine
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub enum ViewState {
     /// Initial/loading state
+    #[default]
     Initial,
     /// Ready for user interaction (no selection)
     Ready,
@@ -80,12 +82,6 @@ pub enum ViewState {
         /// Previous state to return to
         previous: Box<ViewState>,
     },
-}
-
-impl Default for ViewState {
-    fn default() -> Self {
-        Self::Initial
-    }
 }
 
 impl ViewState {
@@ -290,6 +286,8 @@ impl StateMachine {
                 ActionId::Refresh,
                 ActionId::SwitchMode(ViewMode::History),
                 ActionId::SwitchMode(ViewMode::Status),
+                ActionId::SwitchMode(ViewMode::Branches),
+                ActionId::SwitchMode(ViewMode::Stash),
             ],
             ViewState::ItemSelected { .. } => vec![
                 ActionId::NavigateUp,

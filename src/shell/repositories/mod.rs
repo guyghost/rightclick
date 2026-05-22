@@ -307,8 +307,10 @@ mod tests {
         let repo = FileStateRepository::new(&state_path);
 
         // Save a state
-        let mut state = State::default();
-        state.git_graph_enabled = false;
+        let state = State {
+            git_graph_enabled: false,
+            ..State::default()
+        };
         repo.save(&state).await.unwrap();
 
         // Load it back

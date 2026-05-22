@@ -36,7 +36,7 @@ mod types;
 
 // Public exports
 pub use dispatcher::{Dispatcher, Subscription};
-pub use types::{Event, KeyModifiers, OverflowStrategy, Topic};
+pub use types::{Event, KeyModifiers, NotificationEventLevel, OverflowStrategy, Topic};
 
 /// Type alias for Dispatcher (used by some plugins)
 pub type EventDispatcher = Dispatcher;

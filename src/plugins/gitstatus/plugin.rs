@@ -4,13 +4,13 @@
 //! a TUI interface for viewing and interacting with git repository status.
 
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use async_trait::async_trait;
 use ratatui::{buffer::Buffer, layout::Rect};
 
-use crate::core::models::{Config, RepoStatus, Theme};
+use crate::core::models::{Config, FileStatus, RepoStatus, Theme};
 use crate::event::Event;
 use crate::keymap::FocusContext;
 use crate::keymap::registry::KeyBindingRegistry;
@@ -19,12 +19,13 @@ use crate::shell::machines::{GitCommand, GitStateMachine};
 use crate::shell::services_full::{CliGitService, GitService};
 
 use super::render::{render_git_status, render_status_info};
-use super::state::{FocusPane, PluginState, ViewMode};
+use super::state::{FocusPane, GitModal, PluginState, ViewMode};
 
 /// A command that can be executed by the plugin
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum Command {
     /// No operation
+    #[default]
     None,
     /// Refresh the view
     Refresh,
@@ -48,16 +49,32 @@ pub enum Command {
     NextCommit,
     /// Select previous commit
     PrevCommit,
+    /// Execute a commit with the given message
+    ExecuteCommit(String),
+    /// Load branches list
+    LoadBranches,
+    /// Checkout a branch
+    CheckoutBranch(String),
+    /// Create a new branch
+    CreateBranch(String),
+    /// Delete a branch
+    DeleteBranch(String),
+    /// Push to remote
+    PushToRemote,
+    /// Pull from remote
+    PullFromRemote,
+    /// Load stashes list
+    LoadStashes,
+    /// Save to stash (optional message)
+    StashSave(Option<String>),
+    /// Pop stash at index
+    StashPop(usize),
+    /// Drop stash at index
+    StashDrop(usize),
     /// Execute a git command
     GitExec(Vec<String>),
     /// Emit an event
     EmitEvent(Event),
-}
-
-impl Default for Command {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 /// Plugin command for the command palette
@@ -101,6 +118,8 @@ pub struct GitStatusPlugin {
     state_machine: GitStateMachine,
     /// Hash of commit to load details for
     pending_commit_hash: Option<String>,
+    /// Path and status of file to load diff for (auto-preview on selection change)
+    pending_diff_path: Option<(PathBuf, FileStatus)>,
     /// Commands queued from input handling and executed in update()
     pending_commands: VecDeque<Command>,
 }
@@ -111,6 +130,7 @@ impl GitStatusPlugin {
         Self {
             state: PluginState::default(),
             pending_commit_hash: None,
+            pending_diff_path: None,
             pending_commands: VecDeque::new(),
             repo_path: PathBuf::new(),
             focused: false,
@@ -125,6 +145,7 @@ impl GitStatusPlugin {
         Self {
             state: PluginState::default(),
             pending_commit_hash: None,
+            pending_diff_path: None,
             pending_commands: VecDeque::new(),
             repo_path: PathBuf::new(),
             focused: false,
@@ -242,8 +263,70 @@ impl GitStatusPlugin {
 
     /// Handle a key press
     fn handle_key(&mut self, key: &str) -> Vec<Command> {
+        // If a modal is active, delegate key handling to modal
+        if self.state.modal_active {
+            return self.handle_modal_key(key);
+        }
+
+        // Commit dialog
         if key == "c" {
             return vec![Command::OpenCommitDialog];
+        }
+
+        // Branches view
+        if key == "B" {
+            return vec![
+                Command::LoadBranches,
+                Command::SwitchMode(ViewMode::Branches),
+            ];
+        }
+
+        // Stash view
+        if key == "Z" {
+            return vec![Command::LoadStashes, Command::SwitchMode(ViewMode::Stash)];
+        }
+
+        // Push to remote
+        if key == "P" {
+            return vec![Command::PushToRemote];
+        }
+
+        // Pull from remote
+        if key == "p" && self.state.view_mode != ViewMode::Status {
+            // 'p' in Status mode is handled by state machine (no-op)
+            // In other modes, it pulls
+        }
+
+        // Clipboard: copy commit hash or file path
+        if key == "y" {
+            let text = match self.state.view_mode {
+                ViewMode::History => self.state.selected_commit().map(|c| c.hash.clone()),
+                ViewMode::Branches => self.state.selected_branch().map(|b| b.name.clone()),
+                ViewMode::Stash => self
+                    .state
+                    .selected_stash()
+                    .map(|s| format!("stash@{{{}}}: {}", s.index, s.message)),
+                _ => self.state.selected_file().map(|f| f.path.clone()),
+            };
+            if let Some(text) = text {
+                if crate::shell::clipboard::copy_to_clipboard(&text).is_ok() {
+                    return vec![Command::EmitEvent(Event::Notification {
+                        message: format!("Copied: {}", text),
+                        level: crate::event::NotificationEventLevel::Success,
+                    })];
+                }
+            }
+            return vec![];
+        }
+
+        // Branch-specific keys when in Branches mode
+        if self.state.view_mode == ViewMode::Branches {
+            return self.handle_branch_key(key);
+        }
+
+        // Stash-specific keys when in Stash mode
+        if self.state.view_mode == ViewMode::Stash {
+            return self.handle_stash_key(key);
         }
 
         let git_commands = self.state_machine.handle_key(key);
@@ -259,6 +342,10 @@ impl GitStatusPlugin {
                         }
                     } else {
                         self.state.selected_file = Some(idx);
+                        // Queue diff loading for the newly selected file
+                        if let Some(file) = self.state.selected_file() {
+                            self.pending_diff_path = Some((PathBuf::from(&file.path), file.status));
+                        }
                     }
                     commands.push(Command::Refresh);
                 }
@@ -297,6 +384,132 @@ impl GitStatusPlugin {
         commands
     }
 
+    /// Handle key presses when a modal is active
+    fn handle_modal_key(&mut self, key: &str) -> Vec<Command> {
+        match key {
+            "Escape" => {
+                self.state.close_modal();
+                vec![Command::Refresh]
+            }
+            "Enter" => {
+                // Extract modal action before closing
+                let modal = self.state.active_modal.clone();
+                self.state.close_modal();
+                match modal {
+                    Some(GitModal::DeleteBranch { name }) => {
+                        vec![Command::DeleteBranch(name)]
+                    }
+                    Some(GitModal::DropStash { index }) => {
+                        vec![Command::StashDrop(index)]
+                    }
+                    _ => vec![Command::Refresh],
+                }
+            }
+            _ => vec![],
+        }
+    }
+
+    /// Handle keys in Branches view mode
+    fn handle_branch_key(&mut self, key: &str) -> Vec<Command> {
+        match key {
+            "j" | "Down" => {
+                self.state.select_next_branch();
+                vec![Command::Refresh]
+            }
+            "k" | "Up" => {
+                self.state.select_prev_branch();
+                vec![Command::Refresh]
+            }
+            "Enter" => {
+                if let Some(branch) = self.state.selected_branch() {
+                    if !branch.is_current {
+                        let name = branch.name.clone();
+                        return vec![Command::CheckoutBranch(name)];
+                    }
+                }
+                vec![]
+            }
+            "n" => {
+                self.state.open_modal(GitModal::CreateBranch);
+                vec![Command::Refresh]
+            }
+            "d" => {
+                if let Some(branch) = self.state.selected_branch() {
+                    if !branch.is_current {
+                        let name = branch.name.clone();
+                        self.state.open_modal(GitModal::DeleteBranch { name });
+                        return vec![Command::Refresh];
+                    }
+                }
+                vec![]
+            }
+            "g" | "Home" => {
+                if !self.state.branches.is_empty() {
+                    self.state.selected_branch = Some(0);
+                }
+                vec![Command::Refresh]
+            }
+            "G" | "End" => {
+                if !self.state.branches.is_empty() {
+                    self.state.selected_branch = Some(self.state.branches.len() - 1);
+                }
+                vec![Command::Refresh]
+            }
+            "S" => vec![Command::SwitchMode(ViewMode::Status)],
+            "H" => vec![Command::SwitchMode(ViewMode::History), Command::LoadCommits],
+            "r" | "R" => vec![Command::LoadBranches],
+            _ => vec![],
+        }
+    }
+
+    /// Handle keys in Stash view mode
+    fn handle_stash_key(&mut self, key: &str) -> Vec<Command> {
+        match key {
+            "j" | "Down" => {
+                self.state.select_next_stash();
+                vec![Command::Refresh]
+            }
+            "k" | "Up" => {
+                self.state.select_prev_stash();
+                vec![Command::Refresh]
+            }
+            "Enter" => {
+                if let Some(stash) = self.state.selected_stash() {
+                    let idx = stash.index;
+                    return vec![Command::StashPop(idx)];
+                }
+                vec![]
+            }
+            "s" => {
+                vec![Command::StashSave(None)]
+            }
+            "d" => {
+                if let Some(stash) = self.state.selected_stash() {
+                    let idx = stash.index;
+                    self.state.open_modal(GitModal::DropStash { index: idx });
+                    return vec![Command::Refresh];
+                }
+                vec![]
+            }
+            "g" | "Home" => {
+                if !self.state.stashes.is_empty() {
+                    self.state.selected_stash = Some(0);
+                }
+                vec![Command::Refresh]
+            }
+            "G" | "End" => {
+                if !self.state.stashes.is_empty() {
+                    self.state.selected_stash = Some(self.state.stashes.len() - 1);
+                }
+                vec![Command::Refresh]
+            }
+            "S" => vec![Command::SwitchMode(ViewMode::Status)],
+            "H" => vec![Command::SwitchMode(ViewMode::History), Command::LoadCommits],
+            "r" | "R" => vec![Command::LoadStashes],
+            _ => vec![],
+        }
+    }
+
     /// Execute a command
     pub async fn execute_internal(&mut self, command: Command) -> Result<Vec<Event>> {
         let mut events = Vec::new();
@@ -328,15 +541,22 @@ impl GitStatusPlugin {
                 // Ensure appropriate selection when switching modes
                 match mode {
                     ViewMode::History => {
-                        // When entering History mode, ensure a commit is selected
                         if self.state.selected_commit.is_none() && !self.state.commits.is_empty() {
                             self.state.selected_commit = Some(0);
                         }
-                        // Clear file selection when entering History mode
                         self.state.selected_file = None;
                     }
+                    ViewMode::Branches => {
+                        if self.state.selected_branch.is_none() && !self.state.branches.is_empty() {
+                            self.state.selected_branch = Some(0);
+                        }
+                    }
+                    ViewMode::Stash => {
+                        if self.state.selected_stash.is_none() && !self.state.stashes.is_empty() {
+                            self.state.selected_stash = Some(0);
+                        }
+                    }
                     ViewMode::Status | ViewMode::Diff => {
-                        // When entering Status/Diff mode, ensure a file is selected if available
                         if self.state.selected_file.is_none() && !self.state.files.is_empty() {
                             self.state.selected_file = Some(0);
                         }
@@ -374,7 +594,262 @@ impl GitStatusPlugin {
                 }
                 events.push(Event::RefreshNeeded);
             }
-            _ => {}
+            Command::ExecuteCommit(message) => {
+                match self.git_service.commit(&self.repo_path, &message).await {
+                    Ok(()) => {
+                        self.refresh().await?;
+                        events.push(Event::GitChanged);
+                        events.push(Event::Notification {
+                            message: "Commit created successfully".to_string(),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Commit failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::LoadBranches => {
+                match self.git_service.branches(&self.repo_path).await {
+                    Ok(branches) => {
+                        self.state.branches = branches;
+                        if self.state.selected_branch.is_none() && !self.state.branches.is_empty() {
+                            self.state.selected_branch = Some(0);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to load branches: {}", e);
+                    }
+                }
+                events.push(Event::RefreshNeeded);
+            }
+            Command::CheckoutBranch(name) => {
+                match self.git_service.checkout(&self.repo_path, &name).await {
+                    Ok(()) => {
+                        self.refresh().await?;
+                        // Reload branches to update current marker
+                        if let Ok(branches) = self.git_service.branches(&self.repo_path).await {
+                            self.state.branches = branches;
+                        }
+                        events.push(Event::GitChanged);
+                        events.push(Event::Notification {
+                            message: format!("Switched to branch '{}'", name),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Checkout failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::CreateBranch(name) => {
+                match self.git_service.create_branch(&self.repo_path, &name).await {
+                    Ok(()) => {
+                        // Reload branches
+                        if let Ok(branches) = self.git_service.branches(&self.repo_path).await {
+                            self.state.branches = branches;
+                        }
+                        events.push(Event::GitChanged);
+                        events.push(Event::Notification {
+                            message: format!("Created branch '{}'", name),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Create branch failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::DeleteBranch(name) => {
+                match self.git_service.delete_branch(&self.repo_path, &name).await {
+                    Ok(()) => {
+                        // Reload branches
+                        if let Ok(branches) = self.git_service.branches(&self.repo_path).await {
+                            self.state.branches = branches;
+                            // Reset selection if out of bounds
+                            if let Some(idx) = self.state.selected_branch {
+                                if idx >= self.state.branches.len() {
+                                    self.state.selected_branch = if self.state.branches.is_empty() {
+                                        None
+                                    } else {
+                                        Some(self.state.branches.len() - 1)
+                                    };
+                                }
+                            }
+                        }
+                        events.push(Event::GitChanged);
+                        events.push(Event::Notification {
+                            message: format!("Deleted branch '{}'", name),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Delete branch failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::PushToRemote => {
+                let branch = self.state.branch.clone();
+                match self
+                    .git_service
+                    .push(&self.repo_path, "origin", &branch)
+                    .await
+                {
+                    Ok(()) => {
+                        self.refresh().await?;
+                        events.push(Event::GitChanged);
+                        events.push(Event::Notification {
+                            message: format!("Pushed to origin/{}", branch),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Push failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::PullFromRemote => {
+                let branch = self.state.branch.clone();
+                match self
+                    .git_service
+                    .pull(&self.repo_path, "origin", &branch)
+                    .await
+                {
+                    Ok(()) => {
+                        self.refresh().await?;
+                        events.push(Event::GitChanged);
+                        events.push(Event::Notification {
+                            message: format!("Pulled from origin/{}", branch),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Pull failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::LoadStashes => {
+                match self.git_service.stash_list(&self.repo_path).await {
+                    Ok(stashes) => {
+                        self.state.stashes = stashes;
+                        if self.state.selected_stash.is_none() && !self.state.stashes.is_empty() {
+                            self.state.selected_stash = Some(0);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to load stashes: {}", e);
+                    }
+                }
+                events.push(Event::RefreshNeeded);
+            }
+            Command::StashSave(message) => {
+                match self
+                    .git_service
+                    .stash_save(&self.repo_path, message.as_deref())
+                    .await
+                {
+                    Ok(()) => {
+                        self.refresh().await?;
+                        // Reload stashes
+                        if let Ok(stashes) = self.git_service.stash_list(&self.repo_path).await {
+                            self.state.stashes = stashes;
+                        }
+                        events.push(Event::GitChanged);
+                        events.push(Event::Notification {
+                            message: "Changes stashed".to_string(),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Stash failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::StashPop(index) => {
+                match self.git_service.stash_pop(&self.repo_path, index).await {
+                    Ok(()) => {
+                        self.refresh().await?;
+                        // Reload stashes
+                        if let Ok(stashes) = self.git_service.stash_list(&self.repo_path).await {
+                            self.state.stashes = stashes;
+                            if let Some(idx) = self.state.selected_stash {
+                                if idx >= self.state.stashes.len() {
+                                    self.state.selected_stash = if self.state.stashes.is_empty() {
+                                        None
+                                    } else {
+                                        Some(self.state.stashes.len() - 1)
+                                    };
+                                }
+                            }
+                        }
+                        events.push(Event::GitChanged);
+                        events.push(Event::Notification {
+                            message: "Stash applied and dropped".to_string(),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Stash pop failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::StashDrop(index) => {
+                match self.git_service.stash_drop(&self.repo_path, index).await {
+                    Ok(()) => {
+                        // Reload stashes
+                        if let Ok(stashes) = self.git_service.stash_list(&self.repo_path).await {
+                            self.state.stashes = stashes;
+                            if let Some(idx) = self.state.selected_stash {
+                                if idx >= self.state.stashes.len() {
+                                    self.state.selected_stash = if self.state.stashes.is_empty() {
+                                        None
+                                    } else {
+                                        Some(self.state.stashes.len() - 1)
+                                    };
+                                }
+                            }
+                        }
+                        events.push(Event::Notification {
+                            message: format!("Dropped stash@{{{}}}", index),
+                            level: crate::event::NotificationEventLevel::Success,
+                        });
+                    }
+                    Err(e) => {
+                        self.state.open_modal(GitModal::Error {
+                            message: format!("Stash drop failed: {}", e),
+                        });
+                        events.push(Event::RefreshNeeded);
+                    }
+                }
+            }
+            Command::None
+            | Command::OpenCommitDialog
+            | Command::GitExec(_)
+            | Command::EmitEvent(_) => {}
         }
 
         Ok(events)
@@ -387,6 +862,15 @@ impl GitStatusPlugin {
         // Validate selections after data changes to ensure they stay in bounds
         self.validate_selections();
         self.sync_state_machine();
+
+        // Auto-select first file if none selected and queue diff preview
+        if self.state.selected_file.is_none() && !self.state.files.is_empty() {
+            self.state.selected_file = Some(0);
+        }
+        if let Some(file) = self.state.selected_file() {
+            self.pending_diff_path = Some((PathBuf::from(&file.path), file.status));
+        }
+
         Ok(())
     }
 
@@ -395,20 +879,29 @@ impl GitStatusPlugin {
         self.git_service.status(&self.repo_path).await
     }
 
-    /// Load diff for a file
-    async fn load_diff(&mut self, path: &PathBuf) -> Result<()> {
-        let diff = self.git_service.diff(&self.repo_path, path).await?;
+    /// Load diff for a file based on its status
+    async fn load_diff(&mut self, path: &Path) -> Result<()> {
+        // Determine the file status for the correct diff command
+        let status = self
+            .state
+            .selected_file()
+            .map(|f| f.status)
+            .unwrap_or(FileStatus::Modified);
+        let diff = self
+            .git_service
+            .diff_file(&self.repo_path, path, status)
+            .await?;
         self.state.diff = Some(diff);
         Ok(())
     }
 
     /// Stage a file
-    async fn stage_file(&self, path: &PathBuf) -> Result<()> {
+    async fn stage_file(&self, path: &Path) -> Result<()> {
         self.git_service.stage(&self.repo_path, path).await
     }
 
     /// Unstage a file
-    async fn unstage_file(&self, path: &PathBuf) -> Result<()> {
+    async fn unstage_file(&self, path: &Path) -> Result<()> {
         self.git_service.unstage(&self.repo_path, path).await
     }
 
@@ -475,23 +968,22 @@ impl GitStatusPlugin {
 
     fn sync_state_machine(&self) {
         // Determine item count based on view mode and available data
-        let item_count = if self.state.view_mode == ViewMode::History {
-            self.state.commits.len()
-        } else {
-            // In Status/Diff mode, use files count normally
-            // But if files are empty and commits exist, we still show commits in sidebar
-            // The state machine tracks files for navigation purposes
-            self.state.files.len()
+        let item_count = match self.state.view_mode {
+            ViewMode::History => self.state.commits.len(),
+            ViewMode::Branches => self.state.branches.len(),
+            ViewMode::Stash => self.state.stashes.len(),
+            _ => self.state.files.len(),
         };
 
         self.state_machine
             .initialize(item_count, self.state.view_mode);
 
         // Set selected index based on view mode
-        let selected_index = if self.state.view_mode == ViewMode::History {
-            self.state.selected_commit
-        } else {
-            self.state.selected_file
+        let selected_index = match self.state.view_mode {
+            ViewMode::History => self.state.selected_commit,
+            ViewMode::Branches => self.state.selected_branch,
+            ViewMode::Stash => self.state.selected_stash,
+            _ => self.state.selected_file,
         };
         self.state_machine.set_selected_index(selected_index);
         self.state_machine.set_focus_pane(self.state.focus_pane);
@@ -525,6 +1017,28 @@ impl GitStatusPlugin {
                     None
                 } else {
                     Some(self.state.commits.len() - 1)
+                };
+            }
+        }
+
+        // Validate branch selection
+        if let Some(idx) = self.state.selected_branch {
+            if idx >= self.state.branches.len() {
+                self.state.selected_branch = if self.state.branches.is_empty() {
+                    None
+                } else {
+                    Some(self.state.branches.len() - 1)
+                };
+            }
+        }
+
+        // Validate stash selection
+        if let Some(idx) = self.state.selected_stash {
+            if idx >= self.state.stashes.len() {
+                self.state.selected_stash = if self.state.stashes.is_empty() {
+                    None
+                } else {
+                    Some(self.state.stashes.len() - 1)
                 };
             }
         }
@@ -664,18 +1178,42 @@ impl Plugin for GitStatusPlugin {
         }
 
         // Common shortcuts
-        commands.extend(vec![crate::plugin::PluginCommand::with_context(
-            "refresh",
-            "Refresh",
-            'r',
-            FocusContext::GitStatus,
-        )]);
+        commands.extend(vec![
+            crate::plugin::PluginCommand::with_context(
+                "refresh",
+                "Refresh",
+                'r',
+                FocusContext::GitStatus,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "branches",
+                "Branches",
+                'B',
+                FocusContext::GitStatus,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "stash",
+                "Stash",
+                'Z',
+                FocusContext::GitStatus,
+            ),
+            crate::plugin::PluginCommand::with_context(
+                "push",
+                "Push",
+                'P',
+                FocusContext::GitStatus,
+            ),
+        ]);
 
         commands
     }
 
     fn focus_context(&self) -> FocusContext {
         self.focus_context()
+    }
+
+    fn consumes_text_input(&self) -> bool {
+        self.state.modal_active
     }
 
     async fn update(&mut self) -> Result<()> {
@@ -691,6 +1229,24 @@ impl Plugin for GitStatusPlugin {
                 tracing::warn!("Failed to load commit details: {}", e);
             }
         }
+
+        // Load diff for the selected file if pending
+        if let Some((path, status)) = self.pending_diff_path.take() {
+            match self
+                .git_service
+                .diff_file(&self.repo_path, &path, status)
+                .await
+            {
+                Ok(diff) => {
+                    self.state.diff = Some(diff);
+                }
+                Err(e) => {
+                    tracing::debug!("Failed to load diff for {}: {}", path.display(), e);
+                    self.state.diff = None;
+                }
+            }
+        }
+
         Ok(())
     }
 }
@@ -732,11 +1288,35 @@ pub fn register_default_bindings(registry: &mut KeyBindingRegistry) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::models::{Commit, FileChange, FileStatus};
+    use crate::core::models::{Branch, Commit, FileChange, FileStatus, Stash};
     use chrono::Utc;
 
     fn test_commit(hash: &str) -> Commit {
         Commit::new(hash, "subject", "author", Utc::now())
+    }
+
+    fn test_branch(name: &str, is_current: bool) -> Branch {
+        Branch {
+            name: name.to_string(),
+            full_name: format!("refs/heads/{}", name),
+            is_current,
+            is_remote: false,
+            remote: None,
+            commit_hash: "abc123".to_string(),
+            upstream: None,
+            ahead: None,
+            behind: None,
+        }
+    }
+
+    fn test_stash(index: usize, message: &str) -> Stash {
+        Stash {
+            index,
+            message: message.to_string(),
+            commit_hash: "def456".to_string(),
+            date: None,
+            branch: None,
+        }
     }
 
     #[test]
@@ -905,5 +1485,237 @@ mod tests {
 
         let unstage = commands.iter().find(|c| c.id == "unstage").unwrap();
         assert_eq!(unstage.key, 'u');
+    }
+
+    #[test]
+    fn test_handle_key_b_loads_branches() {
+        let mut plugin = GitStatusPlugin::new();
+        let commands = plugin.handle_key("B");
+        assert!(commands.contains(&Command::LoadBranches));
+        assert!(commands.contains(&Command::SwitchMode(ViewMode::Branches)));
+    }
+
+    #[test]
+    fn test_handle_key_z_loads_stashes() {
+        let mut plugin = GitStatusPlugin::new();
+        let commands = plugin.handle_key("Z");
+        assert!(commands.contains(&Command::LoadStashes));
+        assert!(commands.contains(&Command::SwitchMode(ViewMode::Stash)));
+    }
+
+    #[test]
+    fn test_handle_key_p_push() {
+        let mut plugin = GitStatusPlugin::new();
+        let commands = plugin.handle_key("P");
+        assert_eq!(commands, vec![Command::PushToRemote]);
+    }
+
+    #[test]
+    fn test_branch_navigation() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Branches;
+        plugin.state.branches = vec![
+            test_branch("main", true),
+            test_branch("feature", false),
+            test_branch("develop", false),
+        ];
+
+        // Navigate down
+        let commands = plugin.handle_key("j");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert_eq!(plugin.state.selected_branch, Some(0));
+
+        let commands = plugin.handle_key("j");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert_eq!(plugin.state.selected_branch, Some(1));
+
+        // Navigate up
+        let commands = plugin.handle_key("k");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert_eq!(plugin.state.selected_branch, Some(0));
+
+        // Jump to last
+        plugin.handle_key("G");
+        assert_eq!(plugin.state.selected_branch, Some(2));
+
+        // Jump to first
+        plugin.handle_key("g");
+        assert_eq!(plugin.state.selected_branch, Some(0));
+    }
+
+    #[test]
+    fn test_branch_checkout_current_blocked() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Branches;
+        plugin.state.branches = vec![test_branch("main", true)];
+        plugin.state.selected_branch = Some(0);
+
+        // Enter on current branch should do nothing
+        let commands = plugin.handle_key("Enter");
+        assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn test_branch_checkout_non_current() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Branches;
+        plugin.state.branches = vec![test_branch("feature", false)];
+        plugin.state.selected_branch = Some(0);
+
+        let commands = plugin.handle_key("Enter");
+        assert_eq!(
+            commands,
+            vec![Command::CheckoutBranch("feature".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_branch_delete_opens_modal() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Branches;
+        plugin.state.branches = vec![test_branch("feature", false)];
+        plugin.state.selected_branch = Some(0);
+
+        let commands = plugin.handle_key("d");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert!(plugin.state.modal_active);
+        assert_eq!(
+            plugin.state.active_modal,
+            Some(GitModal::DeleteBranch {
+                name: "feature".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_stash_navigation() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Stash;
+        plugin.state.stashes = vec![test_stash(0, "WIP: feature"), test_stash(1, "Backup")];
+
+        let commands = plugin.handle_key("j");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert_eq!(plugin.state.selected_stash, Some(0));
+
+        let commands = plugin.handle_key("j");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert_eq!(plugin.state.selected_stash, Some(1));
+    }
+
+    #[test]
+    fn test_stash_pop() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Stash;
+        plugin.state.stashes = vec![test_stash(0, "WIP")];
+        plugin.state.selected_stash = Some(0);
+
+        let commands = plugin.handle_key("Enter");
+        assert_eq!(commands, vec![Command::StashPop(0)]);
+    }
+
+    #[test]
+    fn test_stash_save() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Stash;
+
+        let commands = plugin.handle_key("s");
+        assert_eq!(commands, vec![Command::StashSave(None)]);
+    }
+
+    #[test]
+    fn test_stash_drop_opens_modal() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Stash;
+        plugin.state.stashes = vec![test_stash(0, "WIP")];
+        plugin.state.selected_stash = Some(0);
+
+        let commands = plugin.handle_key("d");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert!(plugin.state.modal_active);
+        assert_eq!(
+            plugin.state.active_modal,
+            Some(GitModal::DropStash { index: 0 })
+        );
+    }
+
+    #[test]
+    fn test_modal_escape_closes() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.open_modal(GitModal::CommitMessage);
+        assert!(plugin.state.modal_active);
+
+        let commands = plugin.handle_key("Escape");
+        assert_eq!(commands, vec![Command::Refresh]);
+        assert!(!plugin.state.modal_active);
+    }
+
+    #[test]
+    fn test_modal_enter_confirms_delete_branch() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.open_modal(GitModal::DeleteBranch {
+            name: "old-branch".to_string(),
+        });
+
+        let commands = plugin.handle_key("Enter");
+        assert_eq!(
+            commands,
+            vec![Command::DeleteBranch("old-branch".to_string())]
+        );
+        assert!(!plugin.state.modal_active);
+    }
+
+    #[test]
+    fn test_modal_enter_confirms_drop_stash() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.open_modal(GitModal::DropStash { index: 2 });
+
+        let commands = plugin.handle_key("Enter");
+        assert_eq!(commands, vec![Command::StashDrop(2)]);
+        assert!(!plugin.state.modal_active);
+    }
+
+    #[test]
+    fn test_consumes_text_input_when_modal_active() {
+        let mut plugin = GitStatusPlugin::new();
+        assert!(!plugin.consumes_text_input());
+
+        plugin.state.open_modal(GitModal::CommitMessage);
+        assert!(plugin.consumes_text_input());
+
+        plugin.state.close_modal();
+        assert!(!plugin.consumes_text_input());
+    }
+
+    #[test]
+    fn test_plugin_commands_include_branches_stash_push() {
+        let plugin = GitStatusPlugin::new();
+        let commands = plugin.commands();
+
+        let has_branches = commands.iter().any(|c| c.id == "branches");
+        let has_stash = commands.iter().any(|c| c.id == "stash");
+        let has_push = commands.iter().any(|c| c.id == "push");
+
+        assert!(has_branches);
+        assert!(has_stash);
+        assert!(has_push);
+    }
+
+    #[test]
+    fn test_branch_mode_switch_to_status() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Branches;
+
+        let commands = plugin.handle_key("S");
+        assert_eq!(commands, vec![Command::SwitchMode(ViewMode::Status)]);
+    }
+
+    #[test]
+    fn test_stash_mode_switch_to_history() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Stash;
+
+        let commands = plugin.handle_key("H");
+        assert!(commands.contains(&Command::SwitchMode(ViewMode::History)));
+        assert!(commands.contains(&Command::LoadCommits));
     }
 }

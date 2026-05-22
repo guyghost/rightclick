@@ -82,6 +82,22 @@ pub enum AdapterType {
     OpenCode,
 }
 
+/// Default priority order for production-ready adapters.
+pub const DEFAULT_ADAPTER_ORDER: [AdapterType; 4] = [
+    AdapterType::ClaudeCode,
+    AdapterType::Cursor,
+    AdapterType::Codex,
+    AdapterType::OpenCode,
+];
+
+/// Adapters that are present for development but are not enabled by default.
+pub const EXPERIMENTAL_ADAPTERS: [AdapterType; 4] = [
+    AdapterType::Gemini,
+    AdapterType::Warp,
+    AdapterType::Amp,
+    AdapterType::Kiro,
+];
+
 impl AdapterType {
     /// Get the adapter type identifier string
     pub fn as_str(&self) -> &'static str {
@@ -123,6 +139,46 @@ impl AdapterType {
             AdapterType::Kiro => '○',
             AdapterType::OpenCode => '◑',
         }
+    }
+}
+
+/// Policy for deciding which adapters are active and in what order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdapterPolicy {
+    enabled: Vec<AdapterType>,
+}
+
+impl AdapterPolicy {
+    /// Production default policy: stable adapters only, in priority order.
+    pub fn production_default() -> Self {
+        Self {
+            enabled: DEFAULT_ADAPTER_ORDER.to_vec(),
+        }
+    }
+
+    /// Create a production policy from requested adapter types.
+    ///
+    /// Experimental adapters are filtered out until their local storage formats
+    /// are production-ready. The resulting order follows
+    /// [`DEFAULT_ADAPTER_ORDER`] instead of caller order, keeping UI and
+    /// detection behavior predictable.
+    pub fn production_from(requested: &[AdapterType]) -> Self {
+        let enabled = DEFAULT_ADAPTER_ORDER
+            .into_iter()
+            .filter(|adapter_type| requested.contains(adapter_type))
+            .collect();
+
+        Self { enabled }
+    }
+
+    /// Return true when the adapter is enabled by this policy.
+    pub fn allows(&self, adapter_type: AdapterType) -> bool {
+        self.enabled.contains(&adapter_type)
+    }
+
+    /// Enabled adapter types in policy order.
+    pub fn enabled(&self) -> &[AdapterType] {
+        &self.enabled
     }
 }
 
@@ -339,10 +395,7 @@ impl Default for AdapterRegistry {
 ///
 /// The encoded path string
 pub fn encode_path(path: &Path) -> String {
-    path.to_string_lossy()
-        .replace('/', "-")
-        .replace('.', "-")
-        .replace('_', "-")
+    path.to_string_lossy().replace(['/', '.', '_'], "-")
 }
 
 /// Utility function to compute MD5 hash of a string
@@ -404,5 +457,30 @@ mod tests {
     fn test_registry_default() {
         let registry = AdapterRegistry::default();
         assert!(registry.is_empty());
+    }
+
+    #[test]
+    fn test_adapter_policy_production_default() {
+        let policy = AdapterPolicy::production_default();
+
+        assert_eq!(policy.enabled(), DEFAULT_ADAPTER_ORDER.as_slice());
+        assert!(policy.allows(AdapterType::ClaudeCode));
+        assert!(policy.allows(AdapterType::OpenCode));
+        assert!(!policy.allows(AdapterType::Gemini));
+    }
+
+    #[test]
+    fn test_adapter_policy_production_from_filters_and_orders() {
+        let policy = AdapterPolicy::production_from(&[
+            AdapterType::Gemini,
+            AdapterType::OpenCode,
+            AdapterType::ClaudeCode,
+            AdapterType::Amp,
+        ]);
+
+        assert_eq!(
+            policy.enabled(),
+            &[AdapterType::ClaudeCode, AdapterType::OpenCode]
+        );
     }
 }

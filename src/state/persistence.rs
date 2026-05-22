@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use directories::ProjectDirs;
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
 /// Returns the path to the state file.
@@ -30,7 +30,7 @@ pub fn state_file_path() -> Result<PathBuf> {
 /// Ensures the config directory exists.
 ///
 /// Creates the config directory and all parent directories if they don't exist.
-fn ensure_config_dir(path: &PathBuf) -> Result<()> {
+fn ensure_config_dir(path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("Failed to create config directory: {}", parent.display()))?;

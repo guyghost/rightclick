@@ -263,22 +263,6 @@ impl OutputBuffer {
         self.lines.len()
     }
 
-    /// Returns the content as a single string with newlines.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rightclick::tty::OutputBuffer;
-    ///
-    /// let mut buffer = OutputBuffer::new(100);
-    /// buffer.append("Line 1\nLine 2");
-    ///
-    /// assert_eq!(buffer.to_string(), "Line 1\nLine 2");
-    /// ```
-    pub fn to_string(&self) -> String {
-        self.lines.join("\n")
-    }
-
     /// Enforces the scrollback limit by removing oldest lines if needed.
     fn enforce_scrollback(&mut self) {
         if self.lines.len() > self.scrollback {
@@ -286,6 +270,12 @@ impl OutputBuffer {
             self.lines.drain(0..to_remove);
             self.cursor_row = self.cursor_row.saturating_sub(to_remove);
         }
+    }
+}
+
+impl std::fmt::Display for OutputBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.lines.join("\n"))
     }
 }
 

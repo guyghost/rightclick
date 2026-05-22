@@ -195,7 +195,7 @@ where
 ///
 /// Panics if [`init`] has not been called.
 pub fn force_save() -> Result<()> {
-    with_state(|s| save(s))
+    with_state(save)
 }
 
 /// Returns a copy of the current state.

@@ -18,13 +18,14 @@ pub mod git;
 pub mod intent;
 pub mod navigation;
 pub mod state_machine;
+pub mod text_input;
 pub mod theme;
 
 // Re-export commonly used types for convenience
 pub use config::{
     CURRENT_CONFIG_VERSION, Config, ConversationsPluginConfig, FileBrowserPluginConfig,
     GitStatusPluginConfig, KeymapConfig, PluginsConfig, ProjectConfig, ProjectsConfig, UIConfig,
-    WorkspacePluginConfig,
+    WorkersPluginConfig, WorkspacePluginConfig,
 };
 pub use conversation::{
     ContentBlock, ConversationContext, ConversationError, FileContext, FinishReason, GitContext,
@@ -52,7 +53,7 @@ pub mod prelude {
         FinishReason, GitContext, GitError, GitStatusPluginConfig, KeymapConfig, Message,
         PluginsConfig, ProjectConfig, ProjectContext, ProjectsConfig, Remote, RepoState,
         RepoStatus, Role, Session, Stash, StreamChunk, Theme, ThemeError, ThemeRef, TokenColors,
-        TokenUsage, ToolUse, UIConfig, UiColors, WorkspacePluginConfig,
+        TokenUsage, ToolUse, UIConfig, UiColors, WorkersPluginConfig, WorkspacePluginConfig,
     };
 }
 
