@@ -1013,7 +1013,7 @@ fn conversations_status_line(state: &PluginState) -> String {
     }
 
     if state.sessions.is_empty() {
-        return "No sessions | r Refresh detected adapters | f Filter sessions | / Search sessions"
+        return "No sessions | r Refresh detected adapters | f Filter sessions | / Global search"
             .to_string();
     }
 
@@ -1308,7 +1308,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No sessions | r Refresh detected adapters | f Filter sessions | / Search sessions"
+                "No sessions | r Refresh detected adapters | f Filter sessions | / Global search"
                     .to_string()
             )
         );

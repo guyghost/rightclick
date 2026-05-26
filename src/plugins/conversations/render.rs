@@ -853,7 +853,7 @@ fn empty_sessions_message(state: &PluginState) -> String {
             "No sessions match \"{}\"\n\nType another query\nr  Refresh sessions\nf  Reset filter\nEsc: Clear\n?  Help",
             query
         ),
-        None => "No sessions found\n\nr  Refresh detected adapters\nf  Filter sessions\n/  Search sessions\n?  Help\n\nSessions appear after supported adapters are detected."
+        None => "No sessions found\n\nr  Refresh detected adapters\nf  Filter sessions\n/  Global search\n?  Help\n\nSessions appear after supported adapters are detected."
             .to_string(),
     }
 }
@@ -974,7 +974,7 @@ mod tests {
         assert!(message.contains("No sessions found"));
         assert!(message.contains("r  Refresh detected adapters"));
         assert!(message.contains("f  Filter sessions"));
-        assert!(message.contains("/  Search sessions"));
+        assert!(message.contains("/  Global search"));
         assert!(message.contains("?  Help"));
         assert!(message.contains("Sessions appear after supported adapters are detected"));
     }
