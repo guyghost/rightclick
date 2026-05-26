@@ -562,9 +562,10 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
         block.render(col_chunks[col_idx], buf);
 
         if worker_ids.is_empty() {
-            let empty_text = Paragraph::new("No workers")
+            let empty_text = Paragraph::new(kanban_empty_column_message(state, title))
                 .alignment(Alignment::Center)
-                .style(Style::default().fg(theme_comment(theme)));
+                .style(Style::default().fg(theme_comment(theme)))
+                .wrap(Wrap { trim: true });
             empty_text.render(inner, buf);
             continue;
         }
@@ -630,6 +631,20 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
 
         let content = Paragraph::new(lines).wrap(Wrap { trim: true });
         content.render(inner, buf);
+    }
+}
+
+fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
+    let status = title.to_lowercase();
+
+    if state.workers.is_empty() {
+        if state.selected_intent().is_some() {
+            format!("No {status} workers\n\nr  Run workers\nv  Switch view")
+        } else {
+            format!("No {status} workers\n\nn  New intent\nv  Switch view")
+        }
+    } else {
+        format!("No {status} workers\n\nh/l  Move columns\nv  Switch view")
     }
 }
 
@@ -817,6 +832,11 @@ mod tests {
         assert!(content.contains("Running"));
         assert!(content.contains("Completed"));
         assert!(content.contains("Failed"));
+        assert!(content.contains("No pending workers"));
+        assert!(content.contains("No running workers"));
+        assert!(content.contains("n  New intent"));
+        assert!(content.contains("v  Switch view"));
+        assert!(!content.contains("No workers"));
     }
 
     #[test]
