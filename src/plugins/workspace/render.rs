@@ -284,7 +284,7 @@ fn empty_worktrees_message() -> &'static str {
 }
 
 fn no_linked_task_message() -> &'static str {
-    "No linked task\n\nT  Link task\n/  Search commands\n?  Help"
+    "No linked task\n\nT  Link task\nr  Refresh worktrees\n/  Search commands\n?  Help"
 }
 
 fn task_details_missing_message(task_id: &str) -> String {
@@ -299,7 +299,7 @@ fn create_worktree_for_task_message() -> &'static str {
 }
 
 fn select_worktree_message() -> &'static str {
-    "No worktree selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar\n/  Search worktrees\n?  Help"
+    "No worktree selected\n\nj/k  Navigate | Enter/o  Open\nTab  Focus sidebar\nr  Refresh worktrees\n/  Search worktrees\n?  Help"
 }
 
 fn output_empty_message(state: &PluginState) -> &'static str {
@@ -1022,6 +1022,7 @@ mod tests {
             .collect();
         assert!(content.contains("No linked task"));
         assert!(content.contains("T  Link task"));
+        assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("/  Search commands"));
         assert!(content.contains("?  Help"));
         assert!(!content.contains("t  Link task"));
@@ -1100,9 +1101,10 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("No worktree selected"));
-        assert!(content.contains("j/k  Navigate worktrees"));
-        assert!(content.contains("Enter/o  Open worktree"));
+        assert!(content.contains("j/k  Navigate"));
+        assert!(content.contains("Enter/o  Open"));
         assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("/  Search worktrees"));
         assert!(content.contains("?  Help"));
         assert!(!content.contains("Select a worktree"));
@@ -1130,9 +1132,10 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("No worktree selected"));
-        assert!(content.contains("j/k  Navigate worktrees"));
-        assert!(content.contains("Enter/o  Open worktree"));
+        assert!(content.contains("j/k  Navigate"));
+        assert!(content.contains("Enter/o  Open"));
         assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("/  Search worktrees"));
         assert!(content.contains("?  Help"));
         assert!(!content.contains("Select a worktree first"));
