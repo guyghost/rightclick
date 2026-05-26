@@ -3,6 +3,26 @@ set -euo pipefail
 
 cmd="${1:-help}"
 
+print_help() {
+  cat <<'EOF'
+Usage: bash scripts/dev.sh <command>
+
+Commands:
+  ci             same checks used by GitHub Actions
+  doctor         check required and optional local developer tools
+  check          fmt check, clippy with warnings denied, and tests
+  fmt-check      run cargo fmt --check
+  fmt            run cargo fmt
+  clippy         run cargo clippy --all-targets -- -D warnings
+  build          run cargo build
+  build-release  run cargo build --release
+  test           run cargo test
+  test-one       run cargo test with a filter
+  run            run RightClick locally
+  install-local  install RightClick from this checkout
+EOF
+}
+
 case "$cmd" in
   ci)
     cargo fmt --check
@@ -88,27 +108,12 @@ case "$cmd" in
     cargo install --path .
     ;;
   help|--help|-h)
-    cat <<'EOF'
-Usage: bash scripts/dev.sh <command>
-
-Commands:
-  ci             same checks used by GitHub Actions
-  doctor         check required and optional local developer tools
-  check          fmt check, clippy with warnings denied, and tests
-  fmt-check      run cargo fmt --check
-  fmt            run cargo fmt
-  clippy         run cargo clippy --all-targets -- -D warnings
-  build          run cargo build
-  build-release  run cargo build --release
-  test           run cargo test
-  test-one       run cargo test with a filter
-  run            run RightClick locally
-  install-local  install RightClick from this checkout
-EOF
+    print_help
     ;;
   *)
     echo "Unknown command: $cmd" >&2
-    echo "Run: bash scripts/dev.sh help" >&2
+    echo >&2
+    print_help >&2
     exit 2
     ;;
 esac
