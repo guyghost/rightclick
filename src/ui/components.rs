@@ -169,15 +169,19 @@ impl Header {
 
         // Render title line
         if !self.title.is_empty() {
-            let title_spans: Vec<Span> = if let Some(ref subtitle) = self.subtitle {
+            let title_width = area.width.saturating_sub(2) as usize;
+            let (display_title, display_subtitle) =
+                header_title_parts(&self.title, self.subtitle.as_deref(), title_width);
+
+            let title_spans: Vec<Span> = if let Some(subtitle) = display_subtitle {
                 vec![
-                    Span::styled(&self.title, primary_style.add_modifier(Modifier::BOLD)),
+                    Span::styled(display_title, primary_style.add_modifier(Modifier::BOLD)),
                     Span::raw(" "),
                     Span::styled(format!("({})", subtitle), text_style),
                 ]
             } else {
                 vec![Span::styled(
-                    &self.title,
+                    display_title,
                     primary_style.add_modifier(Modifier::BOLD),
                 )]
             };
@@ -451,6 +455,31 @@ impl Default for Footer {
     }
 }
 
+fn header_title_parts(
+    title: &str,
+    subtitle: Option<&str>,
+    max_width: usize,
+) -> (String, Option<String>) {
+    if max_width == 0 {
+        return (String::new(), None);
+    }
+
+    let title_width = UnicodeWidthStr::width(title);
+    if title_width >= max_width || subtitle.is_none() {
+        return (truncate_display(title, max_width), None);
+    }
+
+    let subtitle_width = max_width.saturating_sub(title_width + 3);
+    if subtitle_width == 0 {
+        return (title.to_string(), None);
+    }
+
+    (
+        title.to_string(),
+        subtitle.map(|value| truncate_display(value, subtitle_width)),
+    )
+}
+
 fn truncate_display(value: &str, max_width: usize) -> String {
     if max_width == 0 {
         return String::new();
@@ -538,6 +567,23 @@ mod tests {
 
         let header_with_tabs = Header::new("Test").with_tabs(vec!["A", "B"], 0);
         assert_eq!(header_with_tabs.height(), 3); // Title + tabs + border
+    }
+
+    #[test]
+    fn test_header_title_parts_truncates_long_subtitle() {
+        let (title, subtitle) =
+            header_title_parts("RightClick", Some("/very/long/workspace/path"), 20);
+
+        assert_eq!(title, "RightClick");
+        assert_eq!(subtitle, Some("/ver...".to_string()));
+    }
+
+    #[test]
+    fn test_header_title_parts_hides_subtitle_when_title_fills_width() {
+        let (title, subtitle) = header_title_parts("RightClick", Some("/workspace"), 6);
+
+        assert_eq!(title, "Rig...");
+        assert_eq!(subtitle, None);
     }
 
     #[test]
