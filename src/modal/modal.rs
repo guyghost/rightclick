@@ -422,18 +422,10 @@ impl Modal {
             .unwrap_or(ratatui::style::Color::Gray);
         let hint_style = Style::default().fg(muted_color);
 
-        // Build hint text
-        let mut hints = vec!["esc: close".to_string()];
-
-        if let Some(ref action) = self.primary_action {
-            hints.push(format!("enter: {}", action.to_lowercase()));
-        }
-
-        if self.has_focusable_elements() {
-            hints.push("tab: navigate".to_string());
-        }
-
-        let hint_text = hints.join("  |  ");
+        let hint_text = modal_hint_text(
+            self.primary_action.as_deref(),
+            self.has_focusable_elements(),
+        );
 
         // Center the hints
         let hint_width = unicode_width::UnicodeWidthStr::width(hint_text.as_str()) as u16;
@@ -578,6 +570,20 @@ fn truncate_display_width(value: &str, max_width: usize) -> String {
     output
 }
 
+fn modal_hint_text(primary_action: Option<&str>, has_focusable_elements: bool) -> String {
+    let mut hints = vec!["Esc: Close".to_string()];
+
+    if let Some(action) = primary_action {
+        hints.push(format!("Enter: {}", action));
+    }
+
+    if has_focusable_elements {
+        hints.push("Tab: Navigate".to_string());
+    }
+
+    hints.join("  |  ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -613,6 +619,19 @@ mod tests {
     fn modal_with_primary_action() {
         let modal = Modal::new("Test").with_primary_action("Confirm");
         assert_eq!(modal.primary_action, Some("Confirm".to_string()));
+    }
+
+    #[test]
+    fn modal_hint_text_uses_compact_action_case() {
+        assert_eq!(modal_hint_text(None, false), "Esc: Close");
+        assert_eq!(
+            modal_hint_text(Some("Confirm"), false),
+            "Esc: Close  |  Enter: Confirm"
+        );
+        assert_eq!(
+            modal_hint_text(Some("Save changes"), true),
+            "Esc: Close  |  Enter: Save changes  |  Tab: Navigate"
+        );
     }
 
     #[test]
