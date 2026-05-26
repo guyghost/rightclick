@@ -447,6 +447,19 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
                 "No criteria defined.",
                 Style::default().fg(theme_comment(theme)),
             )));
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "Edit the intent spec to add acceptance criteria.",
+                Style::default().fg(theme_comment(theme)),
+            )));
+            lines.push(Line::from(Span::styled(
+                "/  Search commands",
+                Style::default().fg(theme_comment(theme)),
+            )));
+            lines.push(Line::from(Span::styled(
+                "?  Help",
+                Style::default().fg(theme_comment(theme)),
+            )));
         } else {
             for (idx, criterion) in intent.acceptance_criteria.iter().enumerate() {
                 let icon = if criterion.completed { "✅" } else { "⬜" };
@@ -998,6 +1011,39 @@ mod tests {
         assert!(content.contains("n  New intent"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Search commands and intents"));
+        assert!(content.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_render_selected_criteria_without_items_points_to_spec_editing() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let mut state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        state.preview_tab = PreviewTab::Criteria;
+        state.add_intent(Intent::new(
+            "Clarify worker acceptance criteria",
+            PathBuf::from(".rightclick/intents/criteria.md"),
+            "2026-02-14T10:00:00Z",
+        ));
+        state.selected_intent = Some(0);
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Acceptance Criteria"));
+        assert!(content.contains("No criteria defined."));
+        assert!(content.contains("Edit the intent spec to add acceptance criteria."));
+        assert!(content.contains("/  Search commands"));
         assert!(content.contains("?  Help"));
     }
 
