@@ -533,8 +533,8 @@ impl Registry {
                 .with_description("Go back to the previous view"),
         );
         self.register_command(
-            Command::new("app.search", "Search", || Action::Search)
-                .with_description("Search in the current view"),
+            Command::new("app.search", "Global Search", || Action::Search)
+                .with_description("Open global search"),
         );
         self.register_command(
             Command::new("app.filter", "Filter", || Action::Filter)
@@ -863,6 +863,11 @@ mod tests {
         assert!(!registry.commands().is_empty());
         assert!(registry.get_command("app.quit").is_some());
         assert!(registry.get_command("app.refresh").is_some());
+        let search = registry
+            .get_command("app.search")
+            .expect("global search command");
+        assert_eq!(search.name, "Global Search");
+        assert_eq!(search.description.as_deref(), Some("Open global search"));
     }
 
     #[test]

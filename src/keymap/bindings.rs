@@ -72,7 +72,7 @@ pub enum Action {
     /// Paste from clipboard.
     Paste,
 
-    /// Search within the current view.
+    /// Open global search.
     Search,
 
     /// Filter the current view.
@@ -175,7 +175,7 @@ impl Action {
             Self::Edit => "Edit",
             Self::Copy => "Copy",
             Self::Paste => "Paste",
-            Self::Search => "Search",
+            Self::Search => "Global Search",
             Self::Filter => "Filter",
             Self::Toggle => "Toggle",
             Self::Expand => "Expand",
@@ -313,6 +313,7 @@ mod tests {
         assert_eq!(Action::Quit.description(), "Quit");
         assert_eq!(Action::Refresh.description(), "Refresh");
         assert_eq!(Action::OpenPalette.description(), "Open Command Palette");
+        assert_eq!(Action::Search.description(), "Global Search");
     }
 
     #[test]
