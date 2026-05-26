@@ -449,7 +449,7 @@ impl<'a> Widget for PreviewWidget<'a> {
 
         // Render lines within the available area
         for (i, line) in lines.iter().enumerate().take(inner.height as usize) {
-            buf.set_line(inner.x, inner.y + i as u16, line, inner.width);
+            buf.set_line(inner.x, inner.y.saturating_add(i as u16), line, inner.width);
         }
     }
 }
@@ -496,7 +496,12 @@ impl<'a> Widget for SimplePreviewWidget<'a> {
             if line_idx < lines.len() {
                 let line = format!("{:4} │ {}", line_idx + 1, lines[line_idx]);
                 let truncated = truncate_to_width(&line, inner.width as usize);
-                buf.set_string(inner.x, inner.y + i as u16, truncated, Style::default());
+                buf.set_string(
+                    inner.x,
+                    inner.y.saturating_add(i as u16),
+                    truncated,
+                    Style::default(),
+                );
             }
         }
     }
@@ -714,5 +719,41 @@ mod tests {
             .collect();
         assert!(content.contains("scroll.txt"));
         assert!(!content.contains("first"));
+    }
+
+    #[test]
+    fn test_preview_widgets_render_inside_offset_area_near_u16_max() {
+        let preview = Preview {
+            content: "first\nsecond\nthird\n".to_string(),
+            language: None,
+            is_binary: false,
+            is_image: false,
+            file_size: 19,
+            total_lines: 3,
+            is_truncated: false,
+            path: PathBuf::from("offset.txt"),
+        };
+        let theme = Theme::default();
+        let area = Rect::new(u16::MAX - 40, u16::MAX - 3, 40, 4);
+
+        let mut highlighted_buf = Buffer::empty(area);
+        PreviewWidget::new(&preview, 0, &theme).render(area, &mut highlighted_buf);
+        let highlighted_content: String = highlighted_buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(highlighted_content.contains("offset.txt"));
+        assert!(highlighted_content.contains("first"));
+
+        let mut simple_buf = Buffer::empty(area);
+        SimplePreviewWidget::new(&preview, 0).render(area, &mut simple_buf);
+        let simple_content: String = simple_buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(simple_content.contains("offset.txt"));
+        assert!(simple_content.contains("first"));
     }
 }
