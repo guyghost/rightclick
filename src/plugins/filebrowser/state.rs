@@ -296,16 +296,8 @@ impl PluginState {
             (!trimmed.is_empty()).then_some(trimmed)
         });
 
-        if let Some(ref q) = self.filter_query {
-            let lower_query = q.to_lowercase();
-            self.filtered_indices = self
-                .tree
-                .entries
-                .iter()
-                .enumerate()
-                .filter(|(_, e)| e.name.to_lowercase().contains(&lower_query))
-                .map(|(i, _)| i)
-                .collect();
+        if self.filter_query.is_some() {
+            self.filtered_indices = self.visible_indices();
         } else {
             self.filtered_indices.clear();
         }
@@ -508,6 +500,28 @@ mod tests {
             .collect();
         assert!(visible_names.contains(&"alpha.txt"));
         assert!(!visible_names.contains(&"beta.txt"));
+    }
+
+    #[test]
+    fn test_filter_count_includes_path_only_matches() {
+        let temp_dir = TempDir::new().unwrap();
+        let parent = temp_dir.path().join("parent");
+        fs::create_dir(&parent).unwrap();
+        fs::write(parent.join("report.txt"), "report").unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.tree.expand(&parent);
+
+        state.set_filter(Some(format!("parent{}report", std::path::MAIN_SEPARATOR)));
+
+        assert_eq!(state.filter_count(), 1);
+        assert_eq!(state.filtered_indices, state.visible_indices());
+        assert_eq!(
+            state
+                .selected_path
+                .as_ref()
+                .and_then(|path| path.file_name()),
+            Some(std::ffi::OsStr::new("report.txt"))
+        );
     }
 
     #[test]
