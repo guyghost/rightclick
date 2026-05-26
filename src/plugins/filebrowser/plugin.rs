@@ -1328,7 +1328,7 @@ fn file_tree_empty_message(state: &PluginState) -> String {
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No files found\n\na  New file\nA  New directory\nr  Refresh".to_string()
+        "No files found\n\na  New file\nA  New directory\nr  Refresh files".to_string()
     } else {
         "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter".to_string()
     }
@@ -1341,7 +1341,7 @@ fn file_preview_empty_message(state: &PluginState) -> String {
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No preview available\n\na  New file\nA  New directory\nr  Refresh".to_string()
+        "No preview available\n\na  New file\nA  New directory\nr  Refresh files".to_string()
     } else if state.visible_indices().is_empty() {
         "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter".to_string()
     } else {
@@ -1527,7 +1527,7 @@ mod tests {
         assert!(message.contains("No files found"));
         assert!(message.contains("a  New file"));
         assert!(message.contains("A  New directory"));
-        assert!(message.contains("r  Refresh"));
+        assert!(message.contains("r  Refresh files"));
     }
 
     #[test]
