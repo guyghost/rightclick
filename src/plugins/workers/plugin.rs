@@ -919,6 +919,8 @@ impl WorkersPlugin {
             PluginCommand::new("open", "Open Intent", 'o'),
             PluginCommand::new("refresh", "Refresh", 'f'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
+            PluginCommand::new("prev-tab", "Previous Tab", '['),
+            PluginCommand::new("next-tab", "Next Tab", ']'),
         ]
     }
 
@@ -1132,14 +1134,14 @@ impl Plugin for WorkersPlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "prev-tab",
-                "Prev",
+                "Previous Tab",
                 "Switch to the previous tab",
                 '[',
                 crate::keymap::FocusContext::Workspace,
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "next-tab",
-                "Next",
+                "Next Tab",
                 "Switch to the next tab",
                 ']',
                 crate::keymap::FocusContext::Workspace,
@@ -1249,6 +1251,20 @@ mod tests {
             .expect("workers switch view command");
         assert_eq!(switch_view_command.name, "Switch View");
         assert_eq!(switch_view_command.key, 'v');
+
+        let previous_tab_command = commands
+            .iter()
+            .find(|command| command.id == "prev-tab")
+            .expect("workers previous tab command");
+        assert_eq!(previous_tab_command.name, "Previous Tab");
+        assert_eq!(previous_tab_command.key, '[');
+
+        let next_tab_command = commands
+            .iter()
+            .find(|command| command.id == "next-tab")
+            .expect("workers next tab command");
+        assert_eq!(next_tab_command.name, "Next Tab");
+        assert_eq!(next_tab_command.key, ']');
     }
 
     #[test]

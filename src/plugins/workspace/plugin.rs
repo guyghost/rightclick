@@ -1182,14 +1182,14 @@ impl Plugin for WorkspacePlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "prev-tab",
-                "Prev",
+                "Previous Tab",
                 "Switch to the previous worktree tab",
                 '[',
                 crate::keymap::FocusContext::Workspace,
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "next-tab",
-                "Next",
+                "Next Tab",
                 "Switch to the next worktree tab",
                 ']',
                 crate::keymap::FocusContext::Workspace,
@@ -1345,6 +1345,22 @@ mod tests {
             switch_view_command.description,
             "Toggle workspace view mode"
         );
+
+        let previous_tab_command = commands
+            .iter()
+            .find(|command| command.id == "prev-tab")
+            .expect("workspace previous tab command");
+
+        assert_eq!(previous_tab_command.name, "Previous Tab");
+        assert_eq!(previous_tab_command.key, '[');
+
+        let next_tab_command = commands
+            .iter()
+            .find(|command| command.id == "next-tab")
+            .expect("workspace next tab command");
+
+        assert_eq!(next_tab_command.name, "Next Tab");
+        assert_eq!(next_tab_command.key, ']');
 
         let interactive_command = commands
             .iter()
