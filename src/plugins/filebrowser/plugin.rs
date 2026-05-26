@@ -1469,6 +1469,9 @@ mod tests {
             ("filter", 'f', "Filter"),
             ("toggle_ignored", 'i', "Toggle Ignored"),
             ("toggle_hidden", 'H', "Toggle Hidden"),
+            ("file_info", 'I', "File Info"),
+            ("preview_top", 'g', "Preview Top"),
+            ("preview_bottom", 'G', "Preview Bottom"),
         ] {
             assert!(
                 commands
