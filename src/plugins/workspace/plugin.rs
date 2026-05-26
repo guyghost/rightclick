@@ -1045,7 +1045,8 @@ impl Default for WorkspacePlugin {
 
 fn workspace_status_line(state: &PluginState) -> String {
     if state.worktrees.is_empty() {
-        return "No worktrees | n Create worktree | r Refresh worktrees | / Search".to_string();
+        return "No worktrees | n Create worktree | r Refresh worktrees | / Search commands and worktrees"
+            .to_string();
     }
 
     let dirty = state
@@ -1371,7 +1372,10 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("No worktrees | n Create worktree | r Refresh worktrees | / Search".to_string())
+            Some(
+                "No worktrees | n Create worktree | r Refresh worktrees | / Search commands and worktrees"
+                    .to_string()
+            )
         );
     }
 
