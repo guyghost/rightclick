@@ -422,14 +422,18 @@ impl Modal {
             .unwrap_or(ratatui::style::Color::Gray);
         let hint_style = Style::default().fg(muted_color);
 
-        let hint_text = modal_hint_text(
-            self.primary_action.as_deref(),
-            self.has_focusable_elements(),
+        let inner_width = area.width.saturating_sub(2) as usize;
+        let hint_text = truncate_display_width(
+            &modal_hint_text(
+                self.primary_action.as_deref(),
+                self.has_focusable_elements(),
+            ),
+            inner_width,
         );
 
         // Center the hints
         let hint_width = unicode_width::UnicodeWidthStr::width(hint_text.as_str()) as u16;
-        let hint_x = area.x + (area.width.saturating_sub(hint_width)) / 2;
+        let hint_x = area.x + 1 + (area.width.saturating_sub(2).saturating_sub(hint_width) / 2);
 
         buf.set_string(hint_x, hint_y, hint_text, hint_style);
 
@@ -801,5 +805,22 @@ mod tests {
                 .symbol(),
             "│"
         );
+    }
+
+    #[test]
+    fn modal_hints_truncate_before_right_border() {
+        let modal = Modal::new("Test").with_primary_action("Confirm this very long action label");
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 32, 8);
+        let mut buf = Buffer::empty(area);
+
+        modal.render(area, &mut buf, &theme);
+
+        let modal_area =
+            Modal::centered_rect(modal.width.min(area.width.saturating_sub(4)), 5, area);
+        let right_border_x = modal_area.x + modal_area.width - 1;
+        let hint_y = modal_area.y + modal_area.height - 2;
+
+        assert_eq!(buf.cell((right_border_x, hint_y)).unwrap().symbol(), "│");
     }
 }
