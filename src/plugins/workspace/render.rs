@@ -226,19 +226,7 @@ fn render_diff_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
 
     let diff_text = match &state.diff_content {
         Some(diff) => diff.clone(),
-        None => {
-            if let Some(worktree) = state.selected_worktree() {
-                if worktree.is_dirty {
-                    "Diff not loaded yet. Refresh or reselect the worktree.".to_string()
-                } else {
-                    "Working tree clean".to_string()
-                }
-            } else if state.worktrees.is_empty() {
-                "Create a worktree to inspect diffs".to_string()
-            } else {
-                select_worktree_message().to_string()
-            }
-        }
+        None => diff_empty_message(state),
     };
 
     // Parse and colorize diff
@@ -309,6 +297,26 @@ fn output_empty_message(state: &PluginState) -> &'static str {
         "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree"
     } else {
         "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task"
+    }
+}
+
+fn diff_empty_message(state: &PluginState) -> String {
+    if let Some(worktree) = state.selected_worktree() {
+        if worktree.is_dirty {
+            format!(
+                "Diff not loaded yet for {}\n\nr  Refresh worktrees\nj/k  Navigate worktrees",
+                worktree.name
+            )
+        } else {
+            format!(
+                "Working tree clean: {}\n\nj/k  Navigate worktrees\nT  Link task",
+                worktree.name
+            )
+        }
+    } else if state.worktrees.is_empty() {
+        "No diff available\n\nn  Create worktree\nr  Refresh worktrees".to_string()
+    } else {
+        select_worktree_message().to_string()
     }
 }
 
@@ -889,6 +897,77 @@ mod tests {
         assert!(content.contains("No output yet"));
         assert!(content.contains("a  Launch agent"));
         assert!(content.contains("Enter/o  Open interactive shell"));
+        assert!(content.contains("T  Link task"));
+    }
+
+    #[test]
+    fn test_render_diff_without_worktrees_points_to_creation() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Diff;
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No diff available"));
+        assert!(content.contains("n  Create worktree"));
+        assert!(content.contains("r  Refresh worktrees"));
+    }
+
+    #[test]
+    fn test_render_diff_for_dirty_worktree_points_to_refresh() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Diff;
+        let mut worktree =
+            Worktree::new("feature", PathBuf::from("/repo/feature"), "feature-branch");
+        worktree.is_dirty = true;
+        state.worktrees.push(worktree);
+        state.selected = Some(0);
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Diff not loaded yet for feature"));
+        assert!(content.contains("r  Refresh worktrees"));
+        assert!(content.contains("j/k  Navigate worktrees"));
+    }
+
+    #[test]
+    fn test_render_clean_diff_points_to_navigation_actions() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Diff;
+        state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        state.selected = Some(0);
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Working tree clean: feature"));
+        assert!(content.contains("j/k  Navigate worktrees"));
         assert!(content.contains("T  Link task"));
     }
 
