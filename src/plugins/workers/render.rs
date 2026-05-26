@@ -17,6 +17,8 @@ use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
 
 const CREATE_INTENT_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
 const DELETE_INTENT_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
+const MIN_WORKERS_MODAL_WIDTH: u16 = 24;
+const MIN_WORKERS_MODAL_HEIGHT: u16 = 7;
 
 // Helper functions to get colors from theme
 fn theme_fg(theme: &Theme) -> Color {
@@ -700,7 +702,9 @@ fn render_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme
 
 /// Render create intent modal
 fn render_create_intent_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
-    let popup_area = centered_rect(60, 20, area);
+    let Some(popup_area) = workers_modal_area(60, 20, area) else {
+        return;
+    };
 
     // Clear background
     Clear.render(popup_area, buf);
@@ -735,7 +739,9 @@ fn render_create_intent_modal(state: &PluginState, area: Rect, buf: &mut Buffer,
 
 /// Render delete confirmation modal
 fn render_delete_confirm_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
-    let popup_area = centered_rect(60, 20, area);
+    let Some(popup_area) = workers_modal_area(60, 20, area) else {
+        return;
+    };
 
     Clear.render(popup_area, buf);
 
@@ -816,25 +822,25 @@ fn workers_render_count_label(count: usize, label: &str) -> String {
     }
 }
 
-/// Create a centered rect
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
-        ])
-        .split(r);
+fn workers_modal_area(percent_x: u16, percent_y: u16, area: Rect) -> Option<Rect> {
+    if area.width < MIN_WORKERS_MODAL_WIDTH || area.height < MIN_WORKERS_MODAL_HEIGHT {
+        return None;
+    }
 
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
-        ])
-        .split(popup_layout[1])[1]
+    let width = area
+        .width
+        .saturating_mul(percent_x)
+        .saturating_div(100)
+        .clamp(MIN_WORKERS_MODAL_WIDTH, area.width);
+    let height = area
+        .height
+        .saturating_mul(percent_y)
+        .saturating_div(100)
+        .clamp(MIN_WORKERS_MODAL_HEIGHT, area.height);
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+
+    Some(Rect::new(x, y, width, height))
 }
 
 #[cfg(test)]
@@ -849,12 +855,25 @@ mod tests {
     }
 
     #[test]
-    fn test_centered_rect() {
+    fn test_workers_modal_area_uses_percentage_size_when_it_fits() {
         let area = Rect::new(0, 0, 100, 100);
-        let centered = centered_rect(60, 20, area);
+        let centered = workers_modal_area(60, 20, area).unwrap();
 
-        assert_eq!(centered.width, 60);
-        assert_eq!(centered.height, 20);
+        assert_eq!(centered, Rect::new(20, 40, 60, 20));
+    }
+
+    #[test]
+    fn test_workers_modal_area_preserves_minimum_size() {
+        let area = Rect::new(4, 2, 30, 10);
+        let centered = workers_modal_area(60, 20, area).unwrap();
+
+        assert_eq!(centered, Rect::new(7, 3, 24, 7));
+    }
+
+    #[test]
+    fn test_workers_modal_area_skips_tiny_areas() {
+        assert!(workers_modal_area(60, 20, Rect::new(0, 0, 23, 10)).is_none());
+        assert!(workers_modal_area(60, 20, Rect::new(0, 0, 30, 6)).is_none());
     }
 
     #[test]
