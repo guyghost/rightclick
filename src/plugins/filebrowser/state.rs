@@ -312,12 +312,13 @@ impl PluginState {
 
         self.update_tree_scroll_total();
         let visible = self.visible_indices();
-        if !visible.contains(&self.tree.selected_index) {
-            if let Some(first) = visible.first().copied() {
-                self.tree.selected_index = first;
-                self.update_selected_path_public();
-                self.update_preview();
-            }
+        if visible.is_empty() {
+            self.selected_path = None;
+            self.preview = None;
+        } else if !visible.contains(&self.tree.selected_index) || self.selected_path.is_none() {
+            self.tree.selected_index = visible[0];
+            self.update_selected_path_public();
+            self.update_preview();
         }
     }
 
@@ -507,6 +508,40 @@ mod tests {
             .collect();
         assert!(visible_names.contains(&"alpha.txt"));
         assert!(!visible_names.contains(&"beta.txt"));
+    }
+
+    #[test]
+    fn test_filter_without_visible_entries_clears_selection_and_preview() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        state.set_filter(Some("alpha".to_string()));
+        assert!(state.selected_path.is_some());
+        assert!(state.preview.is_some());
+
+        state.set_filter(Some("missing".to_string()));
+
+        assert_eq!(state.visible_indices(), Vec::<usize>::new());
+        assert!(state.selected_path.is_none());
+        assert!(state.preview.is_none());
+        assert_eq!(state.tree_scroll.total_lines, 0);
+    }
+
+    #[test]
+    fn test_clearing_filter_restores_selection_after_empty_filter() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+
+        state.set_filter(Some("missing".to_string()));
+        assert!(state.selected_path.is_none());
+
+        state.set_filter(None);
+
+        assert!(state.selected_path.is_some());
+        assert!(state.preview.is_some());
+        assert!(state.tree_scroll.total_lines > 0);
     }
 
     #[test]
