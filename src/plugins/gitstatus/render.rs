@@ -1255,7 +1255,7 @@ fn git_diff_empty_message(state: &PluginState) -> &'static str {
     if state.files.is_empty() {
         "Working tree clean\n\nH History | B Branches | r Refresh"
     } else {
-        "Select a file to view diff"
+        "No file selected\n\nj/k Navigate files\nS Status | H History | B Branches | r Refresh"
     }
 }
 
@@ -1391,6 +1391,23 @@ mod tests {
         let message = git_diff_empty_message(&state);
 
         assert!(message.contains("Working tree clean"));
+        assert!(message.contains("H History"));
+        assert!(message.contains("B Branches"));
+        assert!(message.contains("r Refresh"));
+    }
+
+    #[test]
+    fn test_git_diff_empty_message_points_to_file_navigation() {
+        let mut state = PluginState::new();
+        state
+            .files
+            .push(FileChange::new("src/main.rs", FileStatus::Modified));
+
+        let message = git_diff_empty_message(&state);
+
+        assert!(message.contains("No file selected"));
+        assert!(message.contains("j/k Navigate files"));
+        assert!(message.contains("S Status"));
         assert!(message.contains("H History"));
         assert!(message.contains("B Branches"));
         assert!(message.contains("r Refresh"));
