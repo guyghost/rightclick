@@ -3,6 +3,8 @@
 //! This module provides a TUI component for displaying and interacting
 //! with a searchable command palette using fuzzy matching.
 
+use std::str::FromStr;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
@@ -19,6 +21,10 @@ use crate::palette::entries::{Category, PaletteEntry};
 use crate::palette::fuzzy::{FuzzyMatcher, MatchResult};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
+
+const PALETTE_EMPTY_ACTION_HINT: &str = "Esc: Close  |  Tab: Contexts  |  ?: Help";
+const PALETTE_NO_MATCH_ACTION_HINT: &str =
+    "Backspace: Edit  |  Ctrl+U: Clear  |  Esc: Close  |  Tab: Contexts  |  ?: Help";
 
 /// Actions that can be returned from handling key events.
 #[derive(Debug, Clone, PartialEq)]
@@ -616,13 +622,15 @@ impl Palette {
 
 fn palette_empty_state_message(input: &str) -> String {
     if input.is_empty() {
-        "No commands available\n\nEsc  Close palette\nTab  Toggle contexts\n?  Help\n\nCommands appear here after plugins finish loading."
-            .to_string()
+        format!(
+            "No commands available\n\n{}\n\nCommands appear here after plugins finish loading.",
+            PALETTE_EMPTY_ACTION_HINT
+        )
     } else {
         let input = truncate_query(input, 40);
         format!(
-            "No commands match \"{}\"\n\nBackspace  Edit search\nCtrl+U  Clear search\nEsc  Close palette\nTab  Toggle contexts\n?  Help",
-            input
+            "No commands match \"{}\"\n\n{}",
+            input, PALETTE_NO_MATCH_ACTION_HINT
         )
     }
 }
@@ -645,8 +653,6 @@ impl Widget for &Palette {
         self.render(area, buf, &default_theme);
     }
 }
-
-use std::str::FromStr;
 
 #[cfg(test)]
 mod tests {
@@ -858,18 +864,18 @@ mod tests {
     fn test_palette_empty_state_message_points_to_next_actions() {
         let empty = palette_empty_state_message("");
         assert!(empty.contains("No commands available"));
-        assert!(empty.contains("Esc  Close palette"));
-        assert!(empty.contains("Tab  Toggle contexts"));
-        assert!(empty.contains("?  Help"));
+        assert!(empty.contains(PALETTE_EMPTY_ACTION_HINT));
+        assert!(!empty.contains("Esc  Close palette"));
+        assert!(!empty.contains("Tab  Toggle contexts"));
         assert!(empty.contains("Commands appear here after plugins finish loading"));
 
         let no_match = palette_empty_state_message("deploy");
         assert!(no_match.contains("No commands match \"deploy\""));
-        assert!(no_match.contains("Backspace  Edit search"));
-        assert!(no_match.contains("Ctrl+U  Clear search"));
-        assert!(no_match.contains("Esc  Close palette"));
-        assert!(no_match.contains("Tab  Toggle contexts"));
-        assert!(no_match.contains("?  Help"));
+        assert!(no_match.contains(PALETTE_NO_MATCH_ACTION_HINT));
+        assert!(!no_match.contains("Backspace  Edit search"));
+        assert!(!no_match.contains("Ctrl+U  Clear search"));
+        assert!(!no_match.contains("Esc  Close palette"));
+        assert!(!no_match.contains("Tab  Toggle contexts"));
 
         let truncated = palette_empty_state_message("abcdefghijklmnopqrstuvwxyz0123456789abcdef");
         assert!(
@@ -899,9 +905,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("No commands available"));
-        assert!(content.contains("Esc  Close palette"));
-        assert!(content.contains("Tab  Toggle contexts"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains(PALETTE_EMPTY_ACTION_HINT));
     }
 
     #[test]
