@@ -94,7 +94,7 @@ impl SearchOverlayState {
     pub fn select_next(&mut self) {
         if !self.results.is_empty() && self.selected < self.results.len() - 1 {
             self.selected += 1;
-            if self.selected >= self.scroll_offset + 10 {
+            if self.selected >= self.scroll_offset.saturating_add(10) {
                 self.scroll_offset = self.selected.saturating_sub(9);
             }
         }
@@ -196,8 +196,10 @@ impl SearchOverlayState {
         }
         if self.selected < self.scroll_offset {
             self.scroll_offset = self.selected;
-        } else if self.selected >= self.scroll_offset + viewport_height {
-            self.scroll_offset = self.selected - viewport_height + 1;
+        } else if self.selected >= self.scroll_offset.saturating_add(viewport_height) {
+            self.scroll_offset = self
+                .selected
+                .saturating_sub(viewport_height.saturating_sub(1));
         }
     }
 }
@@ -470,7 +472,9 @@ fn render_results(
     }
 
     let viewport_height = area.height as usize;
-    let scroll = state.scroll_offset;
+    let scroll = state
+        .scroll_offset
+        .min(state.results.len().saturating_sub(1));
 
     let items: Vec<ListItem> = state
         .results
@@ -889,6 +893,17 @@ mod tests {
     }
 
     #[test]
+    fn test_overlay_ensure_visible_uses_saturating_offsets() {
+        let mut state = SearchOverlayState::new();
+        state.selected = usize::MAX;
+        state.scroll_offset = usize::MAX;
+
+        state.ensure_visible(10);
+
+        assert_eq!(state.scroll_offset, usize::MAX - 9);
+    }
+
+    #[test]
     fn test_truncate_str() {
         assert_eq!(truncate_str("hello", 10), "hello");
         assert_eq!(truncate_str("hello world", 8), "hello...");
@@ -1065,6 +1080,46 @@ mod tests {
         let theme = Theme::default();
         render_search_overlay(&state, area, &mut buf, &theme);
         // Should not panic
+    }
+
+    #[test]
+    fn test_render_results_clamps_stale_scroll_offset() {
+        let mut state = SearchOverlayState::new();
+        state.set_results(vec![
+            SearchResult {
+                kind: SearchResultKind::Command { id: "first".into() },
+                title: "First command".into(),
+                preview: "first preview".into(),
+                score: 100,
+            },
+            SearchResult {
+                kind: SearchResultKind::Command { id: "last".into() },
+                title: "Last command".into(),
+                preview: "last preview".into(),
+                score: 90,
+            },
+        ]);
+        state.scroll_offset = 99;
+
+        let area = Rect::new(0, 0, 80, 4);
+        let mut buf = Buffer::empty(area);
+
+        render_results(
+            &state,
+            area,
+            &mut buf,
+            Color::White,
+            Color::Gray,
+            Color::Blue,
+            Color::Black,
+        );
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Last command"));
     }
 
     #[test]
