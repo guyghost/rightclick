@@ -794,7 +794,7 @@ impl WorkspacePlugin {
         vec![
             PluginCommand::new("create", "Create Worktree", 'n'),
             PluginCommand::new("delete", "Delete Worktree", 'D'),
-            PluginCommand::new("link-task", "Link Task", 't'),
+            PluginCommand::new("link-task", "Link Task", 'T'),
             PluginCommand::new("launch-agent", "Launch Agent", 'a'),
             PluginCommand::new("interactive", "Interactive Mode", 'o'),
             PluginCommand::new("merge", "Merge", 'm'),
@@ -1283,6 +1283,42 @@ mod tests {
         assert!(!commands.is_empty());
         assert!(commands.iter().any(|c| c.id == "create"));
         assert!(commands.iter().any(|c| c.id == "delete"));
+        assert!(commands.iter().any(|c| c.id == "link-task" && c.key == 'T'));
+    }
+
+    #[test]
+    fn test_trait_commands_use_actual_link_shortcut() {
+        let plugin = WorkspacePlugin::new();
+        let commands = <WorkspacePlugin as crate::plugin::Plugin>::commands(&plugin);
+        let link_command = commands
+            .iter()
+            .find(|command| command.id == "link")
+            .expect("workspace link command");
+
+        assert_eq!(link_command.name, "Link Task");
+        assert_eq!(link_command.key, 'T');
+        assert_eq!(
+            link_command.description,
+            "Attach a task id to the selected worktree"
+        );
+    }
+
+    #[test]
+    fn test_execute_link_command_opens_link_task_modal() {
+        let mut plugin = WorkspacePlugin::new();
+        plugin.state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        plugin.state.selected = Some(0);
+
+        let execution = plugin
+            .execute_command("link")
+            .expect("link command should execute");
+
+        assert_eq!(execution.command_name, "Link Task");
+        assert_eq!(plugin.state.modal_state, ModalState::LinkTask);
     }
 
     #[test]

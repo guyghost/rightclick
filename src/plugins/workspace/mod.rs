@@ -7,7 +7,7 @@
 //! - Viewing worktree details (branch, path, linked tasks)
 //! - Creating new worktrees with 'n'
 //! - Deleting worktrees with 'D'
-//! - Linking/unlinking TD tasks with 't'
+//! - Linking/unlinking TD tasks with 'T'
 //! - Launching AI agents with 'a'
 //! - Entering interactive mode with 'enter'
 //! - Merge workflow with 'm'

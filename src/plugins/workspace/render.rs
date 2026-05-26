@@ -277,7 +277,7 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
                 .style(style_for_ui_element(theme, UiElement::Text));
             text.render(inner, buf);
         } else {
-            let empty = Paragraph::new("No linked task\nPress 't' to link a task")
+            let empty = Paragraph::new("No linked task\nPress 'T' to link a task")
                 .alignment(Alignment::Center)
                 .style(style_for_ui_element(theme, UiElement::MutedText));
             empty.render(inner, buf);
@@ -802,5 +802,30 @@ mod tests {
         assert!(content.contains("No worktrees found"));
         assert!(content.contains("Create worktree"));
         assert!(content.contains("Search commands"));
+    }
+
+    #[test]
+    fn test_render_task_tab_uses_actual_link_shortcut() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Task;
+        state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        state.selected = Some(0);
+        let area = Rect::new(0, 0, 80, 12);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Press 'T' to link a task"));
+        assert!(!content.contains("Press 't' to link a task"));
     }
 }
