@@ -447,10 +447,14 @@ impl Spinner {
         };
 
         let text_width = text.width().min(u16::MAX as usize) as u16;
-        let x = area.x + (area.width.saturating_sub(text_width)) / 2;
-        let y = area.y + area.height / 2;
+        let x = area
+            .x
+            .saturating_add((area.width.saturating_sub(text_width)) / 2);
+        let y = area.y.saturating_add(area.height / 2);
+        let right = area.x.saturating_add(area.width);
+        let bottom = area.y.saturating_add(area.height);
 
-        if x < area.x + area.width && y < area.y + area.height {
+        if x < right && y < bottom {
             let spans: Vec<Span> = if let Some(ref label) = self.label {
                 vec![
                     Span::styled(
@@ -587,6 +591,24 @@ mod tests {
         assert_eq!(buf.cell((6, 1)).unwrap().symbol(), "検");
         assert_eq!(buf.cell((8, 1)).unwrap().symbol(), "a");
         assert_ne!(buf.cell((3, 1)).unwrap().symbol(), "|");
+    }
+
+    #[test]
+    fn test_render_centered_handles_offset_area_near_u16_max() {
+        let spinner = Spinner::line().with_label("Load");
+        let theme = Theme::default();
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 40, 80, 40);
+        let mut buf = Buffer::empty(area);
+
+        spinner.render_centered(area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("|"));
+        assert!(content.contains("Load"));
     }
 
     #[test]
