@@ -491,10 +491,14 @@ fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
         return;
     }
 
-    Paragraph::new("Tab scope | Enter open | Up/Down select | Ctrl+U clear | Esc close")
+    Paragraph::new(search_footer_hint())
         .style(Style::default().fg(muted))
         .alignment(Alignment::Center)
         .render(area, buf);
+}
+
+fn search_footer_hint() -> &'static str {
+    "Tab change scope | Enter open | Up/Down select | Ctrl+U clear | Esc close"
 }
 
 fn result_count_label(count: usize) -> String {
@@ -794,6 +798,14 @@ mod tests {
         assert_eq!(result_count_label(0), "No results");
         assert_eq!(result_count_label(1), "1 result");
         assert_eq!(result_count_label(2), "2 results");
+    }
+
+    #[test]
+    fn test_search_footer_hint_names_scope_action() {
+        assert!(search_footer_hint().contains("Tab change scope"));
+        assert!(search_footer_hint().contains("Enter open"));
+        assert!(search_footer_hint().contains("Ctrl+U clear"));
+        assert!(!search_footer_hint().contains("Tab scope"));
     }
 
     #[test]
