@@ -1154,8 +1154,8 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
     };
 
     // Clear the area
-    for row in modal_area.y..modal_area.y + modal_area.height {
-        for col in modal_area.x..modal_area.x + modal_area.width {
+    for row in modal_area.top()..modal_area.bottom() {
+        for col in modal_area.left()..modal_area.right() {
             if let Some(cell) = buf.cell_mut((col, row)) {
                 cell.set_char(' ');
                 cell.set_style(Style::default());
@@ -1449,6 +1449,27 @@ mod tests {
         let modal = git_modal_area(area).unwrap();
 
         assert_eq!(modal, Rect::new(u16::MAX - 65, u16::MAX - 14, 50, 7));
+    }
+
+    #[test]
+    fn test_render_modal_overlay_handles_offset_area_near_u16_max() {
+        let mut state = PluginState::new();
+        state.open_modal(crate::plugins::gitstatus::GitModal::Error {
+            message: "Cannot drop stash".to_string(),
+        });
+        let theme = Theme::default();
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 20, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        render_modal_overlay(&state, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Error"));
+        assert!(content.contains("Cannot drop stash"));
     }
 
     #[test]
