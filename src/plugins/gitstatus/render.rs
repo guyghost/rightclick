@@ -20,6 +20,10 @@ use super::state::{FocusPane, PluginState, ViewMode};
 const GIT_CONFIRM_MODAL_HINT: &str = "Enter: Confirm  |  Esc: Cancel";
 const GIT_CANCEL_MODAL_HINT: &str = "Esc: Cancel";
 const GIT_ERROR_MODAL_HINT: &str = "Esc: Close";
+const GIT_MODAL_WIDTH: u16 = 50;
+const GIT_MODAL_HEIGHT: u16 = 7;
+const MIN_GIT_MODAL_WIDTH: u16 = 20;
+const MIN_GIT_MODAL_HEIGHT: u16 = 5;
 
 /// Render the git status plugin
 pub fn render_git_status(
@@ -1145,12 +1149,9 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
         return;
     };
 
-    // Calculate centered modal area
-    let modal_width = area.width.clamp(20, 50);
-    let modal_height = 7u16;
-    let x = area.x + (area.width.saturating_sub(modal_width)) / 2;
-    let y = area.y + (area.height.saturating_sub(modal_height)) / 2;
-    let modal_area = Rect::new(x, y, modal_width, modal_height);
+    let Some(modal_area) = git_modal_area(area) else {
+        return;
+    };
 
     // Clear the area
     for row in modal_area.y..modal_area.y + modal_area.height {
@@ -1251,6 +1252,19 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
         ),
     ]);
     text.render(inner, buf);
+}
+
+fn git_modal_area(area: Rect) -> Option<Rect> {
+    if area.width < MIN_GIT_MODAL_WIDTH || area.height < MIN_GIT_MODAL_HEIGHT {
+        return None;
+    }
+
+    let width = GIT_MODAL_WIDTH.min(area.width);
+    let height = GIT_MODAL_HEIGHT.min(area.height);
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+
+    Some(Rect::new(x, y, width, height))
 }
 
 /// Render the status bar info
@@ -1409,6 +1423,28 @@ mod tests {
         assert!(GIT_ERROR_MODAL_HINT.contains("Esc: Close"));
         assert!(!hints.iter().any(|hint| hint.contains("Escape=")));
         assert!(!hints.iter().any(|hint| hint.contains("Enter=")));
+    }
+
+    #[test]
+    fn test_git_modal_area_uses_preferred_size_when_it_fits() {
+        let area = Rect::new(10, 5, 100, 30);
+        let modal = git_modal_area(area).unwrap();
+
+        assert_eq!(modal, Rect::new(35, 16, 50, 7));
+    }
+
+    #[test]
+    fn test_git_modal_area_clamps_to_available_area() {
+        let area = Rect::new(4, 3, 30, 6);
+        let modal = git_modal_area(area).unwrap();
+
+        assert_eq!(modal, Rect::new(4, 3, 30, 6));
+    }
+
+    #[test]
+    fn test_git_modal_area_skips_tiny_areas() {
+        assert!(git_modal_area(Rect::new(0, 0, 19, 10)).is_none());
+        assert!(git_modal_area(Rect::new(0, 0, 30, 4)).is_none());
     }
 
     #[test]
