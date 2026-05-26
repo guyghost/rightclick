@@ -58,6 +58,9 @@ case "$cmd" in
   fmt-check)
     cargo fmt --check
     ;;
+  fmt)
+    cargo fmt
+    ;;
   clippy)
     cargo clippy --all-targets -- -D warnings
     ;;
@@ -87,6 +90,7 @@ Commands:
   doctor         check required and optional local developer tools
   check          fmt check, clippy with warnings denied, and tests
   fmt-check      run cargo fmt --check
+  fmt            run cargo fmt
   clippy         run cargo clippy --all-targets -- -D warnings
   test           run cargo test
   test-one       run cargo test with a filter

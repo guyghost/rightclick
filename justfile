@@ -15,6 +15,9 @@ doctor:
 fmt-check:
     bash scripts/dev.sh fmt-check
 
+fmt:
+    bash scripts/dev.sh fmt
+
 clippy:
     bash scripts/dev.sh clippy
 
