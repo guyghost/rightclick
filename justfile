@@ -21,6 +21,9 @@ check:
 quick:
     bash scripts/dev.sh quick
 
+script-check:
+    bash scripts/dev.sh script-check
+
 doctor:
     bash scripts/dev.sh doctor
 

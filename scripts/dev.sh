@@ -18,6 +18,7 @@ Commands:
   rust-version   print the required Rust version from Cargo.toml
   check          fmt check, clippy with warnings denied, and tests
   quick          fmt check and clippy with warnings denied
+  script-check   validate shell helper script syntax
   fmt-check      run cargo fmt --check
   fmt            run cargo fmt
   clippy         run cargo clippy --all-targets -- -D warnings
@@ -52,6 +53,7 @@ If you use just:
   just pre-commit
   just pre-push
   just quick
+  just script-check
   just test-list gitstatus search::overlay
   just test-one plugins::gitstatus
   just test-one test_plugin_commands -- --nocapture
@@ -66,12 +68,14 @@ run_step() {
 }
 
 run_checks() {
+  run_step bash -n scripts/dev.sh
   run_step cargo fmt --check
   run_step cargo clippy --all-targets -- -D warnings
   run_step cargo test
 }
 
 run_quick_checks() {
+  run_step bash -n scripts/dev.sh
   run_step cargo fmt --check
   run_step cargo clippy --all-targets -- -D warnings
 }
@@ -247,6 +251,9 @@ case "$cmd" in
     ;;
   quick)
     run_quick_checks
+    ;;
+  script-check)
+    run_step bash -n scripts/dev.sh
     ;;
   fmt-check)
     run_step cargo fmt --check

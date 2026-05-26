@@ -50,6 +50,7 @@ bash scripts/dev.sh doctor        # check required and optional local tools
 bash scripts/dev.sh rust-version  # print the required Rust version
 bash scripts/dev.sh check         # fmt check, clippy with warnings denied, and tests
 bash scripts/dev.sh quick         # fmt check and clippy without tests
+bash scripts/dev.sh script-check  # validate shell helper script syntax
 bash scripts/dev.sh fmt-check
 bash scripts/dev.sh fmt
 bash scripts/dev.sh clippy
