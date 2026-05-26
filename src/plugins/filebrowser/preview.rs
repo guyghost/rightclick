@@ -16,6 +16,7 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Widget};
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 /// Maximum file size to preview (5 MB)
 const MAX_PREVIEW_SIZE: u64 = 5 * 1024 * 1024;
@@ -494,15 +495,33 @@ impl<'a> Widget for SimplePreviewWidget<'a> {
             let line_idx = self.scroll_offset + i;
             if line_idx < lines.len() {
                 let line = format!("{:4} │ {}", line_idx + 1, lines[line_idx]);
-                let truncated = if line.len() > inner.width as usize {
-                    &line[..inner.width as usize]
-                } else {
-                    &line
-                };
+                let truncated = truncate_to_width(&line, inner.width as usize);
                 buf.set_string(inner.x, inner.y + i as u16, truncated, Style::default());
             }
         }
     }
+}
+
+fn truncate_to_width(value: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+
+    if value.width() <= max_width {
+        return value.to_string();
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in value.chars() {
+        let ch_width = ch.width().unwrap_or(0);
+        if width + ch_width > max_width {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output
 }
 
 #[cfg(test)]
@@ -637,5 +656,37 @@ mod tests {
                 .content
                 .contains(&format!("Line {}", MAX_PREVIEW_LINES))
         );
+    }
+
+    #[test]
+    fn test_truncate_to_width_handles_unicode_boundaries() {
+        assert_eq!(truncate_to_width("éclair", 4), "écla");
+        assert_eq!(truncate_to_width("éclair", 0), "");
+        assert_eq!(truncate_to_width("abc", 5), "abc");
+    }
+
+    #[test]
+    fn test_simple_preview_truncates_unicode_lines_safely() {
+        let preview = Preview {
+            content: "éclair session\n".to_string(),
+            language: None,
+            is_binary: false,
+            is_image: false,
+            file_size: 0,
+            total_lines: 1,
+            is_truncated: false,
+            path: PathBuf::from("unicode.txt"),
+        };
+        let area = Rect::new(0, 0, 12, 3);
+        let mut buf = Buffer::empty(area);
+
+        SimplePreviewWidget::new(&preview, 0).render(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("é"));
     }
 }
