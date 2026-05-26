@@ -76,10 +76,10 @@ If you prefer `just`, run `just help` for the same command overview. The default
 
 Press `/` to open global search. Use `tab` inside the overlay to switch scope:
 
-- **All**: search files, plugin-owned items, and commands together
+- **All**: search files, commands, sessions, worktrees, and intents together
 - **Files**: search file contents with `rg`
 - **Items**: search sessions, worktrees, and intents exposed by plugins
-- **Commands**: search plugin commands with their current descriptions
+- **Commands**: search available commands with their current descriptions
 
 Selecting an item opens the owning plugin and focuses the matching session,
 worktree, intent, or file result when the plugin supports it.

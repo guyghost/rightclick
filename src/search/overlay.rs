@@ -510,7 +510,7 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
         SearchScope::All => "Search files, commands, sessions, worktrees, and intents",
         SearchScope::Files => "Search file contents with ripgrep",
         SearchScope::Items => "Search sessions, worktrees, and intents",
-        SearchScope::Commands => "Search available plugin commands",
+        SearchScope::Commands => "Search available commands",
     }
 }
 
@@ -519,7 +519,7 @@ fn no_results_message(query: &str, scope: SearchScope) -> String {
     let message = match scope {
         SearchScope::All => format!("No results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
-        SearchScope::Items => format!("No item matches \"{}\"", query),
+        SearchScope::Items => format!("No session, worktree, or intent matches \"{}\"", query),
         SearchScope::Commands => format!("No command matches \"{}\"", query),
     };
 
@@ -812,14 +812,14 @@ mod tests {
         );
         assert_eq!(
             empty_query_hint(SearchScope::Commands),
-            "Search available plugin commands"
+            "Search available commands"
         );
     }
 
     #[test]
     fn test_no_results_message_includes_scope_and_query() {
         let items = no_results_message("worker", SearchScope::Items);
-        assert!(items.contains("No item matches \"worker\""));
+        assert!(items.contains("No session, worktree, or intent matches \"worker\""));
         assert!(items.contains("Ctrl+U  Clear search"));
         assert!(items.contains("Tab  Change scope"));
 
