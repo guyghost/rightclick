@@ -153,6 +153,7 @@ impl WorkersPlugin {
         // Intent operations
         registry.bind("n", Action::NewFile, FocusContext::Workspace); // Create intent
         registry.bind("D", Action::Delete, FocusContext::Workspace); // Delete intent
+        registry.bind("f", Action::Filter, FocusContext::Workspace); // Refresh intents
         registry.bind("r", Action::Refresh, FocusContext::Workspace); // Run workers
         // Stop workers is handled directly by the plugin because Action has no Stop variant.
         registry.bind("enter", Action::Enter, FocusContext::Workspace); // Open intent
@@ -676,6 +677,10 @@ impl WorkersPlugin {
                             // Create new intent
                             self.state.modal_state = ModalState::CreateIntent;
                         }
+                        "f" => {
+                            // Refresh intents from disk
+                            commands.push(Command::Refresh);
+                        }
                         "D" => {
                             // Delete intent
                             if self.state.selected_intent().is_some() {
@@ -702,10 +707,6 @@ impl WorkersPlugin {
                                     commands.push(Command::OpenIntent(intent.intent.id.clone()));
                                 }
                             }
-                        }
-                        "f" => {
-                            // Refresh
-                            commands.push(Command::Refresh);
                         }
                         _ => {}
                     }
@@ -817,6 +818,9 @@ impl WorkersPlugin {
                 if let Some(intent) = self.state.selected_intent() {
                     commands.push(Command::RunWorkers(intent.intent.id.clone()));
                 }
+            }
+            Action::Filter => {
+                commands.push(Command::Refresh);
             }
             Action::Enter => {
                 if let Some(intent) = self.state.selected_intent() {
@@ -1239,6 +1243,18 @@ mod tests {
     }
 
     #[test]
+    fn test_refresh_key_emits_refresh_command() {
+        let mut plugin = WorkersPlugin::new();
+
+        let commands = plugin.handle_event_internal(Event::Key {
+            code: "f".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert_eq!(commands, vec![Command::Refresh]);
+    }
+
+    #[test]
     fn test_execute_stop_command_uses_declared_shortcut() {
         let mut plugin = WorkersPlugin::new();
 
@@ -1251,6 +1267,18 @@ mod tests {
             plugin.pending_commands.pop_front(),
             Some(Command::StopWorkers)
         );
+    }
+
+    #[test]
+    fn test_execute_refresh_command_uses_declared_shortcut() {
+        let mut plugin = WorkersPlugin::new();
+
+        let execution = plugin
+            .execute_command("refresh")
+            .expect("refresh command should execute");
+
+        assert_eq!(execution.command_name, "Refresh");
+        assert_eq!(plugin.pending_commands.pop_front(), Some(Command::Refresh));
     }
 
     #[test]
