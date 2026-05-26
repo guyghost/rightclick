@@ -833,7 +833,7 @@ fn build_help_lines(
     lines.extend([
         String::new(),
         "Global shortcuts:".to_string(),
-        "  /        Search files, commands, sessions, worktrees, intents".to_string(),
+        "  /        Search files, commands, sessions, worktrees, and intents".to_string(),
         "  ?        Toggle this help".to_string(),
         "  Tab      Switch plugin or pane".to_string(),
         "  Shift+Tab Switch to previous plugin or pane".to_string(),
@@ -995,6 +995,12 @@ mod tests {
         assert!(lines.iter().any(|line| line.contains("r")));
         assert!(lines.iter().any(|line| line.contains("Refresh")));
         assert!(lines.iter().any(|line| line.contains("/")));
+        assert!(
+            lines
+                .iter()
+                .any(|line| line
+                    .contains("Search files, commands, sessions, worktrees, and intents"))
+        );
         assert!(
             lines
                 .iter()

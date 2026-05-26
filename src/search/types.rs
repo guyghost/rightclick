@@ -8,7 +8,7 @@ pub enum SearchScope {
     All,
     /// Search file contents only
     Files,
-    /// Search plugin-owned items such as conversations, worktrees, and intents.
+    /// Search sessions, worktrees, and intents exposed by plugins.
     Items,
     /// Search commands only
     Commands,
@@ -78,7 +78,7 @@ pub enum SearchResultKind {
     },
     /// Conversation match
     Conversation { id: String },
-    /// Generic plugin-owned match
+    /// Plugin-provided search entry
     PluginEntry {
         /// Plugin identifier that owns the entry.
         plugin_id: String,
