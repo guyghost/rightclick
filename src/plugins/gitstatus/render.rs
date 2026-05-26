@@ -201,9 +201,15 @@ fn render_sidebar(
         let header_style =
             style_for_ui_element(theme, UiElement::Secondary).add_modifier(Modifier::BOLD);
         lines.push(Line::styled(
-            count_title("Recent Commit", "Recent Commits", state.commits.len())
-                .trim_end()
-                .to_string(),
+            count_title(
+                "Recent Commit",
+                "Recent Commits",
+                state.commits.len(),
+                "commit",
+                "commits",
+            )
+            .trim_end()
+            .to_string(),
             header_style,
         ));
         lines.push(Line::raw(""));
@@ -391,7 +397,13 @@ fn render_commit_list(
     let title = if state.commits.is_empty() {
         " Commits ".to_string()
     } else {
-        count_title("Recent Commit", "Recent Commits", state.commits.len())
+        count_title(
+            "Recent Commit",
+            "Recent Commits",
+            state.commits.len(),
+            "commit",
+            "commits",
+        )
     };
 
     let block = Block::default()
@@ -480,11 +492,17 @@ fn relative_time_label(count: i64, singular: &str, plural: &str) -> String {
     }
 }
 
-fn count_title(singular: &str, plural: &str, count: usize) -> String {
+fn count_title(
+    singular: &str,
+    plural: &str,
+    count: usize,
+    unit_singular: &str,
+    unit_plural: &str,
+) -> String {
     if count == 1 {
-        format!(" {} ({}) ", singular, count)
+        format!(" {} (1 {}) ", singular, unit_singular)
     } else {
-        format!(" {} ({}) ", plural, count)
+        format!(" {} ({} {}) ", plural, count, unit_plural)
     }
 }
 
@@ -839,7 +857,13 @@ fn render_branch_list(
         style_for_ui_element(theme, UiElement::Border)
     };
 
-    let title = count_title("Branch", "Branches", state.branches.len());
+    let title = count_title(
+        "Branch",
+        "Branches",
+        state.branches.len(),
+        "branch",
+        "branches",
+    );
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -982,7 +1006,7 @@ fn render_stash_list(
         style_for_ui_element(theme, UiElement::Border)
     };
 
-    let title = count_title("Stash", "Stashes", state.stashes.len());
+    let title = count_title("Stash", "Stashes", state.stashes.len(), "stash", "stashes");
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -1441,17 +1465,29 @@ mod tests {
     #[test]
     fn test_count_title_uses_singular_labels() {
         assert_eq!(
-            count_title("Recent Commit", "Recent Commits", 1),
-            " Recent Commit (1) "
+            count_title("Recent Commit", "Recent Commits", 1, "commit", "commits"),
+            " Recent Commit (1 commit) "
         );
         assert_eq!(
-            count_title("Recent Commit", "Recent Commits", 2),
-            " Recent Commits (2) "
+            count_title("Recent Commit", "Recent Commits", 2, "commit", "commits"),
+            " Recent Commits (2 commits) "
         );
-        assert_eq!(count_title("Branch", "Branches", 1), " Branch (1) ");
-        assert_eq!(count_title("Branch", "Branches", 2), " Branches (2) ");
-        assert_eq!(count_title("Stash", "Stashes", 1), " Stash (1) ");
-        assert_eq!(count_title("Stash", "Stashes", 2), " Stashes (2) ");
+        assert_eq!(
+            count_title("Branch", "Branches", 1, "branch", "branches"),
+            " Branch (1 branch) "
+        );
+        assert_eq!(
+            count_title("Branch", "Branches", 2, "branch", "branches"),
+            " Branches (2 branches) "
+        );
+        assert_eq!(
+            count_title("Stash", "Stashes", 1, "stash", "stashes"),
+            " Stash (1 stash) "
+        );
+        assert_eq!(
+            count_title("Stash", "Stashes", 2, "stash", "stashes"),
+            " Stashes (2 stashes) "
+        );
     }
 
     #[test]
