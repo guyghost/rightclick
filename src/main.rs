@@ -840,10 +840,10 @@ fn build_help_lines(
         "  /        Global search".to_string(),
         "  ?        Toggle this help".to_string(),
         "  Tab      Switch plugin or pane".to_string(),
-        "  Shift+Tab Switch to previous plugin or pane".to_string(),
+        "  Shift+Tab  Switch to previous plugin or pane".to_string(),
         "  1-9      Jump to plugin".to_string(),
         "  Esc      Back or close active view".to_string(),
-        "  q/Ctrl+C Quit".to_string(),
+        "  q/Ctrl+C  Quit".to_string(),
     ]);
 
     lines
@@ -857,7 +857,7 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         "Global shortcuts:".to_string(),
         "  /        Global search".to_string(),
         "  ?        Toggle this help".to_string(),
-        "  q/Ctrl+C Quit".to_string(),
+        "  q/Ctrl+C  Quit".to_string(),
         String::new(),
         "Diagnostics:".to_string(),
         "  Restart with RUST_LOG=debug to inspect plugin startup.".to_string(),
@@ -1064,11 +1064,13 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("Shift+Tab") && line.contains("previous plugin"))
         );
+        assert!(lines.contains(&"  Shift+Tab  Switch to previous plugin or pane".to_string()));
         assert!(
             lines
                 .iter()
                 .any(|line| line.contains("q/Ctrl+C") && line.contains("Quit"))
         );
+        assert!(lines.contains(&"  q/Ctrl+C  Quit".to_string()));
         assert!(lines.iter().any(|line| line.contains("3 files changed")));
     }
 
@@ -1125,6 +1127,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("q/Ctrl+C") && line.contains("Quit"))
         );
+        assert!(lines.contains(&"  q/Ctrl+C  Quit".to_string()));
         assert!(lines.iter().any(|line| line.contains("RUST_LOG=debug")));
         assert!(lines.iter().any(|line| line.contains("configuration")));
     }
