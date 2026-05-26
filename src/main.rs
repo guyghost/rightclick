@@ -869,7 +869,11 @@ fn build_footer_hints(
         }
     }
 
-    for command in commands {
+    let mut prioritized_commands: Vec<&rightclick::plugin::PluginCommand> =
+        commands.iter().collect();
+    prioritized_commands.sort_by(|left, right| right.priority.cmp(&left.priority));
+
+    for command in prioritized_commands {
         let key = command.key.to_string();
         if matches!(key.as_str(), "j" | "k") {
             continue;
@@ -1069,6 +1073,33 @@ mod tests {
         );
         assert!(hints.contains(&("r".to_string(), "Refresh".to_string())));
         assert!(!hints.iter().any(|(key, _)| key == "j"));
+    }
+
+    #[test]
+    fn test_build_footer_hints_uses_command_priority() {
+        let commands = vec![
+            rightclick::plugin::PluginCommand::with_context(
+                "secondary",
+                "Secondary",
+                's',
+                rightclick::keymap::FocusContext::Global,
+            ),
+            rightclick::plugin::PluginCommand::with_priority(
+                "primary",
+                "Primary",
+                "Primary action",
+                rightclick::plugin::Category::System,
+                'p',
+                rightclick::keymap::FocusContext::Global,
+                1,
+            ),
+        ];
+
+        let hints = build_footer_hints("workspace", &commands);
+
+        let plugin_hints = &hints[5..];
+        assert_eq!(plugin_hints[0], ("p".to_string(), "Primary".to_string()));
+        assert_eq!(plugin_hints[1], ("s".to_string(), "Secondary".to_string()));
     }
 
     #[test]
