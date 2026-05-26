@@ -840,6 +840,7 @@ fn build_help_lines(
         "  /        Search files, commands, sessions, worktrees, intents".to_string(),
         "  ?        Toggle this help".to_string(),
         "  Tab      Switch plugin or pane".to_string(),
+        "  Shift+Tab Switch to previous plugin or pane".to_string(),
         "  1-9      Jump to plugin".to_string(),
         "  Esc      Back or close active view".to_string(),
         "  q        Quit".to_string(),
@@ -995,6 +996,11 @@ mod tests {
             lines
                 .iter()
                 .any(|line| line.contains("Esc") && line.contains("Back or close"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("Shift+Tab") && line.contains("previous plugin"))
         );
         assert!(lines.iter().any(|line| line.contains("3 files changed")));
     }
