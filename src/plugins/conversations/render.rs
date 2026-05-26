@@ -850,11 +850,11 @@ fn empty_sessions_message(state: &PluginState) -> String {
 }
 
 fn empty_messages_message() -> &'static str {
-    "No messages in this session\n\nEsc/h  Back to sessions\nThen r  Refresh or f  Filter"
+    "No messages in this session\n\nr  Refresh messages\nf  Filter sessions\nEsc/h  Back to sessions"
 }
 
 fn loading_messages_message() -> &'static str {
-    "Loading messages\n\nEsc/h  Back to sessions\nr  Refresh sessions"
+    "Loading messages\n\nr  Refresh messages\nf  Filter sessions\nEsc/h  Back to sessions"
 }
 
 fn compact_message_count(count: usize) -> String {
@@ -990,8 +990,10 @@ mod tests {
         let message = empty_messages_message();
 
         assert!(message.contains("No messages in this session"));
+        assert!(message.contains("r  Refresh messages"));
+        assert!(message.contains("f  Filter sessions"));
         assert!(message.contains("Esc/h  Back to sessions"));
-        assert!(message.contains("Then r  Refresh or f  Filter"));
+        assert!(!message.contains("Then r"));
     }
 
     #[test]
@@ -999,8 +1001,10 @@ mod tests {
         let message = loading_messages_message();
 
         assert!(message.contains("Loading messages"));
+        assert!(message.contains("r  Refresh messages"));
+        assert!(message.contains("f  Filter sessions"));
         assert!(message.contains("Esc/h  Back to sessions"));
-        assert!(message.contains("r  Refresh sessions"));
+        assert!(!message.contains("r  Refresh sessions"));
     }
 
     #[test]
@@ -1221,7 +1225,9 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Loading messages"));
+        assert!(content.contains("r  Refresh messages"));
+        assert!(content.contains("f  Filter sessions"));
         assert!(content.contains("Esc/h  Back to sessions"));
-        assert!(content.contains("r  Refresh sessions"));
+        assert!(!content.contains("r  Refresh sessions"));
     }
 }

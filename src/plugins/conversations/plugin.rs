@@ -412,6 +412,19 @@ impl ConversationsPlugin {
                 true
             }
 
+            // Filter sessions without first leaving the conversation
+            (KeyCode::Char('f'), KeyModifiers::NONE) => {
+                self.state.start_search(String::new());
+                self.refresh_search_navigation();
+                true
+            }
+
+            // Refresh messages for the selected session
+            (KeyCode::Char('r'), KeyModifiers::NONE) => {
+                self.pending_refresh = true;
+                true
+            }
+
             // Toggle message expansion
             (KeyCode::Char(' '), KeyModifiers::NONE) => {
                 if let Some(msg) = self.state.get_message(self.state.message_scroll.scroll_y) {
@@ -515,6 +528,8 @@ impl ConversationsPlugin {
                 ("↑/↓", "Scroll"),
                 ("Ctrl+d/u", "Page"),
                 ("Esc/h", "Back"),
+                ("f", "Filter"),
+                ("r", "Refresh"),
                 ("Space", "Expand"),
                 ("e/c", "Expand/Collapse All"),
             ],
@@ -783,6 +798,13 @@ impl Plugin for ConversationsPlugin {
                                 }
                                 "h" | "Left" | "Esc" | "Backspace" => {
                                     self.state.enter_sessions_list();
+                                }
+                                "f" => {
+                                    self.state.start_search(String::new());
+                                    self.refresh_search_navigation();
+                                }
+                                "r" => {
+                                    self.pending_refresh = true;
                                 }
                                 " " => {
                                     // Toggle message expansion
@@ -1083,6 +1105,35 @@ mod tests {
 
         assert_eq!(plugin.state().view, ConversationView::Search);
         assert_eq!(plugin.state().search_query, Some(String::new()));
+    }
+
+    #[test]
+    fn test_filter_key_enters_search_from_conversation() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin.state_mut().view = ConversationView::Conversation;
+
+        plugin.handle_event(crate::event::Event::Key {
+            code: "f".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert_eq!(plugin.state().view, ConversationView::Search);
+        assert_eq!(plugin.state().search_query, Some(String::new()));
+    }
+
+    #[test]
+    fn test_refresh_key_refreshes_current_conversation() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin.state_mut().view = ConversationView::Conversation;
+
+        plugin.handle_event(crate::event::Event::Key {
+            code: "r".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert!(plugin.pending_refresh);
     }
 
     #[test]
