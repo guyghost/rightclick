@@ -1187,6 +1187,55 @@ impl Plugin for WorkspacePlugin {
         ))
     }
 
+    fn search_entries(&self) -> Vec<crate::plugin::PluginSearchEntry> {
+        self.state
+            .worktrees
+            .iter()
+            .map(|worktree| {
+                let mut preview_parts = vec![
+                    format!("branch {}", worktree.branch),
+                    worktree.path.display().to_string(),
+                ];
+                if worktree.is_main {
+                    preview_parts.push("main checkout".to_string());
+                }
+                if worktree.is_dirty {
+                    preview_parts.push("dirty".to_string());
+                }
+                if worktree.agent_running {
+                    preview_parts.push("agent running".to_string());
+                }
+                if let Some(task_id) = &worktree.linked_task {
+                    preview_parts.push(format!("task {}", task_id));
+                }
+
+                crate::plugin::PluginSearchEntry {
+                    id: worktree.name.clone(),
+                    title: worktree.name.clone(),
+                    preview: preview_parts.join(" | "),
+                }
+            })
+            .collect()
+    }
+
+    fn activate_search_result(&mut self, entry_id: &str) -> bool {
+        let Some(index) = self
+            .state
+            .worktrees
+            .iter()
+            .position(|worktree| worktree.name == entry_id)
+        else {
+            return false;
+        };
+
+        self.state.selected = Some(index);
+        self.state.view_mode = ViewMode::List;
+        self.focus_pane = FocusPane::Sidebar;
+        self.state.modal_state = ModalState::None;
+        self.pending_preview_update = true;
+        true
+    }
+
     fn focus_context(&self) -> crate::keymap::FocusContext {
         crate::keymap::FocusContext::Workspace
     }
@@ -1222,6 +1271,50 @@ mod tests {
         assert!(!commands.is_empty());
         assert!(commands.iter().any(|c| c.id == "create"));
         assert!(commands.iter().any(|c| c.id == "delete"));
+    }
+
+    #[test]
+    fn test_search_entries_include_worktrees() {
+        let mut plugin = WorkspacePlugin::new();
+        plugin.state.worktrees.push(
+            Worktree::new(
+                "feature-search",
+                PathBuf::from("/repo/feature-search"),
+                "feature",
+            )
+            .with_task("TD-42"),
+        );
+
+        let entries = plugin.search_entries();
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].id, "feature-search");
+        assert_eq!(entries[0].title, "feature-search");
+        assert!(entries[0].preview.contains("branch feature"));
+        assert!(entries[0].preview.contains("TD-42"));
+    }
+
+    #[test]
+    fn test_activate_search_result_selects_worktree() {
+        let mut plugin = WorkspacePlugin::new();
+        plugin
+            .state
+            .worktrees
+            .push(Worktree::new("main", PathBuf::from("/repo"), "main"));
+        plugin.state.worktrees.push(Worktree::new(
+            "feature-search",
+            PathBuf::from("/repo/feature-search"),
+            "feature",
+        ));
+        plugin.state.view_mode = ViewMode::Kanban;
+        plugin.focus_pane = FocusPane::Preview;
+
+        assert!(plugin.activate_search_result("feature-search"));
+
+        assert_eq!(plugin.state.selected, Some(1));
+        assert_eq!(plugin.state.view_mode, ViewMode::List);
+        assert_eq!(plugin.focus_pane, FocusPane::Sidebar);
+        assert!(plugin.pending_preview_update);
     }
 
     #[test]

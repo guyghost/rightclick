@@ -1104,6 +1104,47 @@ impl Plugin for WorkersPlugin {
         ))
     }
 
+    fn search_entries(&self) -> Vec<crate::plugin::PluginSearchEntry> {
+        self.state
+            .intents
+            .iter()
+            .map(|entry| {
+                let intent = &entry.intent;
+                crate::plugin::PluginSearchEntry {
+                    id: intent.id.clone(),
+                    title: intent.title.clone(),
+                    preview: format!(
+                        "{} {} | {}% complete | {} workers | {}",
+                        intent.status.icon(),
+                        intent.status,
+                        entry.completion_percentage(),
+                        entry.worker_ids.len(),
+                        intent.spec_path.display()
+                    ),
+                }
+            })
+            .collect()
+    }
+
+    fn activate_search_result(&mut self, entry_id: &str) -> bool {
+        let Some(index) = self
+            .state
+            .intents
+            .iter()
+            .position(|entry| entry.intent.id == entry_id)
+        else {
+            return false;
+        };
+
+        self.state.selected_intent = Some(index);
+        self.state.selected_worker = None;
+        self.state.view_mode = ViewMode::List;
+        self.state.preview_tab = PreviewTab::Spec;
+        self.focus_pane = FocusPane::Preview;
+        self.state.modal_state = ModalState::None;
+        true
+    }
+
     fn focus_context(&self) -> crate::keymap::FocusContext {
         crate::keymap::FocusContext::Workspace
     }
@@ -1140,6 +1181,56 @@ mod tests {
         assert!(!commands.is_empty());
         assert!(commands.iter().any(|c| c.id == "create"));
         assert!(commands.iter().any(|c| c.id == "run"));
+    }
+
+    #[test]
+    fn test_search_entries_include_intents() {
+        let mut plugin = WorkersPlugin::new();
+        let mut intent = Intent::new(
+            "Improve search polish",
+            PathBuf::from(".rightclick/intents/search-polish.md"),
+            "2026-05-26T10:00:00Z",
+        );
+        intent.id = "intent-search-polish".to_string();
+        intent.status = IntentStatus::Ready;
+        plugin.state.add_intent(intent);
+
+        let entries = plugin.search_entries();
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].id, "intent-search-polish");
+        assert_eq!(entries[0].title, "Improve search polish");
+        assert!(entries[0].preview.contains("ready"));
+        assert!(entries[0].preview.contains("search-polish.md"));
+    }
+
+    #[test]
+    fn test_activate_search_result_selects_intent() {
+        let mut plugin = WorkersPlugin::new();
+        let mut first = Intent::new(
+            "First",
+            PathBuf::from(".rightclick/intents/first.md"),
+            "2026-05-26T10:00:00Z",
+        );
+        first.id = "intent-first".to_string();
+        let mut second = Intent::new(
+            "Second",
+            PathBuf::from(".rightclick/intents/second.md"),
+            "2026-05-26T10:00:00Z",
+        );
+        second.id = "intent-second".to_string();
+        plugin.state.add_intent(first);
+        plugin.state.add_intent(second);
+        plugin.state.view_mode = ViewMode::Kanban;
+        plugin.state.preview_tab = PreviewTab::Output;
+        plugin.focus_pane = FocusPane::Sidebar;
+
+        assert!(plugin.activate_search_result("intent-second"));
+
+        assert_eq!(plugin.state.selected_intent, Some(1));
+        assert_eq!(plugin.state.view_mode, ViewMode::List);
+        assert_eq!(plugin.state.preview_tab, PreviewTab::Spec);
+        assert_eq!(plugin.focus_pane, FocusPane::Preview);
     }
 
     #[test]

@@ -8,8 +8,8 @@ pub enum SearchScope {
     All,
     /// Search file contents only
     Files,
-    /// Search conversations only
-    Conversations,
+    /// Search plugin-owned items such as conversations, worktrees, and intents.
+    Items,
     /// Search commands only
     Commands,
 }
@@ -20,7 +20,7 @@ impl SearchScope {
         match self {
             SearchScope::All => "All",
             SearchScope::Files => "Files",
-            SearchScope::Conversations => "Conversations",
+            SearchScope::Items => "Items",
             SearchScope::Commands => "Commands",
         }
     }
@@ -29,8 +29,8 @@ impl SearchScope {
     pub fn next(&self) -> Self {
         match self {
             SearchScope::All => SearchScope::Files,
-            SearchScope::Files => SearchScope::Conversations,
-            SearchScope::Conversations => SearchScope::Commands,
+            SearchScope::Files => SearchScope::Items,
+            SearchScope::Items => SearchScope::Commands,
             SearchScope::Commands => SearchScope::All,
         }
     }
@@ -78,6 +78,13 @@ pub enum SearchResultKind {
     },
     /// Conversation match
     Conversation { id: String },
+    /// Generic plugin-owned match
+    PluginEntry {
+        /// Plugin identifier that owns the entry.
+        plugin_id: String,
+        /// Entry identifier within the plugin.
+        entry_id: String,
+    },
     /// Command match
     Command { id: String },
 }
@@ -89,8 +96,8 @@ mod tests {
     #[test]
     fn test_search_scope_cycle() {
         assert_eq!(SearchScope::All.next(), SearchScope::Files);
-        assert_eq!(SearchScope::Files.next(), SearchScope::Conversations);
-        assert_eq!(SearchScope::Conversations.next(), SearchScope::Commands);
+        assert_eq!(SearchScope::Files.next(), SearchScope::Items);
+        assert_eq!(SearchScope::Items.next(), SearchScope::Commands);
         assert_eq!(SearchScope::Commands.next(), SearchScope::All);
     }
 
@@ -98,6 +105,8 @@ mod tests {
     fn test_search_scope_label() {
         assert_eq!(SearchScope::All.label(), "All");
         assert_eq!(SearchScope::Files.label(), "Files");
+        assert_eq!(SearchScope::Items.label(), "Items");
+        assert_eq!(SearchScope::Commands.label(), "Commands");
     }
 
     #[test]
@@ -138,5 +147,19 @@ mod tests {
             score: 50,
         };
         assert!(matches!(cmd_result.kind, SearchResultKind::Command { .. }));
+
+        let plugin_result = SearchResult {
+            kind: SearchResultKind::PluginEntry {
+                plugin_id: "workspace".to_string(),
+                entry_id: "main".to_string(),
+            },
+            title: "main".to_string(),
+            preview: "main branch".to_string(),
+            score: 75,
+        };
+        assert!(matches!(
+            plugin_result.kind,
+            SearchResultKind::PluginEntry { .. }
+        ));
     }
 }

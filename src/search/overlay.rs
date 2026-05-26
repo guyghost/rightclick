@@ -384,7 +384,7 @@ fn render_scope_tabs(
     let scopes = [
         SearchScope::All,
         SearchScope::Files,
-        SearchScope::Conversations,
+        SearchScope::Items,
         SearchScope::Commands,
     ];
 
@@ -431,7 +431,7 @@ fn render_results(
 
     if state.results.is_empty() {
         let msg = if state.query().is_empty() {
-            "Type to search files, commands, and conversations"
+            "Type to search files, commands, sessions, worktrees, and intents"
         } else {
             "No results. Try another scope or query"
         };
@@ -457,6 +457,7 @@ fn render_results(
             let icon = match &result.kind {
                 super::types::SearchResultKind::FileContent { .. } => "file",
                 super::types::SearchResultKind::Conversation { .. } => "chat",
+                super::types::SearchResultKind::PluginEntry { .. } => "item",
                 super::types::SearchResultKind::Command { .. } => ">",
             };
 
@@ -537,7 +538,7 @@ mod tests {
         state.next_scope();
         assert_eq!(state.scope, SearchScope::Files);
         state.next_scope();
-        assert_eq!(state.scope, SearchScope::Conversations);
+        assert_eq!(state.scope, SearchScope::Items);
         state.next_scope();
         assert_eq!(state.scope, SearchScope::Commands);
         state.next_scope();

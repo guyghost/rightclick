@@ -495,16 +495,12 @@ impl App {
             all_results.extend(cmd_results);
         }
 
-        // Conversation search (synchronous fuzzy match)
-        if matches!(scope, SearchScope::All | SearchScope::Conversations) {
-            let conv_results = self
-                .plugins
-                .iter()
-                .filter(|plugin| plugin.id() == "conversations")
-                .flat_map(|plugin| {
-                    search_plugin_entries(plugin.id(), &plugin.search_entries(), &query, 20)
-                });
-            all_results.extend(conv_results);
+        // Plugin entry search (synchronous fuzzy match)
+        if matches!(scope, SearchScope::All | SearchScope::Items) {
+            let plugin_results = self.plugins.iter().flat_map(|plugin| {
+                search_plugin_entries(plugin.id(), &plugin.search_entries(), &query, 20)
+            });
+            all_results.extend(plugin_results);
         }
 
         // Sort all results by score descending
@@ -548,6 +544,20 @@ impl App {
                 } else {
                     self.notifications
                         .warning(format!("Conversation not available: {}", result.title));
+                }
+            }
+            SearchResultKind::PluginEntry {
+                plugin_id,
+                entry_id,
+            } => {
+                if let Some(plugin_idx) = self.plugins.iter_mut().position(|plugin| {
+                    plugin.id() == plugin_id && plugin.activate_search_result(&entry_id)
+                }) {
+                    self.switch_plugin(plugin_idx);
+                    self.notifications.info(format!("Opened {}", result.title));
+                } else {
+                    self.notifications
+                        .warning(format!("Item not available: {}", result.title));
                 }
             }
             SearchResultKind::Command { id } => match self.execute_search_command(&id) {
@@ -815,8 +825,9 @@ fn search_plugin_entries(
             }
 
             Some(SearchResult {
-                kind: SearchResultKind::Conversation {
-                    id: format!("{}:{}", plugin_id, entry.id),
+                kind: SearchResultKind::PluginEntry {
+                    plugin_id: plugin_id.to_string(),
+                    entry_id: entry.id.clone(),
                 },
                 title: entry.title.clone(),
                 preview: entry.preview.clone(),
@@ -853,7 +864,7 @@ fn build_help_lines(
     lines.extend([
         String::new(),
         "Global shortcuts:".to_string(),
-        "  /        Search files, commands, conversations".to_string(),
+        "  /        Search files, commands, sessions, worktrees, intents".to_string(),
         "  ?        Toggle this help".to_string(),
         "  Tab      Switch plugin or pane".to_string(),
         "  1-9      Jump to plugin".to_string(),
@@ -985,8 +996,8 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(matches!(
             &results[0].kind,
-            rightclick::search::SearchResultKind::Conversation { id }
-                if id == "conversations:session-1"
+            rightclick::search::SearchResultKind::PluginEntry { plugin_id, entry_id }
+                if plugin_id == "conversations" && entry_id == "session-1"
         ));
     }
 }
