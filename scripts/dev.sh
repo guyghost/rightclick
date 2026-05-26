@@ -150,6 +150,8 @@ case "$cmd" in
     ;;
   doctor)
     missing_required=0
+    printf 'RightClick doctor\n'
+    printf 'repo %s\n' "$repo_root"
 
     require_cmd() {
       if command -v "$1" >/dev/null 2>&1; then
@@ -234,6 +236,11 @@ case "$cmd" in
       echo "One or more required tools are missing." >&2
       exit 1
     fi
+
+    echo "All required tools are available."
+    echo "Next checks:"
+    echo "  bash scripts/dev.sh quick"
+    echo "  bash scripts/dev.sh pre-push"
     ;;
   check)
     run_checks
