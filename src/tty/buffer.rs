@@ -13,6 +13,8 @@
 //! - Cursor position tracking
 //! - Configurable scrollback limit
 
+use unicode_width::UnicodeWidthStr;
+
 /// Default maximum scrollback lines.
 pub const DEFAULT_SCROLLBACK: usize = 600;
 
@@ -126,7 +128,7 @@ impl OutputBuffer {
                 } else {
                     self.lines[self.cursor_row].push_str(segment);
                 }
-                self.cursor_col += segment.chars().count();
+                self.cursor_col += segment.width();
             }
         }
 
@@ -334,6 +336,24 @@ mod tests {
 
         assert_eq!(buffer.lines, vec!["Hello, World!"]);
         assert_eq!(buffer.cursor_col, 13);
+    }
+
+    #[test]
+    fn append_tracks_cursor_by_display_width() {
+        let mut buffer = OutputBuffer::new(100);
+        buffer.append("é");
+        buffer.append("検索");
+
+        assert_eq!(buffer.lines, vec!["é検索"]);
+        assert_eq!(buffer.cursor_position(), (0, 5));
+    }
+
+    #[test]
+    fn visible_cursor_position_uses_display_width() {
+        let mut buffer = OutputBuffer::new(100);
+        buffer.append("first\n検索a");
+
+        assert_eq!(buffer.visible_cursor_position(1), Some((0, 5)));
     }
 
     #[test]
