@@ -60,6 +60,28 @@ case "$cmd" in
       fi
     }
 
+    version_ge() {
+      local current="$1"
+      local required="$2"
+      local current_major current_minor current_patch
+      local required_major required_minor required_patch
+
+      IFS=. read -r current_major current_minor current_patch <<<"${current%%-*}"
+      IFS=. read -r required_major required_minor required_patch <<<"${required%%-*}"
+      current_patch="${current_patch:-0}"
+      required_patch="${required_patch:-0}"
+
+      if ((current_major != required_major)); then
+        ((current_major > required_major))
+        return
+      fi
+      if ((current_minor != required_minor)); then
+        ((current_minor > required_minor))
+        return
+      fi
+      ((current_patch >= required_patch))
+    }
+
     require_cmd cargo
     require_cmd rustc
     require_cmd cargo-fmt
@@ -74,6 +96,16 @@ case "$cmd" in
     fi
     if command -v rustc >/dev/null 2>&1; then
       rustc --version
+      required_rust="$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
+      current_rust="$(rustc --version | awk '{print $2}')"
+      if [ -n "$required_rust" ]; then
+        if version_ge "$current_rust" "$required_rust"; then
+          printf 'ok   rustc >= %s (%s)\n' "$required_rust" "$current_rust"
+        else
+          printf 'miss rustc >= %s (%s installed)\n' "$required_rust" "$current_rust"
+          missing_required=1
+        fi
+      fi
     fi
 
     if [ "$missing_required" -ne 0 ]; then
