@@ -60,6 +60,18 @@ run_quick_checks() {
   run_step cargo clippy --all-targets -- -D warnings
 }
 
+ensure_test_filter_matches() {
+  local filter="$1"
+  local matches
+
+  matches="$(cargo test "$filter" -- --list | grep -c ': test$' || true)"
+  if [ "$matches" -eq 0 ]; then
+    echo "No tests matched filter: $filter" >&2
+    echo "Use 'cargo test -- --list' to inspect available test names." >&2
+    exit 2
+  fi
+}
+
 rust_version() {
   local version
   version="$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
@@ -197,6 +209,7 @@ case "$cmd" in
       echo "Usage: bash scripts/dev.sh test-one <test-filter> [-- <cargo-test-args>]" >&2
       exit 2
     fi
+    ensure_test_filter_matches "$1"
     run_step cargo test "$@"
     ;;
   test-many)
@@ -206,6 +219,7 @@ case "$cmd" in
       exit 2
     fi
     for filter in "$@"; do
+      ensure_test_filter_matches "$filter"
       run_step cargo test "$filter"
     done
     ;;
