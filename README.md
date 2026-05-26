@@ -21,13 +21,13 @@ RightClick is a Rust port of [Sidecar](https://github.com/guyghost/sidecar), a T
 
 ```bash
 # Build from source
-cargo build --release
+bash scripts/dev.sh build-release
 
 # Run from any project directory
 ./target/release/rightclick
 
 # Or install locally
-cargo install --path .
+bash scripts/dev.sh install-local
 rightclick
 ```
 
