@@ -523,7 +523,7 @@ fn output_empty_message(state: &PluginState) -> &'static str {
     if state.intents.is_empty() {
         "No output yet\n\nn  New intent\nf  Refresh intents\n/  Search commands\n?  Help"
     } else if state.selected_intent().is_none() {
-        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent\n/  Search intents\n?  Help"
+        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Search intents\n?  Help"
     } else {
         "No output yet\n\nr  Run workers\nf  Refresh intents\n/  Search commands\n?  Help"
     }
@@ -1075,6 +1075,7 @@ mod tests {
         assert!(content.contains("No output selected"));
         assert!(content.contains("j/k  Navigate intents"));
         assert!(content.contains("Enter/o  Open intent"));
+        assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Search intents"));
         assert!(content.contains("?  Help"));
     }
