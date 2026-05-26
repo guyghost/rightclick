@@ -355,7 +355,7 @@ fn render_spec_preview(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
 
         content.render(area, buf);
     } else {
-        let text = Paragraph::new("Select an intent to view details")
+        let text = Paragraph::new(select_intent_details_message())
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme_comment(theme)));
         text.render(area, buf);
@@ -489,7 +489,7 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
         let message = if state.intents.is_empty() {
             "Create an intent to define acceptance criteria"
         } else {
-            "Select an intent to view criteria"
+            select_intent_criteria_message()
         };
         let text = Paragraph::new(message)
             .alignment(Alignment::Center)
@@ -507,6 +507,14 @@ fn empty_intents_message(state: &PluginState) -> String {
 
 fn no_workers_for_intent_message() -> &'static str {
     "  No workers yet\n  r  Run workers\n  f  Refresh intents"
+}
+
+fn select_intent_details_message() -> &'static str {
+    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent"
+}
+
+fn select_intent_criteria_message() -> &'static str {
+    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent"
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -876,6 +884,36 @@ mod tests {
         assert!(content.contains("No workers yet"));
         assert!(content.contains("r  Run workers"));
         assert!(content.contains("f  Refresh intents"));
+    }
+
+    #[test]
+    fn test_render_workers_without_selection_includes_preview_next_actions() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let mut state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        state.add_intent(Intent::new(
+            "Improve worker navigation",
+            PathBuf::from(".rightclick/intents/worker-navigation.md"),
+            "2026-02-14T10:00:00Z",
+        ));
+        state.selected_intent = None;
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Select an intent to view details"));
+        assert!(content.contains("j/k  Navigate intents"));
+        assert!(content.contains("Enter/o  Open intent"));
     }
 
     #[test]
