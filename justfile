@@ -3,6 +3,9 @@ set shell := ["bash", "-cu"]
 default:
     just --list
 
+ci:
+    bash scripts/dev.sh ci
+
 check:
     bash scripts/dev.sh check
 

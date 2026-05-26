@@ -105,6 +105,7 @@
 use async_trait::async_trait;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use std::path::Path;
 use thiserror::Error;
 
 use crate::core::models::Theme;
@@ -762,6 +763,14 @@ pub trait Plugin: Send + Sync + std::fmt::Debug {
         None
     }
 
+    /// Reveal or select a filesystem path if the plugin supports file navigation.
+    ///
+    /// This keeps global search activation generic while allowing file-oriented
+    /// plugins to make file results actionable.
+    fn reveal_path(&mut self, _path: &Path) -> bool {
+        false
+    }
+
     /// Execute a command exposed by this plugin by command identifier.
     ///
     /// The default implementation keeps command activation centralized by
@@ -985,5 +994,12 @@ mod tests {
             })
         );
         assert!(plugin.last_code.is_none());
+    }
+
+    #[test]
+    fn test_default_reveal_path_is_not_handled() {
+        let mut plugin = TestPlugin::default();
+
+        assert!(!plugin.reveal_path(std::path::Path::new("src/main.rs")));
     }
 }

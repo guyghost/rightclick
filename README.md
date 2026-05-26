@@ -36,6 +36,7 @@ RightClick keeps the common local checks in `scripts/dev.sh`, with optional
 `justfile` shortcuts if you use `just`:
 
 ```bash
+bash scripts/dev.sh ci            # same checks used by GitHub Actions
 bash scripts/dev.sh check         # fmt check, clippy with warnings denied, and tests
 bash scripts/dev.sh fmt-check
 bash scripts/dev.sh clippy

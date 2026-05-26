@@ -4,6 +4,11 @@ set -euo pipefail
 cmd="${1:-help}"
 
 case "$cmd" in
+  ci)
+    cargo fmt --check
+    cargo clippy --all-targets -- -D warnings
+    cargo test
+    ;;
   check)
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
@@ -29,6 +34,7 @@ case "$cmd" in
 Usage: bash scripts/dev.sh <command>
 
 Commands:
+  ci             same checks used by GitHub Actions
   check          fmt check, clippy with warnings denied, and tests
   fmt-check      run cargo fmt --check
   clippy         run cargo clippy --all-targets -- -D warnings

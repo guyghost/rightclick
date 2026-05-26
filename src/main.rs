@@ -13,8 +13,10 @@ use crossterm::{
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
-    widgets::Paragraph,
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Clear, Paragraph, Widget},
 };
 use tracing::{info, warn};
 
@@ -267,6 +269,7 @@ struct App {
     theme: Theme,
     active_plugin: usize,
     should_quit: bool,
+    show_help: bool,
     notifications: NotificationManager,
     search: SearchOverlayState,
     work_dir: PathBuf,
@@ -279,6 +282,7 @@ impl App {
             theme,
             active_plugin: 0,
             should_quit: false,
+            show_help: false,
             notifications: NotificationManager::new(),
             search: SearchOverlayState::new(),
             work_dir,
@@ -347,6 +351,10 @@ impl App {
                         }
                         KeyCode::Char('/') => {
                             self.search.open();
+                            return Ok(());
+                        }
+                        KeyCode::Char('?') => {
+                            self.show_help = !self.show_help;
                             return Ok(());
                         }
                         KeyCode::Char(c) if c.is_ascii_digit() => {
@@ -519,7 +527,16 @@ impl App {
 
         match result.kind {
             SearchResultKind::FileContent { path, line, .. } => {
-                self.notifications.info(format!("{}:{}", path, line));
+                let result_path = PathBuf::from(&path);
+                if let Some(plugin_idx) = self.plugins.iter_mut().position(|plugin| {
+                    plugin.id() == "file_browser" && plugin.reveal_path(&result_path)
+                }) {
+                    self.switch_plugin(plugin_idx);
+                    self.notifications.info(format!("Opened {}:{}", path, line));
+                } else {
+                    self.notifications
+                        .warning(format!("File not available: {}", path));
+                }
             }
             SearchResultKind::Conversation { id } => {
                 self.notifications.info(format!("Conversation: {}", id));
@@ -624,6 +641,11 @@ impl App {
             // Search overlay (on top of content)
             render_search_overlay(&self.search, size, f.buffer_mut(), &self.theme);
 
+            // Help overlay
+            if self.show_help {
+                self.render_help_overlay(size, f.buffer_mut());
+            }
+
             // Notification toasts (overlay on top of everything)
             self.notifications.render(size, f.buffer_mut(), &self.theme);
         })?;
@@ -701,6 +723,96 @@ impl App {
 
         hints
     }
+
+    fn render_help_overlay(&self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
+        if area.width < 30 || area.height < 10 {
+            return;
+        }
+
+        let width = area.width.saturating_mul(3).saturating_div(5).clamp(30, 80);
+        let height = area
+            .height
+            .saturating_mul(2)
+            .saturating_div(3)
+            .clamp(10, 28);
+        let popup = Rect::new(
+            area.x + area.width.saturating_sub(width) / 2,
+            area.y + area.height.saturating_sub(height) / 2,
+            width,
+            height,
+        );
+
+        Clear.render(popup, buf);
+
+        let block = Block::default()
+            .title(" Help ")
+            .borders(Borders::ALL)
+            .border_style(crate::theme::style_for_ui_element(
+                &self.theme,
+                crate::theme::UiElement::Primary,
+            ));
+        let inner = block.inner(popup);
+        block.render(popup, buf);
+
+        let Some(plugin) = self.plugins.get(self.active_plugin) else {
+            return;
+        };
+        let status = plugin
+            .status_line()
+            .unwrap_or_else(|| format!("{} ready", plugin.name()));
+        let lines = build_help_lines(plugin.name(), &plugin.commands(), &status);
+        let rendered: Vec<Line> = lines
+            .into_iter()
+            .take(inner.height as usize)
+            .map(|line| {
+                if line.ends_with(':') {
+                    Line::from(Span::styled(
+                        line,
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ))
+                } else {
+                    Line::from(line)
+                }
+            })
+            .collect();
+
+        Paragraph::new(rendered)
+            .alignment(Alignment::Left)
+            .render(inner, buf);
+    }
+}
+
+fn build_help_lines(
+    plugin_name: &str,
+    commands: &[rightclick::plugin::PluginCommand],
+    status: &str,
+) -> Vec<String> {
+    let mut lines = vec![
+        plugin_name.to_string(),
+        status.to_string(),
+        String::new(),
+        "Plugin commands:".to_string(),
+    ];
+
+    let mut seen = std::collections::HashSet::new();
+    for command in commands {
+        let key = command.key.to_string();
+        if seen.insert((key.clone(), command.name.clone())) {
+            lines.push(format!("  {:<8} {}", key, command.name));
+        }
+    }
+
+    lines.extend([
+        String::new(),
+        "Global shortcuts:".to_string(),
+        "  /        Search files, commands, conversations".to_string(),
+        "  ?        Toggle this help".to_string(),
+        "  Tab      Switch plugin or pane".to_string(),
+        "  1-9      Jump to plugin".to_string(),
+        "  q        Quit".to_string(),
+    ]);
+
+    lines
 }
 
 /// Convert a crossterm KeyCode to a string representation
@@ -765,5 +877,23 @@ mod tests {
     #[test]
     fn test_version() {
         assert!(!version().is_empty());
+    }
+
+    #[test]
+    fn test_build_help_lines_includes_plugin_and_global_shortcuts() {
+        let commands = vec![rightclick::plugin::PluginCommand::with_context(
+            "refresh",
+            "Refresh",
+            'r',
+            rightclick::keymap::FocusContext::Global,
+        )];
+
+        let lines = build_help_lines("Git Status", &commands, "3 files changed");
+
+        assert!(lines.iter().any(|line| line.contains("Git Status")));
+        assert!(lines.iter().any(|line| line.contains("r")));
+        assert!(lines.iter().any(|line| line.contains("Refresh")));
+        assert!(lines.iter().any(|line| line.contains("/")));
+        assert!(lines.iter().any(|line| line.contains("3 files changed")));
     }
 }

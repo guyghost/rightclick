@@ -5,7 +5,7 @@
 //! and keyboard navigation.
 
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use ratatui::buffer::Buffer;
@@ -194,6 +194,22 @@ impl Plugin for FileBrowserPlugin {
             .unwrap_or_default();
 
         Some(format!("{} | {} visible{}", selected, visible, filter))
+    }
+
+    fn reveal_path(&mut self, path: &Path) -> bool {
+        let resolved = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            self.work_dir.join(path)
+        };
+
+        if !resolved.exists() {
+            return false;
+        }
+
+        self.navigate_to(resolved);
+        self.ensure_selected_visible();
+        true
     }
 
     fn focus_context(&self) -> FocusContext {
@@ -1310,6 +1326,18 @@ mod tests {
         plugin.navigate_to(sub_dir.clone());
 
         assert_eq!(plugin.selected_path(), Some(&sub_dir));
+    }
+
+    #[test]
+    fn test_reveal_path_selects_existing_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let target = temp_dir.path().join("target.txt");
+        fs::write(&target, "hello").unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        assert!(plugin.reveal_path(&target));
+        assert_eq!(plugin.selected_path(), Some(&target));
     }
 
     #[test]
