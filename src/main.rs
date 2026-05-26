@@ -671,10 +671,6 @@ impl App {
     }
 
     fn render_header(&self, f: &mut ratatui::Frame, area: Rect) {
-        if self.plugins.is_empty() {
-            return;
-        }
-
         let tab_titles: Vec<String> = self
             .plugins
             .iter()
@@ -683,9 +679,7 @@ impl App {
             .collect();
 
         let subtitle = self.work_dir.display().to_string();
-        let header = Header::new("RightClick")
-            .with_subtitle(subtitle)
-            .with_tabs(tab_titles, self.active_plugin);
+        let header = build_app_header(subtitle, tab_titles, self.active_plugin);
         header.render(area, f.buffer_mut(), &self.theme);
     }
 
@@ -764,6 +758,15 @@ impl App {
         Paragraph::new(rendered)
             .alignment(Alignment::Left)
             .render(inner, buf);
+    }
+}
+
+fn build_app_header(subtitle: String, tab_titles: Vec<String>, active_plugin: usize) -> Header {
+    let header = Header::new("RightClick").with_subtitle(subtitle);
+    if tab_titles.is_empty() {
+        header
+    } else {
+        header.with_tabs(tab_titles, active_plugin)
     }
 }
 
@@ -1007,6 +1010,28 @@ mod tests {
     #[test]
     fn test_version() {
         assert!(!version().is_empty());
+    }
+
+    #[test]
+    fn test_build_app_header_keeps_title_without_plugin_tabs() {
+        let header = build_app_header("/tmp/rightclick".to_string(), Vec::new(), 0);
+
+        assert_eq!(header.title, "RightClick");
+        assert_eq!(header.subtitle, Some("/tmp/rightclick".to_string()));
+        assert!(header.tabs.is_empty());
+    }
+
+    #[test]
+    fn test_build_app_header_includes_plugin_tabs() {
+        let header = build_app_header(
+            "/tmp/rightclick".to_string(),
+            vec![" 1 G Git ".to_string(), " 2 W Workspace ".to_string()],
+            1,
+        );
+
+        assert_eq!(header.title, "RightClick");
+        assert_eq!(header.tabs.len(), 2);
+        assert_eq!(header.active_tab, 1);
     }
 
     #[test]
