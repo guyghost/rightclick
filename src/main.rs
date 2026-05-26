@@ -597,11 +597,7 @@ impl App {
                         id: format!("{}:{}", plugin.id(), command.id),
                     },
                     title: format!("{}: {}", plugin.name(), command.name),
-                    preview: if command.description.is_empty() {
-                        format!("Shortcut '{}'", command.key)
-                    } else {
-                        command.description.clone()
-                    },
+                    preview: format_command_search_preview(&command),
                     score,
                 });
             }
@@ -913,6 +909,14 @@ fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginComma
     }
 }
 
+fn format_command_search_preview(command: &rightclick::plugin::PluginCommand) -> String {
+    if command.description.is_empty() {
+        format!("Shortcut: {}", command.key)
+    } else {
+        format!("{} - {}", command.key, command.description)
+    }
+}
+
 fn is_ctrl_c_quit_key(key: &crossterm::event::KeyEvent) -> bool {
     use crossterm::event::{KeyCode, KeyModifiers};
 
@@ -1040,6 +1044,34 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("Refresh - Reload repository state"))
         );
+    }
+
+    #[test]
+    fn test_command_search_preview_includes_shortcut_with_description() {
+        let command = rightclick::plugin::PluginCommand::with_context_description(
+            "refresh",
+            "Refresh",
+            "Reload repository state",
+            'r',
+            rightclick::keymap::FocusContext::Global,
+        );
+
+        assert_eq!(
+            format_command_search_preview(&command),
+            "r - Reload repository state"
+        );
+    }
+
+    #[test]
+    fn test_command_search_preview_falls_back_to_shortcut_label() {
+        let command = rightclick::plugin::PluginCommand::with_context(
+            "refresh",
+            "Refresh",
+            'r',
+            rightclick::keymap::FocusContext::Global,
+        );
+
+        assert_eq!(format_command_search_preview(&command), "Shortcut: r");
     }
 
     #[test]
