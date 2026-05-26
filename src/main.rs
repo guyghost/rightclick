@@ -656,7 +656,7 @@ impl App {
             if let Some(plugin) = self.plugins.get(self.active_plugin) {
                 plugin.render(chunks[1], f.buffer_mut(), &self.theme);
             } else {
-                let msg = Paragraph::new("No plugins loaded.");
+                let msg = Paragraph::new(no_plugins_empty_message()).alignment(Alignment::Center);
                 f.render_widget(msg, chunks[1]);
             }
 
@@ -705,10 +705,8 @@ impl App {
             let footer = Footer::new(status).with_hints(self.footer_hints(plugin.as_ref()));
             footer.render(area, f.buffer_mut(), &self.theme);
         } else {
-            let footer = Footer::new("No plugin loaded").with_hints(vec![
-                ("q".to_string(), "Quit".to_string()),
-                ("/".to_string(), "Search".to_string()),
-            ]);
+            let footer =
+                Footer::new(no_plugins_footer_status()).with_hints(no_plugins_footer_hints());
             footer.render(area, f.buffer_mut(), &self.theme);
         }
     }
@@ -889,6 +887,22 @@ fn build_footer_hints(
     hints
 }
 
+fn no_plugins_empty_message() -> &'static str {
+    "No plugins loaded\n\n?  Help\n/  Search commands\nq  Quit\n\nCheck configuration if this persists."
+}
+
+fn no_plugins_footer_status() -> &'static str {
+    "No plugins loaded"
+}
+
+fn no_plugins_footer_hints() -> Vec<(String, String)> {
+    vec![
+        ("?".to_string(), "Help".to_string()),
+        ("/".to_string(), "Search".to_string()),
+        ("q".to_string(), "Quit".to_string()),
+    ]
+}
+
 fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginCommand) -> String {
     if command.description.is_empty() {
         format!("  {:<8} {}", key, command.name)
@@ -1035,6 +1049,26 @@ mod tests {
     fn test_build_footer_hints_labels_git_tab_as_pane() {
         let hints = build_footer_hints("git-status", &[]);
         assert_eq!(hints[0], ("Tab".to_string(), "Pane".to_string()));
+    }
+
+    #[test]
+    fn test_no_plugins_empty_state_points_to_global_actions() {
+        let message = no_plugins_empty_message();
+        let hints = no_plugins_footer_hints();
+
+        assert!(message.contains("No plugins loaded"));
+        assert!(message.contains("?  Help"));
+        assert!(message.contains("/  Search commands"));
+        assert!(message.contains("q  Quit"));
+        assert_eq!(no_plugins_footer_status(), "No plugins loaded");
+        assert_eq!(
+            hints,
+            vec![
+                ("?".to_string(), "Help".to_string()),
+                ("/".to_string(), "Search".to_string()),
+                ("q".to_string(), "Quit".to_string()),
+            ]
+        );
     }
 
     #[test]
