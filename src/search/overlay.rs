@@ -516,12 +516,14 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
 
 fn no_results_message(query: &str, scope: SearchScope) -> String {
     let query = truncate_str(query, 40);
-    match scope {
+    let message = match scope {
         SearchScope::All => format!("No results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
         SearchScope::Items => format!("No item matches \"{}\"", query),
         SearchScope::Commands => format!("No command matches \"{}\"", query),
-    }
+    };
+
+    format!("{}\n\nCtrl+U  Clear search\nTab  Change scope", message)
 }
 
 fn search_result_icon(kind: &super::types::SearchResultKind) -> &'static str {
@@ -816,17 +818,20 @@ mod tests {
 
     #[test]
     fn test_no_results_message_includes_scope_and_query() {
-        assert_eq!(
-            no_results_message("worker", SearchScope::Items),
-            "No item matches \"worker\""
+        let items = no_results_message("worker", SearchScope::Items);
+        assert!(items.contains("No item matches \"worker\""));
+        assert!(items.contains("Ctrl+U  Clear search"));
+        assert!(items.contains("Tab  Change scope"));
+
+        let truncated = no_results_message(
+            "abcdefghijklmnopqrstuvwxyz0123456789abcdef",
+            SearchScope::All,
         );
-        assert_eq!(
-            no_results_message(
-                "abcdefghijklmnopqrstuvwxyz0123456789abcdef",
-                SearchScope::All
-            ),
-            "No results match \"abcdefghijklmnopqrstuvwxyz0123456789a...\""
+        assert!(
+            truncated.contains("No results match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
         );
+        assert!(truncated.contains("Ctrl+U  Clear search"));
+        assert!(truncated.contains("Tab  Change scope"));
     }
 
     #[test]
