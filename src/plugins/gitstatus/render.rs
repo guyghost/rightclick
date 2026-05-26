@@ -478,6 +478,14 @@ fn relative_time_label(count: i64, singular: &str, plural: &str) -> String {
     }
 }
 
+fn count_title(singular: &str, plural: &str, count: usize) -> String {
+    if count == 1 {
+        format!(" {} ({}) ", singular, count)
+    } else {
+        format!(" {} ({}) ", plural, count)
+    }
+}
+
 /// Render commit details panel
 fn render_commit_details(
     state: &PluginState,
@@ -821,7 +829,7 @@ fn render_branch_list(
         style_for_ui_element(theme, UiElement::Border)
     };
 
-    let title = format!(" Branches ({}) ", state.branches.len());
+    let title = count_title("Branch", "Branches", state.branches.len());
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -964,7 +972,7 @@ fn render_stash_list(
         style_for_ui_element(theme, UiElement::Border)
     };
 
-    let title = format!(" Stash ({}) ", state.stashes.len());
+    let title = count_title("Stash", "Stashes", state.stashes.len());
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -1418,6 +1426,14 @@ mod tests {
             format_relative_time(&(now - chrono::Duration::days(1))),
             "1 day ago"
         );
+    }
+
+    #[test]
+    fn test_count_title_uses_singular_labels() {
+        assert_eq!(count_title("Branch", "Branches", 1), " Branch (1) ");
+        assert_eq!(count_title("Branch", "Branches", 2), " Branches (2) ");
+        assert_eq!(count_title("Stash", "Stashes", 1), " Stash (1) ");
+        assert_eq!(count_title("Stash", "Stashes", 2), " Stashes (2) ");
     }
 
     #[test]
