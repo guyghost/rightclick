@@ -267,9 +267,12 @@ pub fn render_search_overlay(
     let bg = Color::from_str(&theme.colors.background).unwrap_or(Color::Black);
 
     let title = if state.results.is_empty() {
-        " Search ".to_string()
+        " Global Search ".to_string()
     } else {
-        format!(" Search - {} ", result_count_label(state.results.len()))
+        format!(
+            " Global Search - {} ",
+            result_count_label(state.results.len())
+        )
     };
 
     // Outer block
@@ -1018,6 +1021,24 @@ mod tests {
     }
 
     #[test]
+    fn test_render_search_overlay_empty_title_names_global_search() {
+        let mut state = SearchOverlayState::new();
+        state.open();
+
+        let area = Rect::new(0, 0, 100, 30);
+        let mut buf = Buffer::empty(area);
+        let theme = Theme::default();
+        render_search_overlay(&state, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Global Search"));
+    }
+
+    #[test]
     fn test_render_search_overlay_title_uses_singular_result_count() {
         let mut state = SearchOverlayState::new();
         state.open();
@@ -1042,8 +1063,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("Search - 1 result"));
-        assert!(!content.contains("Search - 1 results"));
+        assert!(content.contains("Global Search - 1 result"));
+        assert!(!content.contains("Global Search - 1 results"));
     }
 
     #[test]
