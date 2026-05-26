@@ -395,33 +395,12 @@ impl GitService for CliGitService {
 
         let files = self.parse_status_output(&stdout);
 
-        // Parse branch info from first line
-        let branch = stdout
+        let (branch_name, ahead, behind) = stdout
             .lines()
             .next()
-            .and_then(|line| line.strip_prefix("## ").map(str::to_string));
-
-        let (branch_name, ahead, behind) = if let Some(b) = branch {
-            // Parse branch name and ahead/behind
-            let parts: Vec<&str> = b.split("...").collect();
-            let name = parts[0].to_string();
-
-            let ahead = b
-                .find("[ahead ")
-                .and_then(|i| b[i + 7..].split(']').next())
-                .and_then(|n| n.parse().ok())
-                .unwrap_or(0);
-
-            let behind = b
-                .find("[behind ")
-                .and_then(|i| b[i + 8..].split(']').next())
-                .and_then(|n| n.parse().ok())
-                .unwrap_or(0);
-
-            (name, ahead, behind)
-        } else {
-            ("main".to_string(), 0, 0)
-        };
+            .and_then(|line| line.strip_prefix("## "))
+            .map(parse_branch_status)
+            .unwrap_or_else(|| ("main".to_string(), 0, 0));
 
         // Categorize files
         let mut staged = Vec::new();
@@ -986,6 +965,43 @@ fn parse_range(range: &str) -> (usize, usize) {
     (start, lines)
 }
 
+fn parse_branch_status(line: &str) -> (String, usize, usize) {
+    let name = line
+        .split_once("...")
+        .map(|(name, _)| name)
+        .or_else(|| line.split_once(' ').map(|(name, _)| name))
+        .unwrap_or(line)
+        .to_string();
+
+    (
+        name,
+        parse_tracking_count(line, "ahead"),
+        parse_tracking_count(line, "behind"),
+    )
+}
+
+fn parse_tracking_count(line: &str, marker: &str) -> usize {
+    let bracket_marker = format!("[{} ", marker);
+    let comma_marker = format!(", {} ", marker);
+
+    [&bracket_marker, &comma_marker]
+        .iter()
+        .find_map(|prefix| {
+            line.find(prefix.as_str())
+                .and_then(|start| parse_digits(&line[start + prefix.len()..]))
+        })
+        .unwrap_or(0)
+}
+
+fn parse_digits(value: &str) -> Option<usize> {
+    value
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>()
+        .parse()
+        .ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1018,5 +1034,42 @@ mod tests {
         assert_eq!(parse_range("-1,5"), (1, 5));
         assert_eq!(parse_range("+10"), (10, 1));
         assert_eq!(parse_range("0"), (0, 1));
+    }
+
+    #[test]
+    fn test_parse_branch_status_with_ahead_and_behind() {
+        assert_eq!(
+            parse_branch_status("main...origin/main [ahead 2, behind 1]"),
+            ("main".to_string(), 2, 1)
+        );
+    }
+
+    #[test]
+    fn test_parse_branch_status_with_single_tracking_counts() {
+        assert_eq!(
+            parse_branch_status("feature...origin/feature [ahead 3]"),
+            ("feature".to_string(), 3, 0)
+        );
+        assert_eq!(
+            parse_branch_status("feature...origin/feature [behind 4]"),
+            ("feature".to_string(), 0, 4)
+        );
+    }
+
+    #[test]
+    fn test_parse_branch_status_without_upstream() {
+        assert_eq!(parse_branch_status("main"), ("main".to_string(), 0, 0));
+        assert_eq!(
+            parse_branch_status("feature [gone]"),
+            ("feature".to_string(), 0, 0)
+        );
+    }
+
+    #[test]
+    fn test_parse_branch_status_ignores_tracking_words_in_branch_name() {
+        assert_eq!(
+            parse_branch_status("ahead-fix...origin/ahead-fix [ahead 2]"),
+            ("ahead-fix".to_string(), 2, 0)
+        );
     }
 }
