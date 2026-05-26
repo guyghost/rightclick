@@ -12,9 +12,10 @@ RightClick is a Rust port of [Sidecar](https://github.com/guyghost/sidecar), a T
 
 - **Git Status**: View staged, modified, and untracked files with syntax-highlighted diffs
 - **Conversations**: Browse AI session history from multiple agents (Claude, Cursor, Codex, etc.)
-- **Task Monitor**: Integration with task management systems
+- **Workers**: Manage intent-based AI worker workflows and inspect their output
 - **File Browser**: Navigate project files with tree view and preview
 - **Workspaces**: Manage git worktrees for parallel development
+- **Global Search**: Search files, commands, sessions, worktrees, and intents from one overlay
 
 ## Quick Start
 
@@ -52,11 +53,24 @@ bash scripts/dev.sh install-local
 | `q`, `ctrl+c` | Quit |
 | `tab` / `shift+tab` | Navigate plugins |
 | `1-9` | Focus plugin by number |
+| `/` | Search files, commands, sessions, worktrees, and intents |
 | `j/k`, `↓/↑` | Navigate items |
 | `enter` | Select |
 | `esc` | Back/close |
 | `r` | Refresh |
 | `?` | Toggle help |
+
+## Search
+
+Press `/` to open global search. Use `tab` inside the overlay to switch scope:
+
+- **All**: search files, plugin-owned items, and commands together
+- **Files**: search file contents with `rg`
+- **Items**: search sessions, worktrees, and intents exposed by plugins
+- **Commands**: search plugin commands with their current descriptions
+
+Selecting an item opens the owning plugin and focuses the matching session,
+worktree, intent, or file result when the plugin supports it.
 
 ## Architecture
 
