@@ -234,7 +234,7 @@ impl ConversationsRenderer {
 
                 // Message count
                 let msg_count = session_info.message_count();
-                let count_str = format!(" • {} msg", msg_count);
+                let count_str = format!(" • {}", compact_message_count(msg_count));
                 meta_spans.push(Span::styled(count_str, muted_style));
 
                 // Token count if available
@@ -400,10 +400,10 @@ impl ConversationsRenderer {
         // Get session info for title
         let title = if let Some(session) = state.selected_session_info() {
             format!(
-                " {} {} - {} msg ",
+                " {} {} - {} ",
                 session.adapter_icon,
                 truncate_string(session.title(), 30),
-                state.messages.len()
+                compact_message_count(state.messages.len())
             )
         } else {
             " Conversation ".to_string()
@@ -854,6 +854,14 @@ fn loading_messages_message() -> &'static str {
     "Loading messages\n\nEsc/h  Back to sessions\nr  Refresh sessions"
 }
 
+fn compact_message_count(count: usize) -> String {
+    if count == 1 {
+        "1 msg".to_string()
+    } else {
+        format!("{} msgs", count)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -961,6 +969,73 @@ mod tests {
         assert!(message.contains("Loading messages"));
         assert!(message.contains("Esc/h  Back to sessions"));
         assert!(message.contains("r  Refresh sessions"));
+    }
+
+    #[test]
+    fn test_render_sessions_list_uses_plural_message_count() {
+        let renderer = ConversationsRenderer::new();
+        let mut state = PluginState::new();
+        let mut session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Render polish",
+            "test-adapter",
+        );
+        session.message_count = 2;
+        state.set_sessions(vec![SessionInfo {
+            session,
+            adapter_type: crate::adapters::types::AdapterType::Codex,
+            adapter_icon: 'T',
+            adapter_name: "Test Adapter".to_string(),
+        }]);
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("2 msgs"));
+        assert!(!content.contains("2 msg "));
+    }
+
+    #[test]
+    fn test_render_conversation_title_uses_plural_message_count() {
+        let renderer = ConversationsRenderer::new();
+        let mut state = PluginState::new();
+        let session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Render polish",
+            "test-adapter",
+        );
+        state.set_sessions(vec![SessionInfo {
+            session,
+            adapter_type: crate::adapters::types::AdapterType::Codex,
+            adapter_icon: 'T',
+            adapter_name: "Test Adapter".to_string(),
+        }]);
+        state.selected_session = Some(0);
+        state.view = ConversationView::Conversation;
+        state.messages = vec![
+            crate::core::models::conversation::Message::user("msg-1", "First"),
+            crate::core::models::conversation::Message::assistant("msg-2", "Second"),
+        ];
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("2 msgs"));
+        assert!(!content.contains("2 msg "));
     }
 
     #[test]
