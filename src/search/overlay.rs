@@ -17,6 +17,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget},
 };
 use std::str::FromStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab: Scope";
 const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
@@ -598,13 +599,32 @@ fn search_result_icon(kind: &super::types::SearchResultKind) -> &'static str {
 }
 
 fn truncate_str(s: &str, max_len: usize) -> String {
-    let char_count = s.chars().count();
-    if char_count <= max_len {
+    if s.width() <= max_len {
         s.to_string()
     } else if max_len > 3 {
-        format!("{}...", s.chars().take(max_len - 3).collect::<String>())
+        let mut output = String::new();
+        let mut width = 0;
+        for ch in s.chars() {
+            let ch_width = ch.width().unwrap_or(0);
+            if width + ch_width + 3 > max_len {
+                break;
+            }
+            output.push(ch);
+            width += ch_width;
+        }
+        format!("{}...", output)
     } else {
-        s.chars().take(max_len).collect()
+        let mut output = String::new();
+        let mut width = 0;
+        for ch in s.chars() {
+            let ch_width = ch.width().unwrap_or(0);
+            if width + ch_width > max_len {
+                break;
+            }
+            output.push(ch);
+            width += ch_width;
+        }
+        output
     }
 }
 
@@ -718,6 +738,9 @@ mod tests {
     fn test_truncate_str_handles_unicode_boundaries() {
         assert_eq!(truncate_str("éclair", 4), "é...");
         assert_eq!(truncate_str("abc", 2), "ab");
+        assert_eq!(truncate_str("検索query", 8), "検索q...");
+        assert_eq!(truncate_str("検索", 3), "検");
+        assert_eq!(truncate_str("abc", 0), "");
     }
 
     #[test]
