@@ -912,10 +912,10 @@ impl Plugin for ConversationsPlugin {
             .map(|session_info| {
                 let mut preview_parts = vec![
                     session_info.adapter_name.clone(),
-                    format!("{} messages", session_info.message_count()),
+                    conversation_count_label(session_info.message_count(), "message"),
                 ];
                 if let Some(total_tokens) = session_info.total_tokens() {
-                    preview_parts.push(format!("{} tokens", total_tokens));
+                    preview_parts.push(conversation_count_label(total_tokens, "token"));
                 }
 
                 crate::plugin::PluginSearchEntry {
@@ -1127,6 +1127,31 @@ mod tests {
         assert_eq!(entries[0].id, "session-1");
         assert!(entries[0].title.contains("Investigate render bug"));
         assert!(entries[0].preview.contains("Mock Adapter"));
+    }
+
+    #[test]
+    fn test_search_entries_use_singular_message_and_token_counts() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
+        let mut session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Single message",
+            "test-adapter",
+        );
+        session.message_count = 1;
+        session.total_tokens = Some(1);
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin
+            .state_mut()
+            .set_sessions(vec![SessionInfo::new(session, &adapter)]);
+
+        let entries = plugin.search_entries();
+
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].preview.contains("1 message"));
+        assert!(entries[0].preview.contains("1 token"));
+        assert!(!entries[0].preview.contains("1 messages"));
+        assert!(!entries[0].preview.contains("1 tokens"));
     }
 
     #[test]
