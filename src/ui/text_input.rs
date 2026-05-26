@@ -103,7 +103,7 @@ impl<'a> TextInputWidget<'a> {
                 let spans = vec![
                     Span::styled(" ", Style::default().bg(cursor_color).fg(Color::Black)),
                     Span::styled(
-                        &placeholder_text[placeholder_text.len().min(1)..],
+                        placeholder_after_cursor(placeholder_text),
                         Style::default().fg(muted),
                     ),
                 ];
@@ -304,6 +304,14 @@ impl<'a> TextInputWidget<'a> {
     }
 }
 
+fn placeholder_after_cursor(placeholder: &str) -> &str {
+    placeholder
+        .chars()
+        .next()
+        .map(|ch| &placeholder[ch.len_utf8()..])
+        .unwrap_or("")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,6 +329,25 @@ mod tests {
         let mut buf = Buffer::empty(Rect::new(0, 0, 40, 3));
         widget.render(Rect::new(0, 0, 40, 1), &mut buf);
         // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn render_active_unicode_placeholder() {
+        let mut state =
+            TextInputState::new(InputMode::SingleLine).with_placeholder("Écrire ici...");
+        state.set_active(true);
+        let theme = test_theme();
+        let widget = TextInputWidget::new(&state, &theme);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 3));
+
+        widget.render(Rect::new(0, 0, 40, 1), &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("crire ici"));
     }
 
     #[test]
