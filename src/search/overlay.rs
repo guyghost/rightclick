@@ -532,10 +532,10 @@ fn result_count_label(count: usize) -> String {
 
 fn empty_query_hint(scope: SearchScope) -> &'static str {
     match scope {
-        SearchScope::All => "Search files, commands, sessions, worktrees, and intents",
-        SearchScope::Files => "Search file contents with ripgrep",
-        SearchScope::Items => "Search sessions, worktrees, and intents",
-        SearchScope::Commands => "Search available commands",
+        SearchScope::All => "Type to search files, commands, sessions, worktrees, and intents",
+        SearchScope::Files => "Type to search file contents with ripgrep",
+        SearchScope::Items => "Type to search sessions, worktrees, and intents",
+        SearchScope::Commands => "Type to search available commands",
     }
 }
 
@@ -851,19 +851,19 @@ mod tests {
     fn test_empty_query_hint_is_scope_specific() {
         assert_eq!(
             empty_query_hint(SearchScope::All),
-            "Search files, commands, sessions, worktrees, and intents"
+            "Type to search files, commands, sessions, worktrees, and intents"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Files),
-            "Search file contents with ripgrep"
+            "Type to search file contents with ripgrep"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Items),
-            "Search sessions, worktrees, and intents"
+            "Type to search sessions, worktrees, and intents"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Commands),
-            "Search available commands"
+            "Type to search available commands"
         );
     }
 
