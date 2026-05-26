@@ -1,7 +1,10 @@
 set shell := ["bash", "-cu"]
 
 default:
-    just --list
+    just help
+
+help:
+    bash scripts/dev.sh help
 
 ci:
     bash scripts/dev.sh ci

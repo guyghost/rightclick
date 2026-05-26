@@ -20,6 +20,16 @@ Commands:
   test-one       run cargo test with a filter
   run            run RightClick locally
   install-local  install RightClick from this checkout
+
+Examples:
+  bash scripts/dev.sh doctor
+  bash scripts/dev.sh ci
+  bash scripts/dev.sh test-one plugins::gitstatus
+
+If you use just:
+  just help
+  just ci
+  just test-one plugins::gitstatus
 EOF
 }
 

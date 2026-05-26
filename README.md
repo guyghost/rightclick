@@ -53,6 +53,9 @@ bash scripts/dev.sh run
 bash scripts/dev.sh install-local
 ```
 
+If you prefer `just`, run `just help` for the same command overview. The default
+`just` recipe also opens that help instead of a terse recipe list.
+
 ## Keyboard Shortcuts
 
 | Key | Action |
