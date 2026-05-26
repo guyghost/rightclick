@@ -14,6 +14,7 @@ Commands:
   fmt-check      run cargo fmt --check
   fmt            run cargo fmt
   clippy         run cargo clippy --all-targets -- -D warnings
+  lint           alias for clippy
   build          run cargo build
   build-release  run cargo build --release
   test           run cargo test
@@ -126,7 +127,7 @@ case "$cmd" in
   fmt)
     cargo fmt
     ;;
-  clippy)
+  clippy|lint)
     cargo clippy --all-targets -- -D warnings
     ;;
   build)

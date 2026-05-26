@@ -45,6 +45,7 @@ bash scripts/dev.sh check         # fmt check, clippy with warnings denied, and 
 bash scripts/dev.sh fmt-check
 bash scripts/dev.sh fmt
 bash scripts/dev.sh clippy
+bash scripts/dev.sh lint
 bash scripts/dev.sh build
 bash scripts/dev.sh build-release
 bash scripts/dev.sh test

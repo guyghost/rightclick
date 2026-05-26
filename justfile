@@ -24,6 +24,9 @@ fmt:
 clippy:
     bash scripts/dev.sh clippy
 
+lint:
+    bash scripts/dev.sh lint
+
 build:
     bash scripts/dev.sh build
 
