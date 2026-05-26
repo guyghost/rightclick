@@ -159,27 +159,32 @@ impl<'a> TextInputWidget<'a> {
 
         // Render error below if there's space
         if let Some(error) = self.state.error() {
+            let buffer_bottom = buf.area().y.saturating_add(buf.area().height);
             let error_area = if self.bordered {
                 // Below the border
-                if area.y + area.height < buf.area().height {
+                let error_y = area.y.saturating_add(area.height);
+                if error_y < buffer_bottom {
                     Rect {
                         x: area.x,
-                        y: area.y + area.height,
+                        y: error_y,
                         width: area.width,
                         height: 1,
                     }
                 } else {
                     return;
                 }
-            } else if inner_area.y + inner_area.height < buf.area().height {
-                Rect {
-                    x: inner_area.x,
-                    y: inner_area.y + inner_area.height,
-                    width: inner_area.width,
-                    height: 1,
-                }
             } else {
-                return;
+                let error_y = inner_area.y.saturating_add(inner_area.height);
+                if error_y < buffer_bottom {
+                    Rect {
+                        x: inner_area.x,
+                        y: error_y,
+                        width: inner_area.width,
+                        height: 1,
+                    }
+                } else {
+                    return;
+                }
             };
             let error_text = Paragraph::new(error).style(Style::default().fg(error_color));
             error_text.render(error_area, buf);
@@ -388,5 +393,24 @@ mod tests {
         let widget = TextInputWidget::new(&state, &theme).bordered(true);
         let mut buf = Buffer::empty(Rect::new(0, 0, 40, 5));
         widget.render(Rect::new(0, 0, 40, 3), &mut buf);
+    }
+
+    #[test]
+    fn render_error_inside_offset_buffer() {
+        let mut state = TextInputState::new(InputMode::SingleLine);
+        state.set_error(Some("Required field"));
+        let theme = test_theme();
+        let widget = TextInputWidget::new(&state, &theme).bordered(true);
+        let area = Rect::new(10, 10, 40, 3);
+        let mut buf = Buffer::empty(Rect::new(10, 10, 40, 5));
+
+        widget.render(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Required field"));
     }
 }
