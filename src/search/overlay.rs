@@ -43,7 +43,7 @@ impl SearchOverlayState {
     /// Create a new search overlay state
     pub fn new() -> Self {
         let mut input = TextInputState::new(InputMode::SingleLine)
-            .with_placeholder("Search files, commands, sessions...");
+            .with_placeholder("Search files, commands, project...");
         input.set_active(true);
         Self {
             visible: false,
@@ -566,7 +566,7 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
     match scope {
         SearchScope::All => "Search everything: files, commands, sessions, worktrees, intents",
         SearchScope::Files => "Search file contents with ripgrep",
-        SearchScope::Items => "Search sessions, worktrees, and intents",
+        SearchScope::Items => "Search project sessions, worktrees, and intents",
         SearchScope::Commands => "Search available commands",
     }
 }
@@ -576,7 +576,7 @@ fn no_results_message(query: &str, scope: SearchScope) -> String {
     let message = match scope {
         SearchScope::All => format!("No results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
-        SearchScope::Items => format!("No session, worktree, or intent matches \"{}\"", query),
+        SearchScope::Items => format!("No project item matches \"{}\"", query),
         SearchScope::Commands => format!("No command matches \"{}\"", query),
     };
 
@@ -622,7 +622,7 @@ mod tests {
         assert_eq!(state.selected, 0);
         assert_eq!(
             state.input.placeholder(),
-            "Search files, commands, sessions..."
+            "Search files, commands, project..."
         );
     }
 
@@ -912,7 +912,7 @@ mod tests {
         );
         assert_eq!(
             empty_query_hint(SearchScope::Items),
-            "Search sessions, worktrees, and intents"
+            "Search project sessions, worktrees, and intents"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Commands),
@@ -923,7 +923,7 @@ mod tests {
     #[test]
     fn test_no_results_message_includes_scope_and_query() {
         let items = no_results_message("worker", SearchScope::Items);
-        assert!(items.contains("No session, worktree, or intent matches \"worker\""));
+        assert!(items.contains("No project item matches \"worker\""));
         assert!(items.contains(SEARCH_EMPTY_ACTION_HINT));
         assert!(!items.contains("Ctrl+U  Clear search"));
         assert!(!items.contains("Tab  Change scope"));
@@ -1041,7 +1041,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Global Search"));
-        assert!(content.contains("Search files, commands, sessions"));
+        assert!(content.contains("Search files, commands, project"));
         assert!(content.contains("Project"));
     }
 
