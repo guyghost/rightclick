@@ -1311,7 +1311,8 @@ fn file_browser_status_line(state: &PluginState) -> String {
 
     if visible == 0 && state.filter_query.is_some() {
         return format!(
-            "No matching files | 0 visible{} | f Change filter | r Refresh files",
+            "No matching files | {}{} | f Change filter | r Refresh files",
+            visible_file_count_label(visible),
             filter
         );
     }
@@ -1328,7 +1329,20 @@ fn file_browser_status_line(state: &PluginState) -> String {
             }
         });
 
-    format!("{} | {} visible{}", selected, visible, filter)
+    format!(
+        "{} | {}{}",
+        selected,
+        visible_file_count_label(visible),
+        filter
+    )
+}
+
+fn visible_file_count_label(count: usize) -> String {
+    if count == 1 {
+        "1 visible file".to_string()
+    } else {
+        format!("{} visible files", count)
+    }
 }
 
 fn file_tree_empty_message(state: &PluginState) -> String {
@@ -1530,9 +1544,42 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No matching files | 0 visible | filter: missing | f Change filter | r Refresh files"
+                "No matching files | 0 visible files | filter: missing | f Change filter | r Refresh files"
                     .to_string()
             )
+        );
+    }
+
+    #[test]
+    fn test_file_browser_status_line_uses_visible_file_counts() {
+        use super::super::tree::FileEntry;
+
+        let temp_dir = TempDir::new().unwrap();
+        let alpha = temp_dir.path().join("alpha.txt");
+        fs::write(&alpha, "alpha").unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.tree.entries.clear();
+        state
+            .tree
+            .entries
+            .push(FileEntry::new(alpha.clone(), 0, None, None));
+        state.selected_path = None;
+
+        assert_eq!(
+            file_browser_status_line(&state),
+            "No file selected | 1 visible file"
+        );
+
+        let beta = temp_dir.path().join("beta.txt");
+        fs::write(&beta, "beta").unwrap();
+        state
+            .tree
+            .entries
+            .push(FileEntry::new(beta.clone(), 0, None, None));
+
+        assert_eq!(
+            file_browser_status_line(&state),
+            "No file selected | 2 visible files"
         );
     }
 
