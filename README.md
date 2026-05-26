@@ -46,6 +46,7 @@ bash scripts/dev.sh fmt-check
 bash scripts/dev.sh fmt
 bash scripts/dev.sh clippy
 bash scripts/dev.sh build
+bash scripts/dev.sh build-release
 bash scripts/dev.sh test
 bash scripts/dev.sh test-one plugins::gitstatus
 bash scripts/dev.sh run

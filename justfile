@@ -24,6 +24,9 @@ clippy:
 build:
     bash scripts/dev.sh build
 
+build-release:
+    bash scripts/dev.sh build-release
+
 test:
     bash scripts/dev.sh test
 
