@@ -542,7 +542,7 @@ fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
 
 fn search_footer_hint(width: u16) -> &'static str {
     match width {
-        0..=26 => "Enter Open  Esc",
+        0..=26 => "Enter: Open  Esc",
         27..=40 => "Enter: Open  |  Esc: Close",
         41..=60 => "Tab: Scope  |  Enter: Open  |  Esc: Close",
         61..=78 => "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close",
@@ -560,10 +560,10 @@ fn result_count_label(count: usize) -> String {
 
 fn empty_query_hint(scope: SearchScope) -> &'static str {
     match scope {
-        SearchScope::All => "Type to search files, commands, sessions, worktrees, and intents",
-        SearchScope::Files => "Type to search file contents with ripgrep",
-        SearchScope::Items => "Type to search sessions, worktrees, and intents",
-        SearchScope::Commands => "Type to search available commands",
+        SearchScope::All => "Search everything: files, commands, sessions, worktrees, intents",
+        SearchScope::Files => "Search file contents with ripgrep",
+        SearchScope::Items => "Search sessions, worktrees, and intents",
+        SearchScope::Commands => "Search available commands",
     }
 }
 
@@ -879,7 +879,7 @@ mod tests {
 
     #[test]
     fn test_search_footer_hint_compacts_for_narrow_widths() {
-        assert_eq!(search_footer_hint(20), "Enter Open  Esc");
+        assert_eq!(search_footer_hint(20), "Enter: Open  Esc");
         assert_eq!(search_footer_hint(32), "Enter: Open  |  Esc: Close");
         assert_eq!(
             search_footer_hint(48),
@@ -896,19 +896,19 @@ mod tests {
     fn test_empty_query_hint_is_scope_specific() {
         assert_eq!(
             empty_query_hint(SearchScope::All),
-            "Type to search files, commands, sessions, worktrees, and intents"
+            "Search everything: files, commands, sessions, worktrees, intents"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Files),
-            "Type to search file contents with ripgrep"
+            "Search file contents with ripgrep"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Items),
-            "Type to search sessions, worktrees, and intents"
+            "Search sessions, worktrees, and intents"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Commands),
-            "Type to search available commands"
+            "Search available commands"
         );
     }
 
