@@ -460,13 +460,21 @@ fn format_relative_time(date: &chrono::DateTime<chrono::Utc>) -> String {
     if duration.num_minutes() < 1 {
         "just now".to_string()
     } else if duration.num_minutes() < 60 {
-        format!("{} mins ago", duration.num_minutes())
+        relative_time_label(duration.num_minutes(), "min", "mins")
     } else if duration.num_hours() < 24 {
-        format!("{} hours ago", duration.num_hours())
+        relative_time_label(duration.num_hours(), "hour", "hours")
     } else if duration.num_days() < 7 {
-        format!("{} days ago", duration.num_days())
+        relative_time_label(duration.num_days(), "day", "days")
     } else {
         date.format("%Y-%m-%d").to_string()
+    }
+}
+
+fn relative_time_label(count: i64, singular: &str, plural: &str) -> String {
+    if count == 1 {
+        format!("1 {} ago", singular)
+    } else {
+        format!("{} {} ago", count, plural)
     }
 }
 
@@ -1392,6 +1400,24 @@ mod tests {
         assert!(info.contains("main"));
         assert!(info.contains("clean"));
         assert!(info.contains("1 commit"));
+    }
+
+    #[test]
+    fn test_format_relative_time_uses_singular_labels() {
+        let now = chrono::Utc::now();
+
+        assert_eq!(
+            format_relative_time(&(now - chrono::Duration::minutes(1))),
+            "1 min ago"
+        );
+        assert_eq!(
+            format_relative_time(&(now - chrono::Duration::hours(1))),
+            "1 hour ago"
+        );
+        assert_eq!(
+            format_relative_time(&(now - chrono::Duration::days(1))),
+            "1 day ago"
+        );
     }
 
     #[test]
