@@ -894,35 +894,40 @@ impl Plugin for ConversationsPlugin {
                 "Reload sessions from detected adapters",
                 'r',
                 crate::keymap::FocusContext::Conversations,
-            ),
+            )
+            .with_footer_priority(3),
             crate::plugin::PluginCommand::with_context_description(
                 "search",
                 "Filter",
                 "Filter loaded sessions",
                 'f',
                 crate::keymap::FocusContext::Conversations,
-            ),
+            )
+            .with_footer_priority(4),
             crate::plugin::PluginCommand::with_context_description(
                 "expand",
                 "Expand All",
                 "Expand messages in the current conversation",
                 'e',
                 crate::keymap::FocusContext::Conversations,
-            ),
+            )
+            .with_footer_priority(2),
             crate::plugin::PluginCommand::with_context_description(
                 "collapse",
                 "Collapse All",
                 "Collapse messages in the current conversation",
                 'c',
                 crate::keymap::FocusContext::Conversations,
-            ),
+            )
+            .with_footer_priority(1),
             crate::plugin::PluginCommand::with_context_description(
                 "open",
                 "Open",
                 "Open the selected session",
                 'o',
                 crate::keymap::FocusContext::Conversations,
-            ),
+            )
+            .with_footer_priority(5),
             crate::plugin::PluginCommand::with_context_description(
                 "back",
                 "Back",
@@ -1163,6 +1168,22 @@ mod tests {
             && command.name == "Collapse All"
             && command.key == 'c'));
         assert!(!commands.iter().any(|command| command.key == '/'));
+
+        let prioritized: Vec<(&str, u8)> = commands
+            .iter()
+            .filter(|command| command.priority > 0)
+            .map(|command| (command.id.as_str(), command.priority))
+            .collect();
+        assert_eq!(
+            prioritized,
+            vec![
+                ("refresh", 3),
+                ("search", 4),
+                ("expand", 2),
+                ("collapse", 1),
+                ("open", 5)
+            ]
+        );
     }
 
     #[test]
