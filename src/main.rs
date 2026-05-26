@@ -714,39 +714,7 @@ impl App {
     }
 
     fn footer_hints(&self, plugin: &dyn Plugin) -> Vec<(String, String)> {
-        let mut hints: Vec<(String, String)> = Vec::new();
-        let mut seen = std::collections::HashSet::new();
-
-        for command in plugin.commands() {
-            let key = command.key.to_string();
-            if matches!(key.as_str(), "j" | "k") {
-                continue;
-            }
-            if seen.insert(key.clone()) {
-                hints.push((key, command.name));
-            }
-            if hints.len() >= 4 {
-                break;
-            }
-        }
-
-        let tab_label = if plugin.id() == "git-status" {
-            "Pane"
-        } else {
-            "Switch"
-        };
-        for (key, label) in [
-            ("Tab", tab_label),
-            ("1-9", "Go"),
-            ("/", "Search"),
-            ("q", "Quit"),
-        ] {
-            if seen.insert(key.to_string()) {
-                hints.push((key.to_string(), label.to_string()));
-            }
-        }
-
-        hints
+        build_footer_hints(plugin.id(), &plugin.commands())
     }
 
     fn render_help_overlay(&self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
@@ -881,6 +849,46 @@ fn build_help_lines(
     lines
 }
 
+fn build_footer_hints(
+    plugin_id: &str,
+    commands: &[rightclick::plugin::PluginCommand],
+) -> Vec<(String, String)> {
+    let mut hints: Vec<(String, String)> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let tab_label = if plugin_id == "git-status" {
+        "Pane"
+    } else {
+        "Switch"
+    };
+
+    for (key, label) in [
+        ("Tab", tab_label),
+        ("/", "Search"),
+        ("?", "Help"),
+        ("q", "Quit"),
+        ("1-9", "Go"),
+    ] {
+        if seen.insert(key.to_string()) {
+            hints.push((key.to_string(), label.to_string()));
+        }
+    }
+
+    for command in commands {
+        let key = command.key.to_string();
+        if matches!(key.as_str(), "j" | "k") {
+            continue;
+        }
+        if seen.insert(key.clone()) {
+            hints.push((key, command.name.clone()));
+        }
+        if hints.len() >= 9 {
+            break;
+        }
+    }
+
+    hints
+}
+
 fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginCommand) -> String {
     if command.description.is_empty() {
         format!("  {:<8} {}", key, command.name)
@@ -988,6 +996,45 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("Refresh - Reload repository state"))
         );
+    }
+
+    #[test]
+    fn test_build_footer_hints_prioritizes_global_shortcuts() {
+        let commands = vec![
+            rightclick::plugin::PluginCommand::with_context(
+                "refresh",
+                "Refresh",
+                'r',
+                rightclick::keymap::FocusContext::Global,
+            ),
+            rightclick::plugin::PluginCommand::with_context(
+                "down",
+                "Down",
+                'j',
+                rightclick::keymap::FocusContext::Global,
+            ),
+        ];
+
+        let hints = build_footer_hints("workspace", &commands);
+
+        assert_eq!(
+            &hints[..5],
+            &[
+                ("Tab".to_string(), "Switch".to_string()),
+                ("/".to_string(), "Search".to_string()),
+                ("?".to_string(), "Help".to_string()),
+                ("q".to_string(), "Quit".to_string()),
+                ("1-9".to_string(), "Go".to_string()),
+            ]
+        );
+        assert!(hints.contains(&("r".to_string(), "Refresh".to_string())));
+        assert!(!hints.iter().any(|(key, _)| key == "j"));
+    }
+
+    #[test]
+    fn test_build_footer_hints_labels_git_tab_as_pane() {
+        let hints = build_footer_hints("git-status", &[]);
+        assert_eq!(hints[0], ("Tab".to_string(), "Pane".to_string()));
     }
 
     #[test]
