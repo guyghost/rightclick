@@ -287,7 +287,7 @@ pub fn render_search_overlay(
         return;
     }
 
-    // Layout: input (1) + scope tabs (1) + separator (1) + results (rest)
+    // Layout: input (1) + scope tabs (1) + separator (1) + results (rest) + footer (1)
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -295,6 +295,7 @@ pub fn render_search_overlay(
             Constraint::Length(1), // Scope tabs
             Constraint::Length(1), // Separator
             Constraint::Min(1),    // Results
+            Constraint::Length(1), // Help footer
         ])
         .split(inner);
 
@@ -310,8 +311,9 @@ pub fn render_search_overlay(
         .style(Style::default().fg(border_color))
         .render(chunks[2], buf);
 
-    // Render results
     render_results(state, chunks[3], buf, fg, muted, primary, bg);
+
+    render_footer(chunks[4], buf, muted);
 }
 
 fn render_input_line(
@@ -405,11 +407,7 @@ fn render_scope_tabs(
         }
     }
     spans.push(Span::styled(
-        format!(
-            "  {} result{}  Tab scope | Enter open | Esc close",
-            state.results.len(),
-            if state.results.len() == 1 { "" } else { "s" }
-        ),
+        format!("  {}", result_count_label(state.results.len())),
         Style::default().fg(muted),
     ));
 
@@ -431,9 +429,9 @@ fn render_results(
 
     if state.results.is_empty() {
         let msg = if state.query().is_empty() {
-            "Type to search files, commands, sessions, worktrees, and intents"
+            empty_query_hint(state.scope).to_string()
         } else {
-            "No results. Try another scope or query"
+            no_results_message(state.query(), state.scope)
         };
         Paragraph::new(msg)
             .style(Style::default().fg(muted))
@@ -486,6 +484,44 @@ fn render_results(
 
     let list = List::new(items);
     list.render(area, buf);
+}
+
+fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
+    if area.height == 0 {
+        return;
+    }
+
+    Paragraph::new("Tab scope | Enter open | Up/Down select | Ctrl+U clear | Esc close")
+        .style(Style::default().fg(muted))
+        .alignment(Alignment::Center)
+        .render(area, buf);
+}
+
+fn result_count_label(count: usize) -> String {
+    match count {
+        0 => "No results".to_string(),
+        1 => "1 result".to_string(),
+        n => format!("{} results", n),
+    }
+}
+
+fn empty_query_hint(scope: SearchScope) -> &'static str {
+    match scope {
+        SearchScope::All => "Search files, plugin items, and commands",
+        SearchScope::Files => "Search file contents with ripgrep",
+        SearchScope::Items => "Search sessions, worktrees, and worker intents",
+        SearchScope::Commands => "Search available plugin commands",
+    }
+}
+
+fn no_results_message(query: &str, scope: SearchScope) -> String {
+    let query = truncate_str(query, 40);
+    match scope {
+        SearchScope::All => format!("No results match \"{}\"", query),
+        SearchScope::Files => format!("No file content matches \"{}\"", query),
+        SearchScope::Items => format!("No item matches \"{}\"", query),
+        SearchScope::Commands => format!("No command matches \"{}\"", query),
+    }
 }
 
 fn search_result_icon(kind: &super::types::SearchResultKind) -> &'static str {
@@ -749,6 +785,48 @@ mod tests {
         assert_eq!(truncate_str("hello", 10), "hello");
         assert_eq!(truncate_str("hello world", 8), "hello...");
         assert_eq!(truncate_str("ab", 2), "ab");
+    }
+
+    #[test]
+    fn test_result_count_label() {
+        assert_eq!(result_count_label(0), "No results");
+        assert_eq!(result_count_label(1), "1 result");
+        assert_eq!(result_count_label(2), "2 results");
+    }
+
+    #[test]
+    fn test_empty_query_hint_is_scope_specific() {
+        assert_eq!(
+            empty_query_hint(SearchScope::All),
+            "Search files, plugin items, and commands"
+        );
+        assert_eq!(
+            empty_query_hint(SearchScope::Files),
+            "Search file contents with ripgrep"
+        );
+        assert_eq!(
+            empty_query_hint(SearchScope::Items),
+            "Search sessions, worktrees, and worker intents"
+        );
+        assert_eq!(
+            empty_query_hint(SearchScope::Commands),
+            "Search available plugin commands"
+        );
+    }
+
+    #[test]
+    fn test_no_results_message_includes_scope_and_query() {
+        assert_eq!(
+            no_results_message("worker", SearchScope::Items),
+            "No item matches \"worker\""
+        );
+        assert_eq!(
+            no_results_message(
+                "abcdefghijklmnopqrstuvwxyz0123456789abcdef",
+                SearchScope::All
+            ),
+            "No results match \"abcdefghijklmnopqrstuvwxyz0123456789a...\""
+        );
     }
 
     #[test]
