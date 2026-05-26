@@ -837,7 +837,7 @@ fn build_help_lines(
     lines.extend([
         String::new(),
         "Global shortcuts:".to_string(),
-        "  /        Search files, commands, sessions, worktrees, and intents".to_string(),
+        "  /        Global search".to_string(),
         "  ?        Toggle this help".to_string(),
         "  Tab      Switch plugin or pane".to_string(),
         "  Shift+Tab Switch to previous plugin or pane".to_string(),
@@ -855,7 +855,7 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         "RightClick is running without an active plugin.".to_string(),
         String::new(),
         "Global shortcuts:".to_string(),
-        "  /        Search file contents".to_string(),
+        "  /        Global search".to_string(),
         "  ?        Toggle this help".to_string(),
         "  q/Ctrl+C Quit".to_string(),
         String::new(),
@@ -910,7 +910,7 @@ fn build_footer_hints(
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?  Help\n/  Search file contents\nq/Ctrl+C  Quit\n\nRestart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
+    "No plugins loaded\n\n?  Help\n/  Global search\nq/Ctrl+C  Quit\n\nRestart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -1052,8 +1052,7 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|line| line
-                    .contains("Search files, commands, sessions, worktrees, and intents"))
+                .any(|line| line.contains("/") && line.contains("Global search"))
         );
         assert!(
             lines
@@ -1114,7 +1113,7 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|line| line.contains("/") && line.contains("Search file contents"))
+                .any(|line| line.contains("/") && line.contains("Global search"))
         );
         assert!(
             lines
@@ -1231,7 +1230,7 @@ mod tests {
 
         assert!(message.contains("No plugins loaded"));
         assert!(message.contains("?  Help"));
-        assert!(message.contains("/  Search file contents"));
+        assert!(message.contains("/  Global search"));
         assert!(message.contains("q/Ctrl+C  Quit"));
         assert!(message.contains("RUST_LOG=debug"));
         assert!(message.contains("check configuration"));
