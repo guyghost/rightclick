@@ -256,8 +256,9 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
         text.render(inner, buf);
     } else if let Some(worktree) = state.selected_worktree() {
         if let Some(task_id) = &worktree.linked_task {
-            let text = Paragraph::new(format!("Task: {}\n\n(No details available)", task_id))
-                .style(style_for_ui_element(theme, UiElement::Text));
+            let text = Paragraph::new(task_details_missing_message(task_id))
+                .alignment(Alignment::Center)
+                .style(style_for_ui_element(theme, UiElement::MutedText));
             text.render(inner, buf);
         } else {
             let empty = Paragraph::new(no_linked_task_message())
@@ -267,7 +268,7 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
         }
     } else {
         let message = if state.worktrees.is_empty() {
-            "Create a worktree to link a task"
+            create_worktree_for_task_message()
         } else {
             select_worktree_message()
         };
@@ -284,6 +285,17 @@ fn empty_worktrees_message() -> &'static str {
 
 fn no_linked_task_message() -> &'static str {
     "No linked task\n\nT  Link task\n/  Search commands"
+}
+
+fn task_details_missing_message(task_id: &str) -> String {
+    format!(
+        "Task: {}\n\nNo details loaded\n\nT  Relink task\nr  Refresh worktrees",
+        task_id
+    )
+}
+
+fn create_worktree_for_task_message() -> &'static str {
+    "No worktree available\n\nn  Create worktree\nr  Refresh worktrees"
 }
 
 fn select_worktree_message() -> &'static str {
@@ -996,6 +1008,53 @@ mod tests {
         assert!(content.contains("T  Link task"));
         assert!(content.contains("/  Search commands"));
         assert!(!content.contains("t  Link task"));
+    }
+
+    #[test]
+    fn test_render_task_tab_without_worktrees_points_to_creation() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Task;
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No worktree available"));
+        assert!(content.contains("n  Create worktree"));
+        assert!(content.contains("r  Refresh worktrees"));
+    }
+
+    #[test]
+    fn test_render_task_tab_with_linked_task_without_details_points_to_actions() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Task;
+        state.worktrees.push(
+            Worktree::new("feature", PathBuf::from("/repo/feature"), "feature-branch")
+                .with_task("TASK-123"),
+        );
+        state.selected = Some(0);
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Task: TASK-123"));
+        assert!(content.contains("No details loaded"));
+        assert!(content.contains("T  Relink task"));
+        assert!(content.contains("r  Refresh worktrees"));
+        assert!(!content.contains("No details available"));
     }
 
     #[test]
