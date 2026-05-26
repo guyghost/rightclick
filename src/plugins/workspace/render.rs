@@ -404,7 +404,11 @@ fn render_kanban_column(
     let header_style = Style::default().fg(color).add_modifier(Modifier::BOLD);
 
     let block = Block::default()
-        .title(format!(" {} ({}) ", title, indices.len()))
+        .title(format!(
+            " {} ({}) ",
+            title,
+            workspace_render_count_label(indices.len(), "worktree")
+        ))
         .title_style(header_style)
         .borders(Borders::ALL)
         .border_style(style_for_ui_element(theme, UiElement::Border));
@@ -854,6 +858,39 @@ mod tests {
         assert!(content.contains("Create worktree"));
         assert!(content.contains("Refresh worktrees"));
         assert!(content.contains("Search commands"));
+    }
+
+    #[test]
+    fn test_render_kanban_headers_use_worktree_count_labels() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.view_mode = ViewMode::Kanban;
+        let mut active = Worktree::new("active", PathBuf::from("/repo/active"), "feature-active");
+        active.is_dirty = true;
+        state.worktrees.push(active);
+        state.worktrees.push(
+            Worktree::new("waiting", PathBuf::from("/repo/waiting"), "feature-waiting")
+                .with_task("task-1"),
+        );
+        state.worktrees.push(Worktree::new(
+            "done",
+            PathBuf::from("/repo/done"),
+            "feature-done",
+        ));
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Active (1 worktree)"));
+        assert!(content.contains("Waiting (1 worktree)"));
+        assert!(content.contains("Done (1 worktree)"));
+        assert!(!content.contains("Active (1)"));
     }
 
     #[test]
