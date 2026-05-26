@@ -1146,7 +1146,8 @@ impl Plugin for WorkspacePlugin {
                 "Create a new git worktree",
                 'n',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(2),
             crate::plugin::PluginCommand::with_context_description(
                 "delete",
                 "Delete Worktree",
@@ -1160,21 +1161,24 @@ impl Plugin for WorkspacePlugin {
                 "Attach a task id to the selected worktree",
                 'T',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(3),
             crate::plugin::PluginCommand::with_context_description(
                 "agent",
                 "Launch Agent",
                 "Start an agent in the selected worktree",
                 'a',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(5),
             crate::plugin::PluginCommand::with_context_description(
                 "merge",
                 "Merge",
                 "Merge the selected worktree branch",
                 'm',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(1),
             crate::plugin::PluginCommand::with_context_description(
                 "switch-view",
                 "Switch View",
@@ -1202,7 +1206,8 @@ impl Plugin for WorkspacePlugin {
                 "Open an interactive shell for the worktree",
                 'o',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(4),
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
                 "Refresh",
@@ -1387,6 +1392,22 @@ mod tests {
 
         assert_eq!(interactive_command.name, "Interactive Mode");
         assert_eq!(interactive_command.key, 'o');
+
+        let prioritized: Vec<(&str, u8)> = commands
+            .iter()
+            .filter(|command| command.priority > 0)
+            .map(|command| (command.id.as_str(), command.priority))
+            .collect();
+        assert_eq!(
+            prioritized,
+            vec![
+                ("create", 2),
+                ("link", 3),
+                ("agent", 5),
+                ("merge", 1),
+                ("interactive", 4)
+            ]
+        );
     }
 
     #[test]
