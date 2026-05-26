@@ -1330,7 +1330,8 @@ fn file_tree_empty_message(state: &PluginState) -> String {
     } else if state.tree.entries.is_empty() {
         "No files found\n\na  New file\nA  New directory\nr  Refresh files".to_string()
     } else {
-        "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter".to_string()
+        "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
+            .to_string()
     }
 }
 
@@ -1343,7 +1344,8 @@ fn file_preview_empty_message(state: &PluginState) -> String {
     } else if state.tree.entries.is_empty() {
         "No preview available\n\na  New file\nA  New directory\nr  Refresh files".to_string()
     } else if state.visible_indices().is_empty() {
-        "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter".to_string()
+        "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
+            .to_string()
     } else {
         "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter"
             .to_string()
@@ -1540,6 +1542,42 @@ mod tests {
 
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f  Change filter"));
+        assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_file_tree_empty_message_handles_hidden_visible_miss() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join(".hidden"), "hidden").unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.refresh();
+        state.show_hidden = false;
+
+        let message = file_tree_empty_message(&state);
+
+        assert!(message.contains("No visible files"));
+        assert!(message.contains("H  Toggle hidden"));
+        assert!(message.contains("i  Toggle ignored"));
+        assert!(message.contains("f  Filter"));
+        assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_file_preview_empty_message_handles_hidden_visible_miss() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join(".hidden"), "hidden").unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.refresh();
+        state.show_hidden = false;
+
+        let message = file_preview_empty_message(&state);
+
+        assert!(message.contains("No preview available"));
+        assert!(message.contains("H  Toggle hidden"));
+        assert!(message.contains("i  Toggle ignored"));
+        assert!(message.contains("f  Filter"));
+        assert!(message.contains("r  Refresh files"));
         assert!(message.contains("?  Help"));
     }
 
