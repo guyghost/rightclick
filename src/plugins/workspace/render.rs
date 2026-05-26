@@ -20,6 +20,7 @@ const CREATE_WORKTREE_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
 const DELETE_WORKTREE_MODAL_HINT: &str = "y: Confirm  |  Other: Cancel";
 const LINK_TASK_MODAL_HINT: &str = "Enter: Link  |  Esc: Cancel";
 const MERGE_WORKFLOW_MODAL_HINT: &str = "1-3: Select  |  Esc: Cancel";
+const INTERACTIVE_MODE_HINT: &str = "q: Return";
 
 /// Render the workspace plugin
 pub fn render_workspace(
@@ -460,10 +461,11 @@ fn render_interactive_mode(
 
     let text = if let Some(worktree) = state.selected_worktree() {
         format!(
-            "Entering interactive mode for worktree: {}\nPath: {}\nBranch: {}\n\nPress 'q' to return",
+            "Entering interactive mode for worktree: {}\nPath: {}\nBranch: {}\n\n{}",
             worktree.name,
             worktree.path.display(),
-            worktree.branch
+            worktree.branch,
+            INTERACTIVE_MODE_HINT
         )
     } else {
         select_worktree_message().to_string()
@@ -1215,5 +1217,33 @@ mod tests {
         assert!(content.contains("/  Search worktrees"));
         assert!(content.contains("?  Help"));
         assert!(!content.contains("Select a worktree first"));
+    }
+
+    #[test]
+    fn test_render_interactive_with_selection_uses_compact_return_hint() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.view_mode = ViewMode::Interactive;
+        state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        state.selected = Some(0);
+        let area = Rect::new(0, 0, 100, 14);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Entering interactive mode for worktree: feature"));
+        assert!(content.contains("Path: /repo/feature"));
+        assert!(content.contains("Branch: feature-branch"));
+        assert!(content.contains(INTERACTIVE_MODE_HINT));
+        assert!(!content.contains("Press 'q' to return"));
     }
 }
