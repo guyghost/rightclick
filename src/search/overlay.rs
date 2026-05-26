@@ -22,6 +22,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab: Scope";
 const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
 const MIN_SEARCH_OVERLAY_HEIGHT: u16 = 8;
+const SEARCH_RESULT_SCROLL_WINDOW: usize = 10;
 
 /// State for the search overlay
 #[derive(Debug, Clone)]
@@ -82,22 +83,20 @@ impl SearchOverlayState {
 
     /// Move selection up
     pub fn select_prev(&mut self) {
+        self.normalize_selection(SEARCH_RESULT_SCROLL_WINDOW);
         if self.selected > 0 {
             self.selected -= 1;
-            if self.selected < self.scroll_offset {
-                self.scroll_offset = self.selected;
-            }
         }
+        self.normalize_selection(SEARCH_RESULT_SCROLL_WINDOW);
     }
 
     /// Move selection down
     pub fn select_next(&mut self) {
-        if !self.results.is_empty() && self.selected < self.results.len() - 1 {
+        self.normalize_selection(SEARCH_RESULT_SCROLL_WINDOW);
+        if self.selected.saturating_add(1) < self.results.len() {
             self.selected += 1;
-            if self.selected >= self.scroll_offset.saturating_add(10) {
-                self.scroll_offset = self.selected.saturating_sub(9);
-            }
         }
+        self.normalize_selection(SEARCH_RESULT_SCROLL_WINDOW);
     }
 
     /// Get the currently selected result
@@ -191,16 +190,18 @@ impl SearchOverlayState {
 
     /// Ensure the selected item is visible given a viewport height
     pub fn ensure_visible(&mut self, viewport_height: usize) {
-        if viewport_height == 0 {
-            return;
-        }
-        if self.selected < self.scroll_offset {
-            self.scroll_offset = self.selected;
-        } else if self.selected >= self.scroll_offset.saturating_add(viewport_height) {
-            self.scroll_offset = self
-                .selected
-                .saturating_sub(viewport_height.saturating_sub(1));
-        }
+        self.normalize_selection(viewport_height);
+    }
+
+    fn normalize_selection(&mut self, viewport_height: usize) {
+        let (selected, scroll_offset) = normalized_selection_window(
+            self.results.len(),
+            self.selected,
+            self.scroll_offset,
+            viewport_height,
+        );
+        self.selected = selected;
+        self.scroll_offset = scroll_offset;
     }
 }
 
@@ -472,9 +473,12 @@ fn render_results(
     }
 
     let viewport_height = area.height as usize;
-    let scroll = state
-        .scroll_offset
-        .min(state.results.len().saturating_sub(1));
+    let (selected, scroll) = normalized_selection_window(
+        state.results.len(),
+        state.selected,
+        state.scroll_offset,
+        viewport_height,
+    );
 
     let items: Vec<ListItem> = state
         .results
@@ -483,7 +487,7 @@ fn render_results(
         .skip(scroll)
         .take(viewport_height)
         .map(|(i, result)| {
-            let is_selected = i == state.selected;
+            let is_selected = i == selected;
 
             let icon = search_result_icon(&result.kind);
 
@@ -520,6 +524,34 @@ fn render_results(
 
     let list = List::new(items);
     list.render(area, buf);
+}
+
+fn normalized_selection_window(
+    item_count: usize,
+    selected: usize,
+    scroll_offset: usize,
+    viewport_height: usize,
+) -> (usize, usize) {
+    if item_count == 0 {
+        return (0, 0);
+    }
+
+    let selected = selected.min(item_count - 1);
+    let mut scroll_offset = scroll_offset.min(item_count - 1);
+
+    if viewport_height == 0 {
+        return (selected, selected);
+    }
+
+    if selected < scroll_offset {
+        scroll_offset = selected;
+    } else if selected >= scroll_offset.saturating_add(viewport_height) {
+        scroll_offset = selected.saturating_sub(viewport_height.saturating_sub(1));
+    }
+
+    scroll_offset = scroll_offset.min(item_count.saturating_sub(viewport_height));
+
+    (selected, scroll_offset)
 }
 
 fn display_result_title(title: &str, area_width: usize) -> String {
@@ -643,6 +675,17 @@ mod tests {
     use super::*;
     use crate::search::types::SearchResultKind;
 
+    fn command_result(idx: usize) -> SearchResult {
+        SearchResult {
+            kind: SearchResultKind::Command {
+                id: format!("cmd-{}", idx),
+            },
+            title: format!("Command {}", idx),
+            preview: String::new(),
+            score: 100u32.saturating_sub(idx as u32),
+        }
+    }
+
     #[test]
     fn test_overlay_new() {
         let state = SearchOverlayState::new();
@@ -723,18 +766,7 @@ mod tests {
     #[test]
     fn test_overlay_selection_advances_scroll() {
         let mut state = SearchOverlayState::new();
-        state.set_results(
-            (0..12)
-                .map(|idx| SearchResult {
-                    kind: SearchResultKind::Command {
-                        id: format!("cmd-{}", idx),
-                    },
-                    title: format!("Command {}", idx),
-                    preview: String::new(),
-                    score: 100 - idx,
-                })
-                .collect(),
-        );
+        state.set_results((0..12).map(command_result).collect());
 
         for _ in 0..10 {
             state.select_next();
@@ -882,6 +914,7 @@ mod tests {
     #[test]
     fn test_overlay_ensure_visible() {
         let mut state = SearchOverlayState::new();
+        state.set_results((0..20).map(command_result).collect());
         state.selected = 15;
         state.scroll_offset = 0;
         state.ensure_visible(10);
@@ -895,12 +928,67 @@ mod tests {
     #[test]
     fn test_overlay_ensure_visible_uses_saturating_offsets() {
         let mut state = SearchOverlayState::new();
+        state.set_results((0..20).map(command_result).collect());
         state.selected = usize::MAX;
         state.scroll_offset = usize::MAX;
 
         state.ensure_visible(10);
 
-        assert_eq!(state.scroll_offset, usize::MAX - 9);
+        assert_eq!(state.selected, 19);
+        assert_eq!(state.scroll_offset, 10);
+    }
+
+    #[test]
+    fn test_overlay_ensure_visible_resets_empty_stale_state() {
+        let mut state = SearchOverlayState::new();
+        state.selected = usize::MAX;
+        state.scroll_offset = usize::MAX;
+
+        state.ensure_visible(10);
+
+        assert_eq!(state.selected, 0);
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_overlay_navigation_clamps_stale_public_selection() {
+        let mut state = SearchOverlayState::new();
+        state.set_results((0..3).map(command_result).collect());
+        state.selected = usize::MAX;
+        state.scroll_offset = usize::MAX;
+
+        state.select_next();
+
+        assert_eq!(state.selected, 2);
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_render_results_highlights_clamped_stale_selection() {
+        let mut state = SearchOverlayState::new();
+        state.set_results((0..2).map(command_result).collect());
+        state.selected = usize::MAX;
+        state.scroll_offset = usize::MAX;
+
+        let area = Rect::new(0, 0, 80, 4);
+        let mut buf = Buffer::empty(area);
+
+        render_results(
+            &state,
+            area,
+            &mut buf,
+            Color::White,
+            Color::Gray,
+            Color::Blue,
+            Color::Black,
+        );
+
+        let second_row: String = (0..area.width)
+            .map(|x| buf.cell((x, 1)).unwrap().symbol().to_string())
+            .collect();
+
+        assert!(second_row.contains("Command 1"));
+        assert_eq!(buf.cell((5, 1)).unwrap().style().bg, Some(Color::Blue));
     }
 
     #[test]
