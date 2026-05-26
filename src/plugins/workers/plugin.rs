@@ -1118,14 +1118,14 @@ impl Plugin for WorkersPlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "open",
-                "Open",
+                "Open Intent",
                 "Open the selected intent",
                 'o',
                 crate::keymap::FocusContext::Workspace,
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "switch-view",
-                "View",
+                "Switch View",
                 "Switch workers view mode",
                 'v',
                 crate::keymap::FocusContext::Workspace,
@@ -1235,6 +1235,20 @@ mod tests {
         assert!(!commands.is_empty());
         assert!(commands.iter().any(|c| c.id == "create"));
         assert!(commands.iter().any(|c| c.id == "run"));
+
+        let open_command = commands
+            .iter()
+            .find(|command| command.id == "open")
+            .expect("workers open command");
+        assert_eq!(open_command.name, "Open Intent");
+        assert_eq!(open_command.key, 'o');
+
+        let switch_view_command = commands
+            .iter()
+            .find(|command| command.id == "switch-view")
+            .expect("workers switch view command");
+        assert_eq!(switch_view_command.name, "Switch View");
+        assert_eq!(switch_view_command.key, 'v');
     }
 
     #[test]
@@ -1305,7 +1319,7 @@ mod tests {
             .execute_command("open")
             .expect("open command should execute");
 
-        assert_eq!(execution.command_name, "Open");
+        assert_eq!(execution.command_name, "Open Intent");
         assert_eq!(
             plugin.pending_commands.pop_front(),
             Some(Command::OpenIntent("intent-kanban-open".to_string()))
