@@ -239,7 +239,7 @@ impl ConversationsRenderer {
 
                 // Token count if available
                 if let Some(tokens) = session_info.total_tokens() {
-                    let token_str = format!(" • {}K", tokens / 1000);
+                    let token_str = format!(" • {}", token_count_label(tokens));
                     meta_spans.push(Span::styled(token_str, muted_style));
                 }
 
@@ -337,7 +337,7 @@ impl ConversationsRenderer {
 
             if let Some(tokens) = state.total_tokens {
                 text_lines.push(Line::from(vec![Span::styled(
-                    format!("  Total Tokens: {}K", tokens.total_tokens / 1000),
+                    format!("  Total Tokens: {}", token_count_label(tokens.total_tokens)),
                     text_style,
                 )]));
             }
@@ -862,6 +862,18 @@ fn compact_message_count(count: usize) -> String {
     }
 }
 
+fn token_count_label(count: usize) -> String {
+    if count < 1000 {
+        if count == 1 {
+            "1 token".to_string()
+        } else {
+            format!("{} tokens", count)
+        }
+    } else {
+        format!("{}K tokens", count / 1000)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1003,6 +1015,38 @@ mod tests {
     }
 
     #[test]
+    fn test_render_sessions_list_shows_small_token_counts() {
+        let renderer = ConversationsRenderer::new();
+        let mut state = PluginState::new();
+        let mut session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Token polish",
+            "test-adapter",
+        );
+        session.message_count = 1;
+        session.total_tokens = Some(999);
+        state.set_sessions(vec![SessionInfo {
+            session,
+            adapter_type: crate::adapters::types::AdapterType::Codex,
+            adapter_icon: 'T',
+            adapter_name: "Test Adapter".to_string(),
+        }]);
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("999 tokens"));
+        assert!(!content.contains("0K"));
+    }
+
+    #[test]
     fn test_render_conversation_title_uses_plural_message_count() {
         let renderer = ConversationsRenderer::new();
         let mut state = PluginState::new();
@@ -1036,6 +1080,13 @@ mod tests {
             .collect();
         assert!(content.contains("2 msgs"));
         assert!(!content.contains("2 msg "));
+    }
+
+    #[test]
+    fn test_token_count_label_keeps_large_counts_compact() {
+        assert_eq!(token_count_label(1), "1 token");
+        assert_eq!(token_count_label(999), "999 tokens");
+        assert_eq!(token_count_label(1_500), "1K tokens");
     }
 
     #[test]
