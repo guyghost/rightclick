@@ -324,7 +324,7 @@ fn render_spec_preview(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
         let workers = state.get_intent_workers(&intent.id);
         if workers.is_empty() {
             lines.push(Line::from(Span::styled(
-                "  No workers yet. Press r to run.",
+                no_workers_for_intent_message(),
                 Style::default().fg(theme_comment(theme)),
             )));
         } else {
@@ -503,6 +503,10 @@ fn empty_intents_message(state: &PluginState) -> String {
         "No intents yet\n\nn  New intent\nf  Refresh intents\n/  Search commands and intents\n?  Help\n\nSpecs: {}",
         state.intents_dir.display()
     )
+}
+
+fn no_workers_for_intent_message() -> &'static str {
+    "  No workers yet\n  r  Run workers\n  f  Refresh intents"
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -842,6 +846,36 @@ mod tests {
         assert!(content.contains("New intent"));
         assert!(content.contains("Refresh intents"));
         assert!(content.contains("Search commands"));
+    }
+
+    #[test]
+    fn test_render_workers_selected_intent_without_workers_includes_next_actions() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let mut state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        state.add_intent(Intent::new(
+            "Improve worker UX",
+            PathBuf::from(".rightclick/intents/worker-ux.md"),
+            "2026-02-14T10:00:00Z",
+        ));
+        state.selected_intent = Some(0);
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No workers yet"));
+        assert!(content.contains("r  Run workers"));
+        assert!(content.contains("f  Refresh intents"));
     }
 
     #[test]
