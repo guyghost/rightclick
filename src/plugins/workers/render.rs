@@ -663,12 +663,18 @@ fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
 
     if state.workers.is_empty() {
         if state.selected_intent().is_some() {
-            format!("No {status} workers\n\nr  Run workers\nv  Switch view")
+            format!(
+                "No {status} workers\n\nr  Run workers\nf  Refresh intents\n/  Search intents\nv  Switch view\n?  Help"
+            )
         } else {
-            format!("No {status} workers\n\nn  New intent\nv  Switch view")
+            format!(
+                "No {status} workers\n\nn  New intent\nf  Refresh intents\n/  Search commands\nv  Switch view\n?  Help"
+            )
         }
     } else {
-        format!("No {status} workers\n\nh/l  Move columns\nv  Switch view")
+        format!(
+            "No {status} workers\n\nh/l  Move columns\nf  Refresh intents\n/  Search intents\nv  Switch view\n?  Help"
+        )
     }
 }
 
@@ -859,7 +865,10 @@ mod tests {
         assert!(content.contains("No pending workers"));
         assert!(content.contains("No running workers"));
         assert!(content.contains("n  New intent"));
+        assert!(content.contains("f  Refresh intents"));
+        assert!(content.contains("/  Search commands"));
         assert!(content.contains("v  Switch view"));
+        assert!(content.contains("?  Help"));
         assert!(!content.contains("No workers"));
     }
 
