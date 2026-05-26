@@ -313,11 +313,11 @@ impl ConversationsRenderer {
             let total_sessions = state.sessions.len();
             let total_messages = state.total_message_count();
             text_lines.push(Line::from(vec![Span::styled(
-                format!("  Total Sessions: {}", total_sessions),
+                format!("  Total: {}", session_count_label(total_sessions)),
                 text_style,
             )]));
             text_lines.push(Line::from(vec![Span::styled(
-                format!("  Total Messages: {}", total_messages),
+                format!("  Messages: {}", compact_message_count(total_messages)),
                 text_style,
             )]));
 
@@ -862,6 +862,14 @@ fn compact_message_count(count: usize) -> String {
     }
 }
 
+fn session_count_label(count: usize) -> String {
+    if count == 1 {
+        "1 session".to_string()
+    } else {
+        format!("{} sessions", count)
+    }
+}
+
 fn token_count_label(count: usize) -> String {
     if count < 1000 {
         if count == 1 {
@@ -1044,6 +1052,39 @@ mod tests {
             .collect();
         assert!(content.contains("999 tokens"));
         assert!(!content.contains("0K"));
+    }
+
+    #[test]
+    fn test_render_welcome_statistics_uses_singular_counts() {
+        let renderer = ConversationsRenderer::new();
+        let mut state = PluginState::new();
+        let mut session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Stats polish",
+            "test-adapter",
+        );
+        session.message_count = 1;
+        state.set_sessions(vec![SessionInfo {
+            session,
+            adapter_type: crate::adapters::types::AdapterType::Codex,
+            adapter_icon: 'T',
+            adapter_name: "Test Adapter".to_string(),
+        }]);
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Total: 1 session"));
+        assert!(content.contains("Messages: 1 msg"));
+        assert!(!content.contains("Total Sessions: 1"));
+        assert!(!content.contains("Total Messages: 1"));
     }
 
     #[test]
