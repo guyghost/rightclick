@@ -9,6 +9,9 @@ ci:
 check:
     bash scripts/dev.sh check
 
+doctor:
+    bash scripts/dev.sh doctor
+
 fmt-check:
     bash scripts/dev.sh fmt-check
 

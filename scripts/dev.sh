@@ -9,6 +9,45 @@ case "$cmd" in
     cargo clippy --all-targets -- -D warnings
     cargo test
     ;;
+  doctor)
+    missing_required=0
+
+    require_cmd() {
+      if command -v "$1" >/dev/null 2>&1; then
+        printf 'ok   %s\n' "$1"
+      else
+        printf 'miss %s (required)\n' "$1"
+        missing_required=1
+      fi
+    }
+
+    optional_cmd() {
+      if command -v "$1" >/dev/null 2>&1; then
+        printf 'ok   %s\n' "$1"
+      else
+        printf 'skip %s (optional)\n' "$1"
+      fi
+    }
+
+    require_cmd cargo
+    require_cmd rustc
+    require_cmd git
+    require_cmd rg
+    optional_cmd tmux
+    optional_cmd just
+
+    if command -v cargo >/dev/null 2>&1; then
+      cargo --version
+    fi
+    if command -v rustc >/dev/null 2>&1; then
+      rustc --version
+    fi
+
+    if [ "$missing_required" -ne 0 ]; then
+      echo "One or more required tools are missing." >&2
+      exit 1
+    fi
+    ;;
   check)
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
@@ -35,6 +74,7 @@ Usage: bash scripts/dev.sh <command>
 
 Commands:
   ci             same checks used by GitHub Actions
+  doctor         check required and optional local developer tools
   check          fmt check, clippy with warnings denied, and tests
   fmt-check      run cargo fmt --check
   clippy         run cargo clippy --all-targets -- -D warnings

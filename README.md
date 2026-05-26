@@ -38,6 +38,7 @@ RightClick keeps the common local checks in `scripts/dev.sh`, with optional
 
 ```bash
 bash scripts/dev.sh ci            # same checks used by GitHub Actions
+bash scripts/dev.sh doctor        # check required and optional local tools
 bash scripts/dev.sh check         # fmt check, clippy with warnings denied, and tests
 bash scripts/dev.sh fmt-check
 bash scripts/dev.sh clippy
