@@ -232,26 +232,36 @@ impl CliGitService {
         let mut files = Vec::new();
 
         for line in output.lines() {
-            if line.len() < 3 {
+            if line.starts_with("## ") {
                 continue;
             }
 
-            let status_code = &line[..2];
-            let path = line[3..].to_string();
+            let mut chars = line.char_indices();
+            let Some((_, index_status)) = chars.next() else {
+                continue;
+            };
+            let Some((_, worktree_status)) = chars.next() else {
+                continue;
+            };
+            let Some((separator_index, ' ')) = chars.next() else {
+                continue;
+            };
 
-            let status = match status_code {
-                " M" => FileStatus::Modified,
-                "M " => FileStatus::Staged,
-                "MM" => FileStatus::Modified, // Staged and modified
-                "A " => FileStatus::Staged,   // Added
-                "AM" => FileStatus::Staged,
-                "D " => FileStatus::Deleted,
-                " D" => FileStatus::Deleted,
-                "R " => FileStatus::Renamed,
-                "RM" => FileStatus::Renamed,
-                "C " => FileStatus::TypeChanged,
-                "??" => FileStatus::Untracked,
-                "!!" => FileStatus::Ignored,
+            let path = line[separator_index + 1..].to_string();
+
+            let status = match (index_status, worktree_status) {
+                (' ', 'M') => FileStatus::Modified,
+                ('M', ' ') => FileStatus::Staged,
+                ('M', 'M') => FileStatus::Modified, // Staged and modified
+                ('A', ' ') => FileStatus::Staged,   // Added
+                ('A', 'M') => FileStatus::Staged,
+                ('D', ' ') => FileStatus::Deleted,
+                (' ', 'D') => FileStatus::Deleted,
+                ('R', ' ') => FileStatus::Renamed,
+                ('R', 'M') => FileStatus::Renamed,
+                ('C', ' ') => FileStatus::TypeChanged,
+                ('?', '?') => FileStatus::Untracked,
+                ('!', '!') => FileStatus::Ignored,
                 _ => FileStatus::Modified,
             };
 
@@ -983,13 +993,24 @@ mod tests {
     #[test]
     fn test_parse_status_output() {
         let service = CliGitService::new();
-        let output = " M src/main.rs\nM  src/lib.rs\n?? new_file.txt";
+        let output = "## main...origin/main\n M src/main.rs\nM  src/lib.rs\n?? new_file.txt";
         let files = service.parse_status_output(output);
 
         assert_eq!(files.len(), 3);
         assert!(matches!(files[0].status, FileStatus::Modified));
         assert!(matches!(files[1].status, FileStatus::Staged));
         assert!(matches!(files[2].status, FileStatus::Untracked));
+    }
+
+    #[test]
+    fn test_parse_status_output_ignores_malformed_lines() {
+        let service = CliGitService::new();
+        let output = "漢\nMMsrc/no-separator.rs\n M src/main.rs";
+        let files = service.parse_status_output(output);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "src/main.rs");
+        assert!(matches!(files[0].status, FileStatus::Modified));
     }
 
     #[test]
