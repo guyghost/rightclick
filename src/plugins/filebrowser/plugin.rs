@@ -1298,7 +1298,7 @@ impl Default for FileBrowserPlugin {
 fn file_browser_status_line(state: &PluginState) -> String {
     let visible = state.visible_indices().len();
     if state.tree.entries.is_empty() {
-        return "No files | a New file | A New directory | r Refresh files | / Search files"
+        return "No files | a New file | A New directory | r Refresh files | / Global search"
             .to_string();
     }
 
@@ -1351,7 +1351,7 @@ fn file_tree_empty_message(state: &PluginState) -> String {
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No files found\n\na  New file\nA  New directory\nr  Refresh files\n/  Search files\n?  Help"
+        "No files found\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search\n?  Help"
             .to_string()
     } else {
         "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
@@ -1366,19 +1366,19 @@ fn file_preview_empty_message(state: &PluginState) -> String {
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No preview available\n\na  New file\nA  New directory\nr  Refresh files\n/  Search files\n?  Help"
+        "No preview available\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search\n?  Help"
             .to_string()
     } else if state.visible_indices().is_empty() {
         "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
             .to_string()
     } else {
-        "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter\nr  Refresh files\n/  Search files\n?  Help"
+        "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter\nr  Refresh files\n/  Global search\n?  Help"
             .to_string()
     }
 }
 
 fn file_info_empty_message() -> &'static str {
-    "No file selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nI  Close info\nr  Refresh files\n/  Search files\n?  Help"
+    "No file selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nI  Close info\nr  Refresh files\n/  Global search\n?  Help"
 }
 
 // Helper function for muted style
@@ -1592,7 +1592,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No files | a New file | A New directory | r Refresh files | / Search files"
+                "No files | a New file | A New directory | r Refresh files | / Global search"
                     .to_string()
             )
         );
@@ -1661,7 +1661,7 @@ mod tests {
         assert!(message.contains("a  New file"));
         assert!(message.contains("A  New directory"));
         assert!(message.contains("r  Refresh files"));
-        assert!(message.contains("/  Search files"));
+        assert!(message.contains("/  Global search"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1743,7 +1743,7 @@ mod tests {
         assert!(message.contains("a  New file"));
         assert!(message.contains("A  New directory"));
         assert!(message.contains("r  Refresh files"));
-        assert!(message.contains("/  Search files"));
+        assert!(message.contains("/  Global search"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1770,7 +1770,7 @@ mod tests {
         assert!(content.contains("Enter/Space  Expand directory"));
         assert!(content.contains("f  Filter"));
         assert!(content.contains("r  Refresh files"));
-        assert!(content.contains("/  Search files"));
+        assert!(content.contains("/  Global search"));
         assert!(content.contains("?  Help"));
     }
 
@@ -1817,7 +1817,7 @@ mod tests {
         assert!(content.contains("Enter/Space  Expand directory"));
         assert!(content.contains("Close info"));
         assert!(content.contains("r  Refresh files"));
-        assert!(content.contains("/  Search files"));
+        assert!(content.contains("/  Global search"));
         assert!(content.contains("?  Help"));
     }
 
