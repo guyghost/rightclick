@@ -263,7 +263,7 @@ fn render_preview(
     // Content area
     let content_area = Rect {
         x: area.x,
-        y: area.y + 1,
+        y: area.y.saturating_add(1),
         width: area.width,
         height: area.height.saturating_sub(1),
     };
@@ -995,6 +995,18 @@ mod tests {
         let mut buf = Buffer::empty(area);
 
         render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+    }
+
+    #[test]
+    fn test_render_preview_handles_offset_area_near_u16_max() {
+        use std::path::PathBuf;
+
+        let state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
+        let theme = Theme::default();
+        let area = Rect::new(0, u16::MAX, 40, 2);
+        let mut buf = Buffer::empty(area);
+
+        render_preview(&state, FocusPane::Preview, true, area, &mut buf, &theme);
     }
 
     #[test]
