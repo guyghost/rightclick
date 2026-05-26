@@ -241,7 +241,7 @@ fn render_diff_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
             } else if state.worktrees.is_empty() {
                 "Create a worktree to inspect diffs".to_string()
             } else {
-                "Select a worktree".to_string()
+                select_worktree_message().to_string()
             }
         }
     };
@@ -286,7 +286,7 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
         let message = if state.worktrees.is_empty() {
             "Create a worktree to link a task"
         } else {
-            "Select a worktree"
+            select_worktree_message()
         };
         let empty = Paragraph::new(message)
             .alignment(Alignment::Center)
@@ -301,6 +301,10 @@ fn empty_worktrees_message() -> &'static str {
 
 fn no_linked_task_message() -> &'static str {
     "No linked task\n\nT  Link task\n/  Search commands"
+}
+
+fn select_worktree_message() -> &'static str {
+    "No worktree selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar"
 }
 
 /// Render kanban mode
@@ -835,5 +839,33 @@ mod tests {
         assert!(content.contains("T  Link task"));
         assert!(content.contains("/  Search commands"));
         assert!(!content.contains("t  Link task"));
+    }
+
+    #[test]
+    fn test_render_task_tab_without_selection_points_to_navigation() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Task;
+        state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        state.selected = None;
+        let area = Rect::new(0, 0, 80, 12);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No worktree selected"));
+        assert!(content.contains("j/k  Navigate worktrees"));
+        assert!(content.contains("Enter/o  Open worktree"));
+        assert!(content.contains("Tab  Focus sidebar"));
+        assert!(!content.contains("Select a worktree"));
     }
 }
