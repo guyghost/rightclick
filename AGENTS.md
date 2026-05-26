@@ -49,17 +49,23 @@ src/
 ## Build Commands
 
 ```bash
+# Full local verification before pushing
+bash scripts/dev.sh pre-push
+
+# Quick checks before committing
+bash scripts/dev.sh pre-commit
+
 # Build
-cargo build --release
+bash scripts/dev.sh build-release
 
 # Run tests
-cargo test
+bash scripts/dev.sh test
 
 # Run with debug logging
-RUST_LOG=debug cargo run
+RUST_LOG=debug bash scripts/dev.sh run
 
 # Install locally
-cargo install --path .
+bash scripts/dev.sh install-local
 ```
 
 ## Key Patterns
