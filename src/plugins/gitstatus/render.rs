@@ -489,9 +489,10 @@ fn render_commit_details(
     block.render(area, buf);
 
     let Some(commit) = state.selected_commit() else {
-        let empty = Paragraph::new("Select a commit to view details")
+        let empty = Paragraph::new(git_commit_details_empty_message(state))
             .alignment(Alignment::Center)
-            .style(style_for_ui_element(theme, UiElement::MutedText));
+            .style(style_for_ui_element(theme, UiElement::MutedText))
+            .wrap(ratatui::widgets::Wrap { trim: true });
         empty.render(inner, buf);
         return;
     };
@@ -919,7 +920,12 @@ fn render_branch_details(
         lines.push(Line::styled("  y      Copy branch name", text_style));
         lines.push(Line::styled("  S      Back to Status", text_style));
     } else {
-        lines.push(Line::styled("Select a branch", muted_style));
+        let empty = Paragraph::new(git_branch_details_empty_message(state))
+            .alignment(Alignment::Center)
+            .style(muted_style)
+            .wrap(ratatui::widgets::Wrap { trim: true });
+        empty.render(inner, buf);
+        return;
     }
 
     Paragraph::new(lines).render(inner, buf);
@@ -1059,7 +1065,12 @@ fn render_stash_details(
         lines.push(Line::styled("  y      Copy stash info", text_style));
         lines.push(Line::styled("  S      Back to Status", text_style));
     } else {
-        lines.push(Line::styled("Select a stash entry", muted_style));
+        let empty = Paragraph::new(git_stash_details_empty_message(state))
+            .alignment(Alignment::Center)
+            .style(muted_style)
+            .wrap(ratatui::widgets::Wrap { trim: true });
+        empty.render(inner, buf);
+        return;
     }
 
     Paragraph::new(lines).render(inner, buf);
@@ -1251,12 +1262,36 @@ fn git_commits_empty_message() -> &'static str {
     "No commits\n\nS Status | B Branches | r Refresh"
 }
 
+fn git_commit_details_empty_message(state: &PluginState) -> &'static str {
+    if state.commits.is_empty() {
+        git_commits_empty_message()
+    } else {
+        "No commit selected\n\nj/k Navigate commits\nS Status | B Branches | r Refresh"
+    }
+}
+
 fn git_branches_empty_message() -> &'static str {
     "No branches\n\nS Status | H History | r Refresh"
 }
 
+fn git_branch_details_empty_message(state: &PluginState) -> &'static str {
+    if state.branches.is_empty() {
+        git_branches_empty_message()
+    } else {
+        "No branch selected\n\nj/k Navigate branches\nn New branch\nS Status | H History | r Refresh"
+    }
+}
+
 fn git_stashes_empty_message() -> &'static str {
     "No stashes\n\nS Status | B Branches | r Refresh"
+}
+
+fn git_stash_details_empty_message(state: &PluginState) -> &'static str {
+    if state.stashes.is_empty() {
+        git_stashes_empty_message()
+    } else {
+        "No stash selected\n\nj/k Navigate stashes\ns Save stash\nS Status | B Branches | r Refresh"
+    }
 }
 
 #[cfg(test)]
@@ -1391,5 +1426,49 @@ mod tests {
         assert!(stashes.contains("S Status"));
         assert!(stashes.contains("B Branches"));
         assert!(stashes.contains("r Refresh"));
+    }
+
+    #[test]
+    fn test_git_detail_empty_messages_point_to_navigation_actions() {
+        let mut state = PluginState::new();
+        state.commits.push(crate::core::models::Commit::new(
+            "abc1234",
+            "Improve git UX",
+            "Test User",
+            chrono::Utc::now(),
+        ));
+        state.branches.push(crate::core::models::Branch {
+            name: "feature/git-ux".to_string(),
+            full_name: "refs/heads/feature/git-ux".to_string(),
+            is_current: false,
+            is_remote: false,
+            remote: None,
+            commit_hash: "abc1234".to_string(),
+            upstream: None,
+            ahead: None,
+            behind: None,
+        });
+        state.stashes.push(crate::core::models::Stash {
+            index: 0,
+            message: "WIP git UX".to_string(),
+            commit_hash: "def5678".to_string(),
+            date: None,
+            branch: Some("main".to_string()),
+        });
+
+        let commit = git_commit_details_empty_message(&state);
+        assert!(commit.contains("No commit selected"));
+        assert!(commit.contains("j/k Navigate commits"));
+        assert!(commit.contains("S Status"));
+
+        let branch = git_branch_details_empty_message(&state);
+        assert!(branch.contains("No branch selected"));
+        assert!(branch.contains("j/k Navigate branches"));
+        assert!(branch.contains("n New branch"));
+
+        let stash = git_stash_details_empty_message(&state);
+        assert!(stash.contains("No stash selected"));
+        assert!(stash.contains("j/k Navigate stashes"));
+        assert!(stash.contains("s Save stash"));
     }
 }
