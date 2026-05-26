@@ -18,6 +18,10 @@ use crate::keymap::Action;
 use super::section::Section;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+const MIN_MODAL_WIDTH: u16 = 6;
+const MIN_MODAL_HEIGHT: u16 = 4;
+const MIN_MODAL_HEIGHT_WITH_HINTS: u16 = 5;
+
 /// Visual variant of a modal
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ModalVariant {
@@ -250,7 +254,8 @@ impl Modal {
         // Content: sum of section heights
         let header_height = 3;
         let footer_height = if self.show_hints { 2 } else { 1 };
-        let content_height: u16 = self.sections.iter().map(|s| s.height(width - 4)).sum(); // -4 for padding
+        let content_width = width.saturating_sub(4).max(1);
+        let content_height: u16 = self.sections.iter().map(|s| s.height(content_width)).sum();
 
         header_height + content_height + footer_height
     }
@@ -263,8 +268,18 @@ impl Modal {
     /// * `buf` - The buffer to render to
     /// * `theme` - The current theme
     pub fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
-        let height = self.calculate_height(self.width);
-        let width = self.width.min(area.width.saturating_sub(4));
+        let min_height = if self.show_hints {
+            MIN_MODAL_HEIGHT_WITH_HINTS
+        } else {
+            MIN_MODAL_HEIGHT
+        };
+        if area.width < MIN_MODAL_WIDTH || area.height < min_height {
+            return;
+        }
+
+        let max_width = area.width.saturating_sub(4).max(MIN_MODAL_WIDTH);
+        let width = self.width.min(max_width).min(area.width);
+        let height = self.calculate_height(width).min(area.height);
 
         // Center the modal
         let modal_area = Self::centered_rect(width, height, area);
@@ -397,12 +412,26 @@ impl Modal {
     fn render_content(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
         let content_start_y = area.y + 3;
         let content_width = area.width.saturating_sub(4); // 2 padding each side
+        let content_end_y = if self.show_hints {
+            area.y + area.height.saturating_sub(2)
+        } else {
+            area.y + area.height.saturating_sub(1)
+        };
         let mut current_y = content_start_y;
 
         let focus_id = self.focused_id();
 
         for section in &self.sections {
-            let section_height = section.height(content_width);
+            if current_y >= content_end_y {
+                break;
+            }
+
+            let available_height = content_end_y.saturating_sub(current_y);
+            let section_height = section.height(content_width).min(available_height);
+            if section_height == 0 {
+                break;
+            }
+
             let section_area = Rect {
                 x: area.x + 2,
                 y: current_y,
@@ -775,6 +804,44 @@ mod tests {
 
         modal.show_hints = true;
         assert_eq!(modal.calculate_height(60), 3 + 1 + 2 + 2); // + hints line
+    }
+
+    #[test]
+    fn modal_calculate_height_uses_constrained_width() {
+        use crate::modal::section::TextSection;
+
+        let mut modal = Modal::new("Test").with_show_hints(false);
+        modal.add_section(Box::new(TextSection::new("abcdefghij")));
+
+        assert_eq!(modal.calculate_height(80), 3 + 1 + 1);
+        assert_eq!(modal.calculate_height(6), 3 + 5 + 1);
+    }
+
+    #[test]
+    fn modal_render_tiny_area_no_panic() {
+        let modal = Modal::new("Test");
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 5, 4);
+        let mut buf = Buffer::empty(area);
+
+        modal.render(area, &mut buf, &theme);
+    }
+
+    #[test]
+    fn modal_render_narrow_area_keeps_border_visible() {
+        use crate::modal::section::TextSection;
+
+        let mut modal = Modal::new("Narrow").with_width(80).with_show_hints(false);
+        modal.add_section(Box::new(TextSection::new("abcdefghij")));
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 10, 9);
+        let mut buf = Buffer::empty(area);
+
+        modal.render(area, &mut buf, &theme);
+
+        assert_eq!(buf.cell((2, 0)).unwrap().symbol(), "╭");
+        assert_eq!(buf.cell((7, 8)).unwrap().symbol(), "╯");
     }
 
     #[test]

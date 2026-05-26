@@ -137,6 +137,7 @@ impl Section for TextSection {
 
     fn height(&self, width: u16) -> u16 {
         // Calculate wrapped line count
+        let width = width.max(1);
         let text_width = unicode_width::UnicodeWidthStr::width(self.text.as_str()) as u16;
         if text_width == 0 {
             return 1;
@@ -825,6 +826,7 @@ mod tests {
         let section = TextSection::new("Hello World");
         // "Hello World" is 11 chars, at width 5 that's 3 lines
         assert_eq!(section.height(5), 3);
+        assert_eq!(section.height(0), 11);
 
         let empty = TextSection::new("");
         assert_eq!(empty.height(10), 1);
