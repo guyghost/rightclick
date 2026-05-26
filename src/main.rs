@@ -827,6 +827,9 @@ fn build_help_lines(
             lines.push(format_command_help_line(&key, command));
         }
     }
+    if seen.is_empty() {
+        lines.push("  No plugin commands available in this view".to_string());
+    }
 
     lines.extend([
         String::new(),
@@ -1062,6 +1065,20 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("Refresh - Reload repository state"))
         );
+    }
+
+    #[test]
+    fn test_build_help_lines_describes_empty_plugin_commands() {
+        let lines = build_help_lines("Workers", &[], "Workers ready");
+
+        assert!(lines.iter().any(|line| line.contains("Plugin commands:")));
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("No plugin commands available in this view"))
+        );
+        assert!(lines.iter().any(|line| line.contains("Workers ready")));
+        assert!(lines.iter().any(|line| line.contains("Global shortcuts:")));
     }
 
     #[test]
