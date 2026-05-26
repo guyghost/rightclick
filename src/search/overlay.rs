@@ -19,6 +19,8 @@ use ratatui::{
 use std::str::FromStr;
 
 const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab: Scope";
+const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
+const MIN_SEARCH_OVERLAY_HEIGHT: u16 = 8;
 
 /// State for the search overlay
 #[derive(Debug, Clone)]
@@ -230,16 +232,13 @@ pub fn render_search_overlay(
     buf: &mut Buffer,
     theme: &Theme,
 ) {
-    if !state.visible || area.width < 20 || area.height < 8 {
+    if !state.visible {
         return;
     }
 
-    // Calculate overlay dimensions (80% width, 70% height, centered)
-    let overlay_width = (area.width * 4 / 5).min(100);
-    let overlay_height = (area.height * 7 / 10).min(40);
-    let x = area.x + (area.width.saturating_sub(overlay_width)) / 2;
-    let y = area.y + (area.height.saturating_sub(overlay_height)) / 2;
-    let overlay_area = Rect::new(x, y, overlay_width, overlay_height);
+    let Some(overlay_area) = search_overlay_area(area) else {
+        return;
+    };
 
     // Dim background
     let dim_style = style_for_ui_element(theme, UiElement::Background);
@@ -316,6 +315,29 @@ pub fn render_search_overlay(
     render_results(state, chunks[3], buf, fg, muted, primary, bg);
 
     render_footer(chunks[4], buf, muted);
+}
+
+fn search_overlay_area(area: Rect) -> Option<Rect> {
+    if area.width < MIN_SEARCH_OVERLAY_WIDTH || area.height < MIN_SEARCH_OVERLAY_HEIGHT {
+        return None;
+    }
+
+    let overlay_width = area
+        .width
+        .saturating_mul(4)
+        .saturating_div(5)
+        .clamp(MIN_SEARCH_OVERLAY_WIDTH, 100)
+        .min(area.width);
+    let overlay_height = area
+        .height
+        .saturating_mul(7)
+        .saturating_div(10)
+        .clamp(MIN_SEARCH_OVERLAY_HEIGHT, 40)
+        .min(area.height);
+    let x = area.x + (area.width.saturating_sub(overlay_width)) / 2;
+    let y = area.y + (area.height.saturating_sub(overlay_height)) / 2;
+
+    Some(Rect::new(x, y, overlay_width, overlay_height))
 }
 
 fn render_input_line(
@@ -908,6 +930,36 @@ mod tests {
             }),
             "task"
         );
+    }
+
+    #[test]
+    fn test_search_overlay_area_uses_mainstream_dimensions() {
+        let area = Rect::new(10, 5, 100, 30);
+        let overlay = search_overlay_area(area).unwrap();
+
+        assert_eq!(overlay, Rect::new(20, 9, 80, 21));
+    }
+
+    #[test]
+    fn test_search_overlay_area_preserves_minimum_renderable_size() {
+        let area = Rect::new(0, 0, 20, 8);
+        let overlay = search_overlay_area(area).unwrap();
+
+        assert_eq!(overlay, area);
+    }
+
+    #[test]
+    fn test_search_overlay_area_caps_large_terminals() {
+        let area = Rect::new(0, 0, 200, 100);
+        let overlay = search_overlay_area(area).unwrap();
+
+        assert_eq!(overlay, Rect::new(50, 30, 100, 40));
+    }
+
+    #[test]
+    fn test_search_overlay_area_skips_tiny_terminals() {
+        assert!(search_overlay_area(Rect::new(0, 0, 19, 8)).is_none());
+        assert!(search_overlay_area(Rect::new(0, 0, 20, 7)).is_none());
     }
 
     #[test]
