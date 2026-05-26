@@ -154,7 +154,7 @@ impl WorkersPlugin {
         registry.bind("n", Action::NewFile, FocusContext::Workspace); // Create intent
         registry.bind("D", Action::Delete, FocusContext::Workspace); // Delete intent
         registry.bind("r", Action::Refresh, FocusContext::Workspace); // Run workers
-        // Note: Stop action not available, use 'q' for quit instead
+        // Stop workers is handled directly by the plugin because Action has no Stop variant.
         registry.bind("enter", Action::Enter, FocusContext::Workspace); // Open intent
 
         // Note: Preview tab switching uses [ and ] keys (handled in handle_event)
@@ -1215,6 +1215,33 @@ mod tests {
         assert!(!commands.is_empty());
         assert!(commands.iter().any(|c| c.id == "create"));
         assert!(commands.iter().any(|c| c.id == "run"));
+    }
+
+    #[test]
+    fn test_stop_key_emits_stop_workers_command() {
+        let mut plugin = WorkersPlugin::new();
+
+        let commands = plugin.handle_event_internal(Event::Key {
+            code: "s".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert_eq!(commands, vec![Command::StopWorkers]);
+    }
+
+    #[test]
+    fn test_execute_stop_command_uses_declared_shortcut() {
+        let mut plugin = WorkersPlugin::new();
+
+        let execution = plugin
+            .execute_command("stop")
+            .expect("stop command should execute");
+
+        assert_eq!(execution.command_name, "Stop");
+        assert_eq!(
+            plugin.pending_commands.pop_front(),
+            Some(Command::StopWorkers)
+        );
     }
 
     #[test]
