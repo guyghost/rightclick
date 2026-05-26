@@ -16,6 +16,11 @@ use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 
+const CREATE_WORKTREE_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
+const DELETE_WORKTREE_MODAL_HINT: &str = "y: Confirm  |  Other: Cancel";
+const LINK_TASK_MODAL_HINT: &str = "Enter: Link  |  Esc: Cancel";
+const MERGE_WORKFLOW_MODAL_HINT: &str = "1-3: Select  |  Esc: Cancel";
+
 /// Render the workspace plugin
 pub fn render_workspace(
     state: &PluginState,
@@ -487,8 +492,8 @@ fn render_create_worktree_modal(state: &PluginState, area: Rect, buf: &mut Buffe
     block.render(modal_area, buf);
 
     let text = format!(
-        "Name: {}\n\nBranch: {}\n\nPress Enter to create, Esc to cancel",
-        state.new_worktree_name, state.new_worktree_branch
+        "Name: {}\n\nBranch: {}\n\n{}",
+        state.new_worktree_name, state.new_worktree_branch, CREATE_WORKTREE_MODAL_HINT
     );
 
     let paragraph = Paragraph::new(text).style(style_for_ui_element(theme, UiElement::Text));
@@ -516,8 +521,8 @@ fn render_delete_confirm_modal(state: &PluginState, area: Rect, buf: &mut Buffer
         .unwrap_or_default();
 
     let text = format!(
-        "Delete worktree '{}'?\n\nThis cannot be undone.\n\nPress 'y' to confirm, any other key to cancel",
-        worktree_name
+        "Delete worktree '{}'?\n\nThis cannot be undone.\n\n{}",
+        worktree_name, DELETE_WORKTREE_MODAL_HINT
     );
 
     let paragraph = Paragraph::new(text)
@@ -542,8 +547,8 @@ fn render_link_task_modal(state: &PluginState, area: Rect, buf: &mut Buffer, the
     block.render(modal_area, buf);
 
     let text = format!(
-        "Task ID: {}\n\nPress Enter to link, Esc to cancel",
-        state.task_id_buffer
+        "Task ID: {}\n\n{}",
+        state.task_id_buffer, LINK_TASK_MODAL_HINT
     );
 
     let paragraph = Paragraph::new(text).style(style_for_ui_element(theme, UiElement::Text));
@@ -571,8 +576,8 @@ fn render_merge_dialog_modal(state: &PluginState, area: Rect, buf: &mut Buffer, 
         .unwrap_or_default();
 
     let text = format!(
-        "Worktree: {}\n\nMerge options:\n\n1. git merge --no-ff <branch>\n2. git merge --squash <branch>\n3. gh pr create --fill --head <branch>\n\nCommands run from the main repository checkout.\n\nPress number to select, Esc to cancel",
-        worktree_name
+        "Worktree: {}\n\nMerge options:\n\n1. git merge --no-ff <branch>\n2. git merge --squash <branch>\n3. gh pr create --fill --head <branch>\n\nCommands run from the main repository checkout.\n\n{}",
+        worktree_name, MERGE_WORKFLOW_MODAL_HINT
     );
 
     let paragraph = Paragraph::new(text).style(style_for_ui_element(theme, UiElement::Text));
@@ -805,6 +810,23 @@ mod tests {
         let centered = centered_rect(50, 50, area);
         assert!(centered.width <= 100);
         assert!(centered.height <= 100);
+    }
+
+    #[test]
+    fn test_workspace_modal_hints_use_compact_action_case() {
+        let hints = [
+            CREATE_WORKTREE_MODAL_HINT,
+            DELETE_WORKTREE_MODAL_HINT,
+            LINK_TASK_MODAL_HINT,
+            MERGE_WORKFLOW_MODAL_HINT,
+        ];
+
+        assert!(hints.iter().all(|hint| hint.contains(": ")));
+        assert!(hints.iter().all(|hint| hint.contains("Cancel")));
+        assert!(CREATE_WORKTREE_MODAL_HINT.contains("Enter: Create"));
+        assert!(LINK_TASK_MODAL_HINT.contains("Enter: Link"));
+        assert!(MERGE_WORKFLOW_MODAL_HINT.contains("1-3: Select"));
+        assert!(!hints.iter().any(|hint| hint.starts_with("Press ")));
     }
 
     #[test]
