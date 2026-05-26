@@ -904,14 +904,14 @@ impl Plugin for ConversationsPlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "expand",
-                "Expand",
+                "Expand All",
                 "Expand messages in the current conversation",
                 'e',
                 crate::keymap::FocusContext::Conversations,
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "collapse",
-                "Collapse",
+                "Collapse All",
                 "Collapse messages in the current conversation",
                 'c',
                 crate::keymap::FocusContext::Conversations,
@@ -1156,8 +1156,11 @@ mod tests {
 
         assert_eq!(filter_command.name, "Filter");
         assert_eq!(filter_command.key, 'f');
+        assert!(commands.iter().any(|command| command.id == "expand"
+            && command.name == "Expand All"
+            && command.key == 'e'));
         assert!(commands.iter().any(|command| command.id == "collapse"
-            && command.name == "Collapse"
+            && command.name == "Collapse All"
             && command.key == 'c'));
         assert!(!commands.iter().any(|command| command.key == '/'));
     }
@@ -1177,7 +1180,7 @@ mod tests {
             .execute_command("collapse")
             .expect("collapse command should execute");
 
-        assert_eq!(execution.command_name, "Collapse");
+        assert_eq!(execution.command_name, "Collapse All");
         assert!(plugin.state().expanded_messages.is_empty());
     }
 
