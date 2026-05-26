@@ -26,6 +26,8 @@ use crate::theme::style_for_ui_element;
 const PALETTE_EMPTY_ACTION_HINT: &str = "Esc: Close  |  Tab: Contexts  |  ?: Help";
 const PALETTE_NO_MATCH_ACTION_HINT: &str =
     "Backspace: Edit  |  Ctrl+U: Clear  |  Esc: Close  |  Tab: Contexts  |  ?: Help";
+const MIN_VISIBLE_RESULTS: usize = 1;
+const MAX_RENDERABLE_VISIBLE_RESULTS: usize = u16::MAX as usize - 4;
 
 /// Actions that can be returned from handling key events.
 #[derive(Debug, Clone, PartialEq)]
@@ -166,10 +168,11 @@ impl Palette {
 
     /// Adjusts the scroll offset to keep the selected item visible.
     fn adjust_scroll(&mut self) {
+        let max_visible = self.max_visible.max(MIN_VISIBLE_RESULTS);
         if self.selected < self.scroll_offset {
             self.scroll_offset = self.selected;
-        } else if self.selected >= self.scroll_offset + self.max_visible {
-            self.scroll_offset = self.selected.saturating_sub(self.max_visible - 1);
+        } else if self.selected >= self.scroll_offset.saturating_add(max_visible) {
+            self.scroll_offset = self.selected.saturating_sub(max_visible.saturating_sub(1));
         }
     }
 
@@ -291,8 +294,11 @@ impl Palette {
         Clear.render(area, buf);
 
         // Create a centered popup
-        let popup_width = (area.width * 4 / 5).max(40).min(area.width - 4);
-        let popup_height = (self.max_visible as u16 + 4).min(area.height - 2);
+        let popup_width = ((u32::from(area.width) * 4 / 5) as u16)
+            .max(40)
+            .min(area.width - 4);
+        let popup_height =
+            (self.max_visible.min(MAX_RENDERABLE_VISIBLE_RESULTS) as u16 + 4).min(area.height - 2);
 
         let popup_area = Rect {
             x: area.x + (area.width - popup_width) / 2,
@@ -409,10 +415,8 @@ impl Palette {
 
         let item_height = 2u16; // Each item takes 2 rows
         let visible_capacity = area.height.div_ceil(item_height) as usize;
-        let visible_count = self
-            .max_visible
-            .min(self.filtered.len())
-            .min(visible_capacity);
+        let max_visible = self.max_visible.max(MIN_VISIBLE_RESULTS);
+        let visible_count = max_visible.min(self.filtered.len()).min(visible_capacity);
 
         // Calculate visible range
         let start_idx = self
@@ -448,7 +452,7 @@ impl Palette {
 
             let mut scrollbar_state = ScrollbarState::new(self.filtered.len())
                 .position(self.selected)
-                .viewport_content_length(self.max_visible);
+                .viewport_content_length(visible_count.min(max_visible));
 
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
             scrollbar.render(scrollbar_area, buf, &mut scrollbar_state);
@@ -629,7 +633,7 @@ impl Palette {
 
     /// Sets the maximum number of visible entries.
     pub fn set_max_visible(&mut self, max_visible: usize) {
-        self.max_visible = max_visible;
+        self.max_visible = max_visible.clamp(MIN_VISIBLE_RESULTS, MAX_RENDERABLE_VISIBLE_RESULTS);
         self.adjust_scroll();
     }
 
@@ -977,6 +981,47 @@ mod tests {
 
         palette.set_max_visible(2);
         assert_eq!(palette.max_visible, 2);
+    }
+
+    #[test]
+    fn test_max_visible_clamps_to_renderable_range() {
+        let mut palette = test_palette();
+
+        palette.set_max_visible(0);
+        assert_eq!(palette.max_visible, MIN_VISIBLE_RESULTS);
+
+        palette.set_max_visible(usize::MAX);
+        assert_eq!(palette.max_visible, MAX_RENDERABLE_VISIBLE_RESULTS);
+    }
+
+    #[test]
+    fn test_adjust_scroll_tolerates_zero_max_visible() {
+        let mut palette = test_palette();
+        palette.max_visible = 0;
+        palette.selected = 2;
+
+        palette.adjust_scroll();
+
+        assert_eq!(palette.scroll_offset, 2);
+    }
+
+    #[test]
+    fn test_render_tolerates_extreme_max_visible() {
+        let mut palette = test_palette();
+        palette.max_visible = usize::MAX;
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        palette.render(area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Command Palette"));
     }
 
     #[test]
