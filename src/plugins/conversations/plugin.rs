@@ -985,7 +985,11 @@ fn conversations_status_line(state: &PluginState) -> String {
     let messages = state.total_message_count();
 
     if state.search_query.is_some() || state.adapter_filter.is_some() {
-        format!("{} of {} sessions | {} messages", visible, total, messages)
+        let mut status = format!("{} of {} sessions | {} messages", visible, total, messages);
+        if state.search_query.is_some() {
+            status.push_str(" | Esc Clear search");
+        }
+        status
     } else {
         format!("{} sessions | {} messages", total, messages)
     }
@@ -1174,7 +1178,7 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("1 of 2 sessions | 8 messages".to_string())
+            Some("1 of 2 sessions | 8 messages | Esc Clear search".to_string())
         );
     }
 
