@@ -393,8 +393,8 @@ impl Palette {
         let placeholder_style = style_for_ui_element(theme, UiElement::InputPlaceholder);
 
         // Draw input background
-        for y in area.y..area.y + area.height {
-            for x in area.x..area.x + area.width {
+        for y in area.top()..area.bottom() {
+            for x in area.left()..area.right() {
                 if let Some(cell) = buf.cell_mut((x, y)) {
                     cell.set_style(input_style);
                     cell.set_symbol(" ");
@@ -425,7 +425,7 @@ impl Palette {
             let cursor_x = text_area
                 .x
                 .saturating_add(cursor_display_width(&self.input, self.cursor_pos) as u16);
-            if cursor_x < text_area.x + text_area.width {
+            if cursor_x < text_area.right() {
                 if let Some(cell) = buf.cell_mut((cursor_x, text_area.y)) {
                     let cursor_style = style_for_ui_element(theme, UiElement::Text)
                         .bg(Color::from_str(&theme.colors.cursor).unwrap_or(Color::White));
@@ -461,7 +461,7 @@ impl Palette {
         for (i, match_result) in self.filtered[start_idx..end_idx].iter().enumerate() {
             let item_idx = start_idx + i;
             let is_selected = item_idx == self.selected;
-            let y = area.y + (i as u16 * item_height);
+            let y = area.y.saturating_add(i as u16 * item_height);
             let remaining_height = area.y.saturating_add(area.height).saturating_sub(y);
 
             let item_area = Rect {
@@ -477,7 +477,7 @@ impl Palette {
         // Render scrollbar if needed
         if self.filtered.len() > visible_count {
             let scrollbar_area = Rect {
-                x: area.x + area.width - 1,
+                x: area.right().saturating_sub(1),
                 y: area.y,
                 width: 1,
                 height: area.height,
@@ -511,8 +511,8 @@ impl Palette {
         };
 
         // Fill background
-        for y in area.y..area.y + area.height {
-            for x in area.x..area.x + area.width {
+        for y in area.top()..area.bottom() {
+            for x in area.left()..area.right() {
                 if let Some(cell) = buf.cell_mut((x, y)) {
                     cell.set_style(bg_style);
                     cell.set_symbol(" ");
@@ -548,7 +548,7 @@ impl Palette {
         // Render first line
         let first_line = Line::from(first_line_spans);
         let first_line_area = Rect {
-            x: area.x + 1,
+            x: area.x.saturating_add(1),
             y: area.y,
             width: area.width.saturating_sub(2),
             height: 1,
@@ -563,8 +563,8 @@ impl Palette {
                 Span::styled(entry.description.clone(), desc_style),
             ]);
             let desc_area = Rect {
-                x: area.x + 1,
-                y: area.y + 1,
+                x: area.x.saturating_add(1),
+                y: area.y.saturating_add(1),
                 width: area.width.saturating_sub(2),
                 height: 1,
             };
@@ -795,6 +795,16 @@ mod tests {
         let palette = Palette::with_entries(entries);
         assert_eq!(palette.all_entries.len(), 1);
         assert_eq!(palette.filtered.len(), 1);
+    }
+
+    #[test]
+    fn test_palette_render_handles_offset_area_near_u16_max() {
+        let palette = test_palette();
+        let theme = Theme::default();
+        let area = Rect::new(u16::MAX - 100, u16::MAX - 20, 100, 20);
+        let mut buf = Buffer::empty(area);
+
+        palette.render(area, &mut buf, &theme);
     }
 
     #[test]
