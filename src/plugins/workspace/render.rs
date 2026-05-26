@@ -316,12 +316,12 @@ fn diff_empty_message(state: &PluginState) -> String {
     if let Some(worktree) = state.selected_worktree() {
         if worktree.is_dirty {
             format!(
-                "Diff not loaded yet for {}\n\nr  Refresh worktrees\nj/k  Navigate worktrees",
+                "Diff not loaded yet for {}\n\nr  Refresh worktrees\nj/k  Navigate worktrees\n/  Search worktrees\n?  Help",
                 worktree.name
             )
         } else {
             format!(
-                "Working tree clean: {}\n\nj/k  Navigate worktrees\nT  Link task",
+                "Working tree clean: {}\n\nj/k  Navigate worktrees\nT  Link task\n/  Search worktrees\n?  Help",
                 worktree.name
             )
         }
@@ -964,6 +964,8 @@ mod tests {
         assert!(content.contains("Diff not loaded yet for feature"));
         assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("j/k  Navigate worktrees"));
+        assert!(content.contains("/  Search worktrees"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -990,6 +992,8 @@ mod tests {
         assert!(content.contains("Working tree clean: feature"));
         assert!(content.contains("j/k  Navigate worktrees"));
         assert!(content.contains("T  Link task"));
+        assert!(content.contains("/  Search worktrees"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
