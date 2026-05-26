@@ -651,7 +651,7 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
 
                 // Separator between cards
                 lines.push(Line::from(Span::styled(
-                    "────────────────",
+                    worker_card_separator(inner.width as usize),
                     Style::default().fg(theme_border(theme)),
                 )));
             }
@@ -687,6 +687,10 @@ fn truncate_with_suffix(value: &str, max_width: usize) -> String {
     }
     output.push_str("..");
     output
+}
+
+fn worker_card_separator(width: usize) -> String {
+    "─".repeat(width.min(16))
 }
 
 fn first_chars(value: &str, max_chars: usize) -> String {
@@ -1393,5 +1397,13 @@ mod tests {
         assert_eq!(truncate_with_suffix("abcdef", 2), "..");
         assert_eq!(truncate_with_suffix("abc", 0), "");
         assert_eq!(truncate_with_suffix("abc", 5), "abc");
+    }
+
+    #[test]
+    fn test_worker_card_separator_fits_column_width() {
+        assert_eq!(worker_card_separator(0), "");
+        assert_eq!(worker_card_separator(3), "───");
+        assert_eq!(worker_card_separator(16).width(), 16);
+        assert_eq!(worker_card_separator(80).width(), 16);
     }
 }
