@@ -84,8 +84,8 @@ impl ConversationsRenderer {
     ) {
         // Clear the area with background color
         let bg_style = style_for_ui_element(theme, UiElement::Background);
-        for y in area.y..area.y + area.height {
-            for x in area.x..area.x + area.width {
+        for y in area.top()..area.bottom() {
+            for x in area.left()..area.right() {
                 if let Some(cell) = buf.cell_mut((x, y)) {
                     cell.set_style(bg_style);
                 }
@@ -940,6 +940,17 @@ mod tests {
         let compact = ConversationsRenderer::compact();
         assert!(compact.compact);
         assert!(!compact.show_timestamps);
+    }
+
+    #[test]
+    fn test_render_handles_offset_area_near_u16_max() {
+        let renderer = ConversationsRenderer::new();
+        let state = PluginState::new();
+        let theme = Theme::default();
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 1, 80, 2);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
     }
 
     #[test]
