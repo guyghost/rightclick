@@ -1203,6 +1203,10 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
 pub fn render_status_info(state: &PluginState) -> String {
     let mut parts = Vec::new();
 
+    if state.branch.is_empty() && state.files.is_empty() && state.commits.is_empty() {
+        return "No repository data loaded | r Refresh git status | / Search commands".to_string();
+    }
+
     // Branch status
     if !state.branch.is_empty() {
         parts.push(state.branch.clone());
@@ -1355,9 +1359,21 @@ mod tests {
 
     #[test]
     fn test_render_status_info_clean() {
-        let state = PluginState::new();
+        let mut state = PluginState::new();
+        state.branch = "main".to_string();
         let info = render_status_info(&state);
         assert!(info.contains("clean"));
+    }
+
+    #[test]
+    fn test_render_status_info_points_to_refresh_when_unloaded() {
+        let state = PluginState::new();
+        let info = render_status_info(&state);
+
+        assert_eq!(
+            info,
+            "No repository data loaded | r Refresh git status | / Search commands"
+        );
     }
 
     #[test]
