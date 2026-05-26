@@ -32,6 +32,21 @@ const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty: Clear  |  Esc: Ca
 const ERROR_MODAL_HINT: &str = "Enter/Esc: Close";
 const HELP_OVERLAY_HINT: &str = "?: Close";
 const FILE_INFO_OVERLAY_HINT: &str = "I: Close";
+const MIN_OVERLAY_WIDTH: u16 = 24;
+const MIN_OVERLAY_HEIGHT: u16 = 5;
+
+fn centered_overlay_area(area: Rect, preferred_width: u16, preferred_height: u16) -> Option<Rect> {
+    if area.width < MIN_OVERLAY_WIDTH || area.height < MIN_OVERLAY_HEIGHT {
+        return None;
+    }
+
+    let width = preferred_width.min(area.width);
+    let height = preferred_height.min(area.height);
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+
+    Some(Rect::new(x, y, width, height))
+}
 
 /// Commands for file operations that are executed asynchronously
 #[derive(Debug, Clone, PartialEq)]
@@ -869,13 +884,9 @@ impl FileBrowserPlugin {
         let primary_style = style_for_ui_element(&self.theme, UiElement::Primary);
         let text_style = style_for_ui_element(&self.theme, UiElement::Text);
 
-        // Calculate popup size
-        let popup_width = 50u16;
-        let popup_height = 30u16;
-        let popup_x = (area.width.saturating_sub(popup_width)) / 2;
-        let popup_y = (area.height.saturating_sub(popup_height)) / 2;
-
-        let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+        let Some(popup_area) = centered_overlay_area(area, 50, 30) else {
+            return;
+        };
 
         // Clear background
         Clear.render(popup_area, buf);
@@ -978,13 +989,9 @@ impl FileBrowserPlugin {
         let text_style = style_for_ui_element(&self.theme, UiElement::Text);
         let muted_style = style_for_ui_element(&self.theme, UiElement::MutedText);
 
-        // Calculate popup size
-        let popup_width = 40u16;
-        let popup_height = 12u16;
-        let popup_x = (area.width.saturating_sub(popup_width)) / 2;
-        let popup_y = (area.height.saturating_sub(popup_height)) / 2;
-
-        let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+        let Some(popup_area) = centered_overlay_area(area, 40, 12) else {
+            return;
+        };
 
         // Clear background
         Clear.render(popup_area, buf);
@@ -1155,13 +1162,10 @@ impl FileBrowserPlugin {
             }
         };
 
-        // Calculate popup size
-        let popup_width = 50u16;
         let popup_height = (lines.len() as u16) + 2; // +2 for border
-        let popup_x = (area.width.saturating_sub(popup_width)) / 2;
-        let popup_y = (area.height.saturating_sub(popup_height)) / 2;
-
-        let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+        let Some(popup_area) = centered_overlay_area(area, 50, popup_height) else {
+            return;
+        };
 
         // Clear background
         Clear.render(popup_area, buf);
@@ -1423,6 +1427,28 @@ mod tests {
         assert!(HELP_OVERLAY_HINT.starts_with('?'));
         assert!(FILE_INFO_OVERLAY_HINT.starts_with('I'));
         assert!(!hints.iter().any(|hint| hint.starts_with("Press ")));
+    }
+
+    #[test]
+    fn test_centered_overlay_area_uses_preferred_size_when_it_fits() {
+        let area = Rect::new(10, 5, 100, 40);
+        let popup = centered_overlay_area(area, 50, 20).unwrap();
+
+        assert_eq!(popup, Rect::new(35, 15, 50, 20));
+    }
+
+    #[test]
+    fn test_centered_overlay_area_clamps_to_available_area() {
+        let area = Rect::new(4, 3, 40, 12);
+        let popup = centered_overlay_area(area, 50, 30).unwrap();
+
+        assert_eq!(popup, area);
+    }
+
+    #[test]
+    fn test_centered_overlay_area_skips_tiny_areas() {
+        assert!(centered_overlay_area(Rect::new(0, 0, 23, 12), 50, 30).is_none());
+        assert!(centered_overlay_area(Rect::new(0, 0, 40, 4), 50, 30).is_none());
     }
 
     #[test]
