@@ -10,6 +10,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Tabs, Widget, Wrap},
 };
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 
@@ -634,23 +635,17 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
                 ]));
 
                 // Line 2: intent ID (truncated)
-                let intent_label = if entry.worker.intent_id.len() > 20 {
-                    format!("  {}..", &entry.worker.intent_id[..18])
-                } else {
-                    format!("  {}", entry.worker.intent_id)
-                };
+                let intent_label =
+                    format!("  {}", truncate_with_suffix(&entry.worker.intent_id, 20));
                 lines.push(Line::from(Span::styled(intent_label, muted_style)));
 
                 // Line 3: elapsed time / status info
                 let time_info = if let Some(ref completed_at) = entry.worker.completed_at {
-                    format!("  done: {}", &completed_at[..10.min(completed_at.len())])
+                    format!("  done: {}", first_chars(completed_at, 10))
                 } else if entry.streaming {
                     "  streaming...".to_string()
                 } else {
-                    format!(
-                        "  since: {}",
-                        &entry.worker.created_at[..10.min(entry.worker.created_at.len())]
-                    )
+                    format!("  since: {}", first_chars(&entry.worker.created_at, 10))
                 };
                 lines.push(Line::from(Span::styled(time_info, muted_style)));
 
@@ -665,6 +660,37 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
         let content = Paragraph::new(lines).wrap(Wrap { trim: true });
         content.render(inner, buf);
     }
+}
+
+fn truncate_with_suffix(value: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+
+    if value.width() <= max_width {
+        return value.to_string();
+    }
+
+    if max_width <= 2 {
+        return ".".repeat(max_width);
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in value.chars() {
+        let ch_width = ch.width().unwrap_or(0);
+        if width + ch_width + 2 > max_width {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output.push_str("..");
+    output
+}
+
+fn first_chars(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect()
 }
 
 fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
@@ -1323,5 +1349,49 @@ mod tests {
         assert!(content.contains("Investigator"));
         assert!(content.contains("Implementer"));
         assert!(content.contains("Verifier"));
+    }
+
+    #[test]
+    fn test_worker_card_truncates_unicode_intent_id_safely() {
+        use super::super::state::WorkerEntry;
+        use crate::core::models::intent::{Worker, WorkerType};
+        use std::path::PathBuf;
+
+        let mut state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
+        let worker = Worker::new(
+            "investigate",
+            WorkerType::Investigator,
+            "éclair-session-with-a-very-long-title",
+            PathBuf::from("/repo/w1"),
+            "branch",
+            "claude",
+            PathBuf::from("/repo/log1"),
+            "échéance-2026-05-26",
+        );
+        state
+            .workers
+            .insert(worker.id.clone(), WorkerEntry::new(worker));
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 160, 20);
+        let mut buf = Buffer::empty(area);
+
+        render_kanban(&state, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("éclair-session-wit.."));
+        assert!(content.contains("since: échéance-2"));
+    }
+
+    #[test]
+    fn test_truncate_with_suffix_handles_unicode_boundaries() {
+        assert_eq!(truncate_with_suffix("éclair-session", 8), "éclair..");
+        assert_eq!(truncate_with_suffix("abcdef", 2), "..");
+        assert_eq!(truncate_with_suffix("abc", 0), "");
+        assert_eq!(truncate_with_suffix("abc", 5), "abc");
     }
 }
