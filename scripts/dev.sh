@@ -226,6 +226,8 @@ case "$cmd" in
     fi
     for filter in "$@"; do
       ensure_test_filter_matches "$filter"
+    done
+    for filter in "$@"; do
       run_step cargo test "$filter"
     done
     ;;
