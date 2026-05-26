@@ -192,7 +192,7 @@ impl Header {
                 .style(header_style);
 
             let title_area = Rect {
-                x: area.x + 1,
+                x: area.x.saturating_add(1),
                 y: area.y,
                 width: area.width.saturating_sub(2),
                 height: 1,
@@ -227,8 +227,8 @@ impl Header {
                 .divider(Span::styled(" | ", text_style));
 
             let tabs_area = Rect {
-                x: area.x + 1,
-                y: area.y + lines_used,
+                x: area.x.saturating_add(1),
+                y: area.y.saturating_add(lines_used),
                 width: area.width.saturating_sub(2),
                 height: 1,
             };
@@ -240,8 +240,8 @@ impl Header {
         if area.height > lines_used {
             let border_style = style_for_ui_element(theme, UiElement::Border);
             let border_char = "─";
-            for x in area.x..area.x + area.width {
-                if let Some(cell) = buf.cell_mut((x, area.y + lines_used)) {
+            for x in area.left()..area.right() {
+                if let Some(cell) = buf.cell_mut((x, area.y.saturating_add(lines_used))) {
                     cell.set_symbol(border_char);
                     cell.set_style(border_style);
                 }
@@ -399,7 +399,7 @@ impl Footer {
         let status_para = Paragraph::new(status_line).alignment(Alignment::Left);
 
         let status_area = Rect {
-            x: area.x + 1,
+            x: area.x.saturating_add(1),
             y: area.y,
             width: status_width.saturating_sub(1),
             height: 1,
@@ -432,7 +432,7 @@ impl Footer {
             let hints_para = Paragraph::new(hints_line).alignment(Alignment::Right);
 
             let hints_area = Rect {
-                x: area.x + status_width,
+                x: area.x.saturating_add(status_width),
                 y: area.y,
                 width: hints_width,
                 height: 1,
@@ -618,6 +618,38 @@ mod tests {
         let area = ratatui::layout::Rect::new(0, 0, 12, 1);
         let mut buf = ratatui::buffer::Buffer::empty(area);
         footer.render(area, &mut buf, &Theme::default());
+    }
+
+    #[test]
+    fn test_header_render_offset_area_near_u16_max() {
+        let header = Header::new("RightClick").with_tabs(vec!["A", "B"], 0);
+        let area = ratatui::layout::Rect::new(u16::MAX - 4, 10, 4, 3);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+
+        header.render(area, &mut buf, &Theme::default());
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.chars().any(|ch| ch != ' '));
+    }
+
+    #[test]
+    fn test_footer_render_offset_area_near_u16_max() {
+        let footer = Footer::new("Ready").with_hint("q", "Quit");
+        let area = ratatui::layout::Rect::new(u16::MAX - 6, 20, 6, 1);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+
+        footer.render(area, &mut buf, &Theme::default());
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.chars().any(|ch| ch != ' '));
     }
 
     #[test]
