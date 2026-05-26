@@ -170,14 +170,16 @@ impl Plugin for FileBrowserPlugin {
                 "Create a file in the current directory",
                 'a',
                 crate::keymap::FocusContext::FileBrowserTree,
-            ),
+            )
+            .with_footer_priority(2),
             PluginCommand::with_context_description(
                 "create_dir",
                 "New Directory",
                 "Create a directory in the current directory",
                 'A',
                 crate::keymap::FocusContext::FileBrowserTree,
-            ),
+            )
+            .with_footer_priority(1),
             PluginCommand::with_context_description(
                 "delete",
                 "Delete",
@@ -198,14 +200,16 @@ impl Plugin for FileBrowserPlugin {
                 "Filter visible files",
                 'f',
                 crate::keymap::FocusContext::FileBrowserTree,
-            ),
+            )
+            .with_footer_priority(5),
             PluginCommand::with_context_description(
                 "refresh",
                 "Refresh",
                 "Reload the file tree",
                 'r',
                 crate::keymap::FocusContext::FileBrowserTree,
-            ),
+            )
+            .with_footer_priority(4),
             PluginCommand::with_context_description(
                 "toggle_hidden",
                 "Toggle Hidden",
@@ -226,7 +230,8 @@ impl Plugin for FileBrowserPlugin {
                 "Show metadata for the selected file",
                 'I',
                 crate::keymap::FocusContext::FileBrowserTree,
-            ),
+            )
+            .with_footer_priority(3),
             PluginCommand::with_context_description(
                 "preview_top",
                 "Preview Top",
@@ -1480,6 +1485,22 @@ mod tests {
                 "missing command {id}"
             );
         }
+
+        let prioritized: Vec<(&str, u8)> = commands
+            .iter()
+            .filter(|command| command.priority > 0)
+            .map(|command| (command.id.as_str(), command.priority))
+            .collect();
+        assert_eq!(
+            prioritized,
+            vec![
+                ("create_file", 2),
+                ("create_dir", 1),
+                ("filter", 5),
+                ("refresh", 4),
+                ("file_info", 3)
+            ]
+        );
     }
 
     #[test]
