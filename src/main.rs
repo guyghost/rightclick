@@ -354,12 +354,13 @@ impl App {
                             self.show_help = !self.show_help;
                             return Ok(());
                         }
-                        KeyCode::Char(c) if c.is_ascii_digit() => {
+                        KeyCode::Char(c) => {
                             // Always use digits 1-9 for global plugin navigation
-                            let idx = c.to_digit(10).unwrap() as usize;
-                            if idx > 0 && idx <= self.plugins.len() {
-                                self.switch_plugin(idx - 1);
-                                return Ok(());
+                            if let Some(idx) = plugin_shortcut_index(c) {
+                                if idx < self.plugins.len() {
+                                    self.switch_plugin(idx);
+                                    return Ok(());
+                                }
                             }
                         }
                         KeyCode::Tab
@@ -962,6 +963,12 @@ fn is_ctrl_c_quit_key(key: &crossterm::event::KeyEvent) -> bool {
         && key.modifiers.contains(KeyModifiers::CONTROL)
 }
 
+fn plugin_shortcut_index(c: char) -> Option<usize> {
+    c.to_digit(10)
+        .and_then(|digit| digit.checked_sub(1))
+        .map(|idx| idx as usize)
+}
+
 /// Convert a crossterm KeyCode to a string representation
 fn key_code_to_string(code: crossterm::event::KeyCode) -> String {
     use crossterm::event::KeyCode;
@@ -1335,5 +1342,13 @@ mod tests {
         assert!(is_ctrl_c_quit_key(&ctrl_c));
         assert!(is_ctrl_c_quit_key(&ctrl_shift_c));
         assert!(!is_ctrl_c_quit_key(&plain_c));
+    }
+
+    #[test]
+    fn test_plugin_shortcut_index_maps_digits_without_panics() {
+        assert_eq!(plugin_shortcut_index('1'), Some(0));
+        assert_eq!(plugin_shortcut_index('9'), Some(8));
+        assert_eq!(plugin_shortcut_index('0'), None);
+        assert_eq!(plugin_shortcut_index('a'), None);
     }
 }
