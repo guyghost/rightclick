@@ -737,13 +737,15 @@ impl App {
         let inner = block.inner(popup);
         block.render(popup, buf);
 
-        let Some(plugin) = self.plugins.get(self.active_plugin) else {
-            return;
+        let lines = if let Some(plugin) = self.plugins.get(self.active_plugin) {
+            let status = plugin
+                .status_line()
+                .unwrap_or_else(|| format!("{} ready", plugin.name()));
+            build_help_lines(plugin.name(), &plugin.commands(), &status)
+        } else {
+            build_no_plugins_help_lines()
         };
-        let status = plugin
-            .status_line()
-            .unwrap_or_else(|| format!("{} ready", plugin.name()));
-        let lines = build_help_lines(plugin.name(), &plugin.commands(), &status);
+
         let rendered: Vec<Line> = lines
             .into_iter()
             .take(inner.height as usize)
@@ -839,6 +841,22 @@ fn build_help_lines(
     ]);
 
     lines
+}
+
+fn build_no_plugins_help_lines() -> Vec<String> {
+    vec![
+        "No plugins loaded".to_string(),
+        "RightClick is running without an active plugin.".to_string(),
+        String::new(),
+        "Global shortcuts:".to_string(),
+        "  /        Search commands".to_string(),
+        "  ?        Toggle this help".to_string(),
+        "  q/Ctrl+C Quit".to_string(),
+        String::new(),
+        "Diagnostics:".to_string(),
+        "  Restart with RUST_LOG=debug to inspect plugin startup.".to_string(),
+        "  Check configuration if this state persists.".to_string(),
+    ]
 }
 
 fn build_footer_hints(
@@ -1044,6 +1062,30 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("Refresh - Reload repository state"))
         );
+    }
+
+    #[test]
+    fn test_build_no_plugins_help_lines_points_to_global_actions() {
+        let lines = build_no_plugins_help_lines();
+
+        assert!(lines.iter().any(|line| line.contains("No plugins loaded")));
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("/") && line.contains("Search commands"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("?") && line.contains("Toggle this help"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("q/Ctrl+C") && line.contains("Quit"))
+        );
+        assert!(lines.iter().any(|line| line.contains("RUST_LOG=debug")));
+        assert!(lines.iter().any(|line| line.contains("configuration")));
     }
 
     #[test]
