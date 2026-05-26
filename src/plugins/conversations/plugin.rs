@@ -998,7 +998,7 @@ fn conversations_status_line(state: &PluginState) -> String {
             status.push_str(&format!(" | adapter: {}", adapter_type.display_name()));
         }
         if state.search_query.is_some() {
-            status.push_str(" | Esc Clear search");
+            status.push_str(" | Esc: Clear");
         }
         status
     } else {
@@ -1235,9 +1235,7 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some(
-                "1 session visible | 2 sessions total | 8 messages | Esc Clear search".to_string()
-            )
+            Some("1 session visible | 2 sessions total | 8 messages | Esc: Clear".to_string())
         );
     }
 

@@ -841,7 +841,7 @@ fn empty_sessions_message(state: &PluginState) -> String {
         .filter(|query| !query.is_empty())
     {
         Some(query) => format!(
-            "No sessions match \"{}\"\n\nType another query\nr  Refresh sessions\nf  Reset filter\nEsc  Clear search\n?  Help",
+            "No sessions match \"{}\"\n\nType another query\nr  Refresh sessions\nf  Reset filter\nEsc: Clear\n?  Help",
             query
         ),
         None => "No sessions found\n\nr  Refresh detected adapters\nf  Filter sessions\n/  Search sessions\n?  Help\n\nSessions appear after supported adapters are detected."
@@ -980,7 +980,8 @@ mod tests {
         assert!(message.contains("Type another query"));
         assert!(message.contains("r  Refresh sessions"));
         assert!(message.contains("f  Reset filter"));
-        assert!(message.contains("Esc  Clear search"));
+        assert!(message.contains("Esc: Clear"));
+        assert!(!message.contains("Esc  Clear search"));
         assert!(message.contains("?  Help"));
     }
 
