@@ -132,11 +132,20 @@ pub fn format_session_line(session: &Session, adapter: &dyn Adapter, selected: b
     let msg_count = session.message_count;
 
     let date_str = session.updated_at.format("%Y-%m-%d %H:%M").to_string();
+    let messages = compact_message_count(msg_count);
 
     if selected {
-        format!("▶ {} {} ({} msgs, {})", icon, name, msg_count, date_str)
+        format!("▶ {} {} ({}, {})", icon, name, messages, date_str)
     } else {
-        format!("  {} {} ({} msgs, {})", icon, name, msg_count, date_str)
+        format!("  {} {} ({}, {})", icon, name, messages, date_str)
+    }
+}
+
+fn compact_message_count(count: usize) -> String {
+    if count == 1 {
+        "1 msg".to_string()
+    } else {
+        format!("{} msgs", count)
     }
 }
 
@@ -317,6 +326,20 @@ mod tests {
 
         let selected_line = format_session_line(&session, &adapter, true);
         assert!(selected_line.contains("▶"));
+    }
+
+    #[test]
+    fn test_format_session_line_uses_singular_message_count() {
+        let adapter = MockAdapter {
+            adapter_type: AdapterType::ClaudeCode,
+        };
+        let mut session = Session::new("test-id", "Test Session", "claude-code");
+        session.message_count = 1;
+
+        let line = format_session_line(&session, &adapter, false);
+
+        assert!(line.contains("1 msg"));
+        assert!(!line.contains("1 msgs"));
     }
 
     #[test]
