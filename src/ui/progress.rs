@@ -10,6 +10,7 @@ use ratatui::{
     widgets::Widget,
 };
 use std::str::FromStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 
@@ -64,7 +65,7 @@ impl Widget for ProgressBar<'_> {
         let fg = Color::from_str(&self.theme.colors.foreground).unwrap_or(Color::White);
 
         let bar_width = if let Some(ref label) = self.label {
-            let label_width = label.len() as u16 + 1; // +1 for space
+            let label_width = label.width().saturating_add(1).min(u16::MAX as usize) as u16;
             area.width.saturating_sub(label_width)
         } else {
             area.width
@@ -77,15 +78,23 @@ impl Widget for ProgressBar<'_> {
 
         // Render label if present
         if let Some(ref label) = self.label {
-            for (i, ch) in label.chars().enumerate() {
-                if x + i as u16 >= area.x + area.width {
+            let mut label_x = x;
+            for ch in label.chars() {
+                let ch_width = ch.width().unwrap_or(0) as u16;
+                if ch_width == 0 {
+                    continue;
+                }
+                if label_x.saturating_add(ch_width) > area.x.saturating_add(area.width) {
                     break;
                 }
-                buf[(x + i as u16, area.y)]
+                buf[(label_x, area.y)]
                     .set_char(ch)
                     .set_style(Style::default().fg(fg));
+                label_x = label_x.saturating_add(ch_width);
             }
-            x += label.len() as u16 + 1;
+            x = x
+                .saturating_add(label.width().min(u16::MAX as usize) as u16)
+                .saturating_add(1);
         }
 
         // Render filled portion
@@ -133,6 +142,20 @@ mod tests {
         let bar = ProgressBar::new(0.75, &theme).with_label("Loading:");
         let mut buf = Buffer::empty(Rect::new(0, 0, 30, 1));
         bar.render(Rect::new(0, 0, 30, 1), &mut buf);
+    }
+
+    #[test]
+    fn progress_bar_with_unicode_label_uses_display_width() {
+        let theme = test_theme();
+        let bar = ProgressBar::new(0.2, &theme).with_label("検a");
+        let mut buf = Buffer::empty(Rect::new(0, 0, 10, 1));
+
+        bar.render(Rect::new(0, 0, 10, 1), &mut buf);
+
+        assert_eq!(buf.cell((0, 0)).unwrap().symbol(), "検");
+        assert_eq!(buf.cell((2, 0)).unwrap().symbol(), "a");
+        assert_eq!(buf.cell((4, 0)).unwrap().symbol(), "█");
+        assert_eq!(buf.cell((5, 0)).unwrap().symbol(), "░");
     }
 
     #[test]
