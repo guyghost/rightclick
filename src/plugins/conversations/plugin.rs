@@ -910,6 +910,13 @@ impl Plugin for ConversationsPlugin {
                 crate::keymap::FocusContext::Conversations,
             ),
             crate::plugin::PluginCommand::with_context_description(
+                "collapse",
+                "Collapse",
+                "Collapse messages in the current conversation",
+                'c',
+                crate::keymap::FocusContext::Conversations,
+            ),
+            crate::plugin::PluginCommand::with_context_description(
                 "open",
                 "Open",
                 "Open the selected session",
@@ -1149,7 +1156,29 @@ mod tests {
 
         assert_eq!(filter_command.name, "Filter");
         assert_eq!(filter_command.key, 'f');
+        assert!(commands.iter().any(|command| command.id == "collapse"
+            && command.name == "Collapse"
+            && command.key == 'c'));
         assert!(!commands.iter().any(|command| command.key == '/'));
+    }
+
+    #[test]
+    fn test_execute_collapse_command_uses_declared_shortcut() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin.state_mut().view = ConversationView::Conversation;
+        plugin.state_mut().set_messages(vec![
+            crate::core::models::conversation::Message::user("msg-1", "First"),
+            crate::core::models::conversation::Message::assistant("msg-2", "Second"),
+        ]);
+        plugin.state_mut().expand_all_messages();
+
+        let execution = plugin
+            .execute_command("collapse")
+            .expect("collapse command should execute");
+
+        assert_eq!(execution.command_name, "Collapse");
+        assert!(plugin.state().expanded_messages.is_empty());
     }
 
     #[test]
