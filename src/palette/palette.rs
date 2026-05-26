@@ -565,6 +565,10 @@ impl Palette {
         let mut last_end = 0;
 
         for &(start, end) in match_ranges {
+            let Some((start, end)) = char_range_to_byte_range(text, start, end) else {
+                continue;
+            };
+
             // Add text before the match
             if start > last_end {
                 spans.push(Span::styled(
@@ -664,6 +668,29 @@ fn truncate_query(input: &str, max_len: usize) -> String {
         }
         output
     }
+}
+
+fn char_range_to_byte_range(text: &str, start: usize, end: usize) -> Option<(usize, usize)> {
+    if start >= end {
+        return None;
+    }
+
+    let start_byte = char_index_to_byte_index(text, start)?;
+    let end_byte = char_index_to_byte_index(text, end).unwrap_or(text.len());
+
+    if start_byte >= end_byte {
+        None
+    } else {
+        Some((start_byte, end_byte))
+    }
+}
+
+fn char_index_to_byte_index(text: &str, char_index: usize) -> Option<usize> {
+    if char_index == text.chars().count() {
+        return Some(text.len());
+    }
+
+    text.char_indices().nth(char_index).map(|(idx, _)| idx)
 }
 
 impl Widget for &Palette {
@@ -911,6 +938,18 @@ mod tests {
         assert_eq!(truncate_query("検索command", 8), "検索c...");
         assert_eq!(truncate_query("検索", 3), "検");
         assert_eq!(truncate_query("abc", 0), "");
+    }
+
+    #[test]
+    fn test_highlight_matches_handles_unicode_ranges() {
+        let palette = Palette::new();
+        let theme = Theme::default();
+
+        let spans = palette.highlight_matches("Éclair", &[(0, 1)], &theme, false);
+        let rendered: String = spans.iter().map(|span| span.content.as_ref()).collect();
+
+        assert_eq!(rendered, "Éclair");
+        assert_eq!(spans[0].content.as_ref(), "É");
     }
 
     #[test]
