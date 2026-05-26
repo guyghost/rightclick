@@ -975,7 +975,10 @@ impl super::state::PluginState {
 
 fn workers_status_line(state: &PluginState) -> String {
     if state.intents.is_empty() {
-        return format!("No intents | specs: {}", state.intents_dir.display());
+        return format!(
+            "No intents | n New intent | / Search | specs: {}",
+            state.intents_dir.display()
+        );
     }
 
     let running = state.running_workers_count();
@@ -1270,7 +1273,7 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("No intents | specs: .rightclick/intents".to_string())
+            Some("No intents | n New intent | / Search | specs: .rightclick/intents".to_string())
         );
     }
 
