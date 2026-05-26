@@ -790,8 +790,8 @@ impl FileBrowserPlugin {
             .take(visible_count)
             .enumerate()
         {
-            let y = area.y + row as u16;
-            if y >= area.y + area.height {
+            let y = area.y.saturating_add(row as u16);
+            if y >= area.bottom() {
                 break;
             }
 
@@ -1476,6 +1476,26 @@ mod tests {
         assert!(plugin.handle_action(&Action::NavigateDown));
         assert!(plugin.handle_action(&Action::NavigateUp));
         assert!(plugin.handle_action(&Action::Refresh));
+    }
+
+    #[test]
+    fn test_render_tree_entries_handles_offset_area_near_u16_max() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::File::create(temp_dir.path().join("file.txt")).unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+        plugin.state.show_icons = false;
+        let area = Rect::new(u16::MAX - 30, u16::MAX - 2, 30, 3);
+        let mut buf = Buffer::empty(area);
+
+        plugin.render_tree_entries(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("."));
     }
 
     #[test]
