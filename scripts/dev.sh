@@ -15,6 +15,7 @@ Commands:
   doctor         check required and optional local developer tools
   rust-version   print the required Rust version from Cargo.toml
   check          fmt check, clippy with warnings denied, and tests
+  quick          fmt check and clippy with warnings denied
   fmt-check      run cargo fmt --check
   fmt            run cargo fmt
   clippy         run cargo clippy --all-targets -- -D warnings
@@ -35,6 +36,7 @@ Examples:
 If you use just:
   just help
   just ci
+  just quick
   just test-one plugins::gitstatus
 EOF
 }
@@ -48,6 +50,11 @@ run_checks() {
   run_step cargo fmt --check
   run_step cargo clippy --all-targets -- -D warnings
   run_step cargo test
+}
+
+run_quick_checks() {
+  run_step cargo fmt --check
+  run_step cargo clippy --all-targets -- -D warnings
 }
 
 rust_version() {
@@ -156,6 +163,9 @@ case "$cmd" in
     ;;
   check)
     run_checks
+    ;;
+  quick)
+    run_quick_checks
     ;;
   fmt-check)
     run_step cargo fmt --check

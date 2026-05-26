@@ -12,6 +12,9 @@ ci:
 check:
     bash scripts/dev.sh check
 
+quick:
+    bash scripts/dev.sh quick
+
 doctor:
     bash scripts/dev.sh doctor
 
