@@ -67,6 +67,10 @@ bash scripts/dev.sh install-local
 If you prefer `just`, run `just help` for the same command overview. The default
 `just` recipe also opens that help instead of a terse recipe list.
 
+`test-one`, `test-many`, and `test-list` pass filters through to Cargo as
+substring filters. If a filter does not match any test, the script prints the
+matching `test-list` command to help refine the filter.
+
 ## Keyboard Shortcuts
 
 | Key | Action |

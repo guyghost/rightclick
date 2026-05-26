@@ -67,6 +67,16 @@ run_quick_checks() {
   run_step cargo clippy --all-targets -- -D warnings
 }
 
+print_test_filter_hint() {
+  local filter="$1"
+  local quoted_filter
+
+  printf -v quoted_filter '%q' "$filter"
+  echo "Test filters are passed to Cargo as substring filters; module paths work too." >&2
+  echo "Inspect matches with: bash scripts/dev.sh test-list $quoted_filter" >&2
+  echo "List every test with: bash scripts/dev.sh test-list" >&2
+}
+
 ensure_test_filter_matches() {
   local filter="$1"
   local output
@@ -80,7 +90,7 @@ ensure_test_filter_matches() {
   matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
   if [ "$matches" -eq 0 ]; then
     echo "No tests matched filter: $filter" >&2
-    echo "Use 'bash scripts/dev.sh test-list [filter...]' to inspect available test names." >&2
+    print_test_filter_hint "$filter"
     exit 2
   fi
 }
@@ -101,7 +111,7 @@ list_tests_for_filter() {
   matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
   if [ "$matches" -eq 0 ]; then
     echo "No tests matched filter: $filter" >&2
-    echo "Try a broader filter or run 'bash scripts/dev.sh test-list' to list every test." >&2
+    print_test_filter_hint "$filter"
     exit 2
   fi
 }
