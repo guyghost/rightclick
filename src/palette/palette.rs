@@ -147,33 +147,66 @@ impl Palette {
             self.current_context,
             self.show_all_contexts,
         );
-        self.selected = self.selected.min(self.filtered.len().saturating_sub(1));
+        self.adjust_scroll();
     }
 
     /// Moves the selection up.
     pub fn move_up(&mut self) {
+        self.clamp_selection();
         if self.selected > 0 {
             self.selected -= 1;
-            self.adjust_scroll();
         }
+        self.adjust_scroll();
     }
 
     /// Moves the selection down.
     pub fn move_down(&mut self) {
-        if self.selected + 1 < self.filtered.len() {
+        self.clamp_selection();
+        if self.selected.saturating_add(1) < self.filtered.len() {
             self.selected += 1;
-            self.adjust_scroll();
         }
+        self.adjust_scroll();
     }
 
     /// Adjusts the scroll offset to keep the selected item visible.
     fn adjust_scroll(&mut self) {
-        let max_visible = self.max_visible.max(MIN_VISIBLE_RESULTS);
+        self.clamp_selection();
+        if self.filtered.is_empty() {
+            return;
+        }
+
+        let max_visible = self.visible_limit();
         if self.selected < self.scroll_offset {
             self.scroll_offset = self.selected;
         } else if self.selected >= self.scroll_offset.saturating_add(max_visible) {
             self.scroll_offset = self.selected.saturating_sub(max_visible.saturating_sub(1));
         }
+
+        self.scroll_offset = self
+            .scroll_offset
+            .min(self.filtered.len().saturating_sub(max_visible));
+    }
+
+    fn clamp_selection(&mut self) {
+        if self.filtered.is_empty() {
+            self.selected = 0;
+            self.scroll_offset = 0;
+            return;
+        }
+
+        let last_index = self.filtered.len() - 1;
+        self.selected = self.selected.min(last_index);
+        self.scroll_offset = self.scroll_offset.min(last_index);
+    }
+
+    fn visible_limit(&self) -> usize {
+        self.max_visible
+            .clamp(MIN_VISIBLE_RESULTS, MAX_RENDERABLE_VISIBLE_RESULTS)
+            .min(self.filtered.len().max(MIN_VISIBLE_RESULTS))
+    }
+
+    fn page_step(&self) -> usize {
+        self.visible_limit()
     }
 
     /// Returns the currently selected entry, if any.
@@ -209,12 +242,12 @@ impl Palette {
                 self.move_down();
             }
             KeyCode::PageUp => {
-                for _ in 0..self.max_visible {
+                for _ in 0..self.page_step() {
                     self.move_up();
                 }
             }
             KeyCode::PageDown => {
-                for _ in 0..self.max_visible {
+                for _ in 0..self.page_step() {
                     self.move_down();
                 }
             }
@@ -415,7 +448,7 @@ impl Palette {
 
         let item_height = 2u16; // Each item takes 2 rows
         let visible_capacity = area.height.div_ceil(item_height) as usize;
-        let max_visible = self.max_visible.max(MIN_VISIBLE_RESULTS);
+        let max_visible = self.visible_limit();
         let visible_count = max_visible.min(self.filtered.len()).min(visible_capacity);
 
         // Calculate visible range
@@ -1003,6 +1036,41 @@ mod tests {
         palette.adjust_scroll();
 
         assert_eq!(palette.scroll_offset, 2);
+    }
+
+    #[test]
+    fn test_navigation_clamps_stale_public_selection() {
+        let mut palette = test_palette();
+        palette.selected = usize::MAX;
+        palette.scroll_offset = usize::MAX;
+
+        palette.move_down();
+
+        assert_eq!(palette.selected, 2);
+        assert_eq!(palette.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_page_down_clamps_extreme_public_max_visible() {
+        let mut palette = test_palette();
+        palette.max_visible = usize::MAX;
+
+        palette.handle_key(KeyEvent::from(KeyCode::PageDown));
+
+        assert_eq!(palette.selected, 2);
+        assert_eq!(palette.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_update_filter_clamps_stale_scroll_offset() {
+        let mut palette = test_palette();
+        palette.selected = usize::MAX;
+        palette.scroll_offset = usize::MAX;
+
+        palette.handle_key(KeyEvent::from(KeyCode::Char('o')));
+
+        assert!(palette.selected < palette.filtered.len());
+        assert_eq!(palette.scroll_offset, 0);
     }
 
     #[test]
