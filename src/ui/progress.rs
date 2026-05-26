@@ -99,20 +99,22 @@ impl Widget for ProgressBar<'_> {
 
         // Render filled portion
         for i in 0..filled_width {
-            if x + i >= area.x + area.width {
+            let cell_x = x.saturating_add(i);
+            if cell_x >= area.x.saturating_add(area.width) {
                 break;
             }
-            buf[(x + i, area.y)]
+            buf[(cell_x, area.y)]
                 .set_char(self.filled_char)
                 .set_style(Style::default().fg(primary));
         }
 
         // Render empty portion
         for i in 0..empty_width {
-            if x + filled_width + i >= area.x + area.width {
+            let cell_x = x.saturating_add(filled_width).saturating_add(i);
+            if cell_x >= area.x.saturating_add(area.width) {
                 break;
             }
-            buf[(x + filled_width + i, area.y)]
+            buf[(cell_x, area.y)]
                 .set_char(self.empty_char)
                 .set_style(Style::default().fg(muted));
         }
@@ -188,5 +190,18 @@ mod tests {
         let bar = ProgressBar::new(0.5, &theme);
         let mut buf = Buffer::empty(Rect::new(0, 0, 1, 1));
         bar.render(Rect::new(0, 0, 0, 0), &mut buf);
+    }
+
+    #[test]
+    fn progress_bar_handles_offset_area_near_u16_max() {
+        let theme = test_theme();
+        let area = Rect::new(u16::MAX - 2, 0, 2, 1);
+        let bar = ProgressBar::new(1.0, &theme);
+        let mut buf = Buffer::empty(area);
+
+        bar.render(area, &mut buf);
+
+        assert_eq!(buf.cell((u16::MAX - 2, 0)).unwrap().symbol(), "█");
+        assert_eq!(buf.cell((u16::MAX - 1, 0)).unwrap().symbol(), "█");
     }
 }
