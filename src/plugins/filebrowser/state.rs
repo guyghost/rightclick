@@ -56,9 +56,9 @@ pub struct PluginState {
     pub work_dir: PathBuf,
     /// Show detailed file info panel
     pub show_file_info: bool,
-    /// Current search/filter query
+    /// Current file filter query
     pub filter_query: Option<String>,
-    /// Filtered indices when searching
+    /// Filtered indices for the current file filter query
     pub filtered_indices: Vec<usize>,
     /// Whether a modal is currently active
     pub modal_active: bool,
@@ -285,11 +285,11 @@ impl PluginState {
         self.show_file_info = !self.show_file_info;
     }
 
-    /// Set a filter query for searching files
+    /// Set a filter query for visible files
     ///
     /// # Arguments
     ///
-    /// * `query` - The search query (None to clear)
+    /// * `query` - The filter query (None to clear)
     pub fn set_filter(&mut self, query: Option<String>) {
         self.filter_query = query.and_then(|q| {
             let trimmed = q.trim().to_string();

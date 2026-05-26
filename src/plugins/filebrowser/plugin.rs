@@ -853,7 +853,7 @@ impl FileBrowserPlugin {
             KeyHint::new("j/k", "Navigate"),
             KeyHint::new("↵/space", "Expand/Collapse"),
             KeyHint::new("r", "Refresh"),
-            KeyHint::new("/", "Search"),
+            KeyHint::new("/", "Global search"),
             KeyHint::new("f", "Filter"),
             KeyHint::new("a/A", "New file/dir"),
             KeyHint::new("d", "Delete"),
@@ -1775,7 +1775,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_footer_includes_refresh_and_search_hints() {
+    fn test_render_footer_includes_refresh_and_global_search_hints() {
         let temp_dir = TempDir::new().unwrap();
         let plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
         let area = Rect::new(0, 0, 180, 1);
@@ -1789,7 +1789,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("r: Refresh"));
-        assert!(content.contains("/: Search"));
+        assert!(content.contains("/: Global search"));
     }
 
     #[test]
