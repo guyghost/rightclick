@@ -1066,12 +1066,20 @@ fn workspace_status_line(state: &PluginState) -> String {
         .count();
 
     format!(
-        "{} worktrees | {} dirty | {} agents | {} linked",
-        state.worktrees.len(),
+        "{} | {} dirty | {} | {} linked",
+        workspace_count_label(state.worktrees.len(), "worktree"),
         dirty,
-        agents,
+        workspace_count_label(agents, "agent"),
         linked
     )
+}
+
+fn workspace_count_label(count: usize, label: &str) -> String {
+    if count == 1 {
+        format!("1 {}", label)
+    } else {
+        format!("{} {}s", count, label)
+    }
 }
 
 // ============================================================================
@@ -1395,7 +1403,22 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("2 worktrees | 1 dirty | 1 agents | 1 linked".to_string())
+            Some("2 worktrees | 1 dirty | 1 agent | 1 linked".to_string())
+        );
+    }
+
+    #[test]
+    fn test_status_line_uses_singular_worktree_count() {
+        let mut plugin = WorkspacePlugin::new();
+        plugin.state.worktrees.push(Worktree::new(
+            "clean",
+            PathBuf::from("/repo/clean"),
+            "clean-branch",
+        ));
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("1 worktree | 0 dirty | 0 agents | 0 linked".to_string())
         );
     }
 
