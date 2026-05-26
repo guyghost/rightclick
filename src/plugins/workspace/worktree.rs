@@ -299,38 +299,43 @@ impl WorktreeManager {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut staged = 0;
-        let mut unstaged = 0;
-        let mut untracked = 0;
+        Ok(parse_status_summary(&stdout))
+    }
+}
 
-        for line in stdout.lines() {
-            if line.len() < 2 {
-                continue;
-            }
-            let index_status = line.chars().next().unwrap();
-            let worktree_status = line.chars().nth(1).unwrap();
+fn parse_status_summary(stdout: &str) -> WorktreeStatus {
+    let mut staged = 0;
+    let mut unstaged = 0;
+    let mut untracked = 0;
 
-            match index_status {
-                '?' => untracked += 1,
-                ' ' => {
-                    if worktree_status != ' ' {
-                        unstaged += 1;
-                    }
-                }
-                _ => staged += 1,
-            }
+    for line in stdout.lines() {
+        let mut chars = line.chars();
+        let Some(index_status) = chars.next() else {
+            continue;
+        };
+        let Some(worktree_status) = chars.next() else {
+            continue;
+        };
 
-            if worktree_status != ' ' && worktree_status != '?' {
-                unstaged += 1;
-            }
+        if index_status == '?' && worktree_status == '?' {
+            untracked += 1;
+            continue;
         }
 
-        Ok(WorktreeStatus {
-            staged,
-            unstaged,
-            untracked,
-            is_dirty: staged > 0 || unstaged > 0,
-        })
+        if index_status != ' ' {
+            staged += 1;
+        }
+
+        if worktree_status != ' ' {
+            unstaged += 1;
+        }
+    }
+
+    WorktreeStatus {
+        staged,
+        unstaged,
+        untracked,
+        is_dirty: staged > 0 || unstaged > 0 || untracked > 0,
     }
 }
 
@@ -589,6 +594,26 @@ mod tests {
         assert_eq!(status.unstaged, 0);
         assert_eq!(status.untracked, 0);
         assert!(!status.is_dirty);
+    }
+
+    #[test]
+    fn test_parse_status_summary_counts_porcelain_columns_once() {
+        let status = parse_status_summary(" M modified.rs\nM  staged.rs\nMM both.rs\n?? new.rs\n");
+
+        assert_eq!(status.staged, 2);
+        assert_eq!(status.unstaged, 2);
+        assert_eq!(status.untracked, 1);
+        assert!(status.is_dirty);
+    }
+
+    #[test]
+    fn test_parse_status_summary_ignores_malformed_lines() {
+        let status = parse_status_summary("é\n\n M modified.rs\n");
+
+        assert_eq!(status.staged, 0);
+        assert_eq!(status.unstaged, 1);
+        assert_eq!(status.untracked, 0);
+        assert!(status.is_dirty);
     }
 
     #[test]
