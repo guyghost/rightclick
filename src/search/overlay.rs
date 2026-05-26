@@ -472,7 +472,10 @@ fn render_results(
 
             let line = Line::from(vec![
                 Span::styled(format!("{:<4} ", icon), preview_style),
-                Span::styled(result.title.as_str(), title_style),
+                Span::styled(
+                    display_result_title(&result.title, area.width as usize),
+                    title_style,
+                ),
                 Span::styled("  ", preview_style),
                 Span::styled(
                     truncate_str(&result.preview, area.width as usize / 2),
@@ -486,6 +489,22 @@ fn render_results(
 
     let list = List::new(items);
     list.render(area, buf);
+}
+
+fn display_result_title(title: &str, area_width: usize) -> String {
+    truncate_str(title, result_title_max_len(area_width))
+}
+
+fn result_title_max_len(area_width: usize) -> usize {
+    if area_width <= 12 {
+        return area_width.saturating_sub(5);
+    }
+
+    area_width
+        .saturating_sub(8)
+        .saturating_mul(2)
+        .saturating_div(5)
+        .clamp(8, 48)
 }
 
 fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
@@ -663,6 +682,22 @@ mod tests {
     fn test_truncate_str_handles_unicode_boundaries() {
         assert_eq!(truncate_str("éclair", 4), "é...");
         assert_eq!(truncate_str("abc", 2), "ab");
+    }
+
+    #[test]
+    fn test_display_result_title_truncates_long_titles() {
+        assert_eq!(
+            display_result_title("src/search/overlay.rs:123", 24),
+            "src/s..."
+        );
+        assert_eq!(display_result_title("src/main.rs:42", 80), "src/main.rs:42");
+    }
+
+    #[test]
+    fn test_result_title_max_len_preserves_preview_space() {
+        assert_eq!(result_title_max_len(10), 5);
+        assert_eq!(result_title_max_len(80), 28);
+        assert_eq!(result_title_max_len(200), 48);
     }
 
     #[test]
