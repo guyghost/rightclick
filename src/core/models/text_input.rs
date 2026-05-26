@@ -4,6 +4,8 @@
 //! text input state. It supports single-line and multi-line modes with cursor
 //! navigation, text manipulation, and character limits.
 
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
 /// The input mode for a text input field
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
@@ -247,13 +249,13 @@ impl TextInputState {
             return;
         }
 
-        let (row, col) = self.cursor_row_col();
+        let (row, _) = self.cursor_row_col();
         if row == 0 {
             return;
         }
 
         let lines: Vec<&str> = self.text.split('\n').collect();
-        let target_col = col.min(lines[row - 1].len());
+        let target_col = byte_offset_for_display_col(lines[row - 1], self.cursor_display_col());
 
         // Calculate byte offset for the target position
         let mut offset = 0;
@@ -270,14 +272,14 @@ impl TextInputState {
             return;
         }
 
-        let (row, col) = self.cursor_row_col();
+        let (row, _) = self.cursor_row_col();
         let lines: Vec<&str> = self.text.split('\n').collect();
 
         if row >= lines.len() - 1 {
             return;
         }
 
-        let target_col = col.min(lines[row + 1].len());
+        let target_col = byte_offset_for_display_col(lines[row + 1], self.cursor_display_col());
 
         // Calculate byte offset for the target position
         let mut offset = 0;
@@ -305,6 +307,15 @@ impl TextInputState {
     /// Returns (row, col) tuple for the cursor position
     fn cursor_row_col(&self) -> (usize, usize) {
         (self.cursor_row(), self.cursor_col())
+    }
+
+    /// Returns the current cursor column as terminal display width.
+    fn cursor_display_col(&self) -> usize {
+        let line_start = self.text[..self.cursor_pos]
+            .rfind('\n')
+            .map(|pos| pos + 1)
+            .unwrap_or(0);
+        self.text[line_start..self.cursor_pos].width()
     }
 
     /// Returns the lines of text (for multi-line rendering)
@@ -361,6 +372,18 @@ impl TextInputState {
         }
         new_pos.min(self.text.len())
     }
+}
+
+fn byte_offset_for_display_col(line: &str, display_col: usize) -> usize {
+    let mut width = 0;
+    for (idx, ch) in line.char_indices() {
+        let ch_width = ch.width().unwrap_or(0);
+        if width + ch_width > display_col {
+            return idx;
+        }
+        width += ch_width;
+    }
+    line.len()
 }
 
 impl Default for TextInputState {
@@ -566,6 +589,30 @@ mod tests {
         // Row 1 "hi" only has 2 chars, so col should clamp to 2
         assert_eq!(state.cursor_row(), 1);
         assert_eq!(state.cursor_col(), 2);
+    }
+
+    #[test]
+    fn multi_line_cursor_up_preserves_unicode_display_column() {
+        let mut state = TextInputState::new(InputMode::MultiLine).with_text("検索a\néabc");
+        state.cursor_pos = "検索a\néa".len();
+
+        state.move_cursor_up();
+
+        assert_eq!(state.cursor_row(), 0);
+        assert_eq!(state.cursor_pos(), "検".len());
+        assert!(state.text().is_char_boundary(state.cursor_pos()));
+    }
+
+    #[test]
+    fn multi_line_cursor_down_preserves_unicode_display_column() {
+        let mut state = TextInputState::new(InputMode::MultiLine).with_text("éa\n検索abc");
+        state.cursor_pos = "éa".len();
+
+        state.move_cursor_down();
+
+        assert_eq!(state.cursor_row(), 1);
+        assert_eq!(state.cursor_pos(), "éa\n検".len());
+        assert!(state.text().is_char_boundary(state.cursor_pos()));
     }
 
     #[test]
