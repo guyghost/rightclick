@@ -48,8 +48,8 @@ doc-test:
 test-list *filters:
     bash scripts/dev.sh test-list {{filters}}
 
-test-one filter:
-    bash scripts/dev.sh test-one "{{filter}}"
+test-one +args:
+    bash scripts/dev.sh test-one {{args}}
 
 test-many +filters:
     bash scripts/dev.sh test-many {{filters}}

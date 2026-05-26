@@ -56,6 +56,7 @@ bash scripts/dev.sh test
 bash scripts/dev.sh doc-test
 bash scripts/dev.sh test-list gitstatus search::overlay
 bash scripts/dev.sh test-one plugins::gitstatus
+bash scripts/dev.sh test-one test_plugin_commands -- --nocapture
 bash scripts/dev.sh test-many test_plugin_commands test_key_hints
 bash scripts/dev.sh test-many test_plugin_commands test_key_hints -- --nocapture
 bash scripts/dev.sh run

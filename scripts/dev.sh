@@ -25,7 +25,7 @@ Commands:
   test           run cargo test
   doc-test       run cargo test --doc
   test-list      list available tests, optionally filtered by one or more filters
-  test-one       run cargo test with a filter
+  test-one       run cargo test with a filter and optional cargo test args
   test-many      run cargo test once per filter, with optional shared cargo test args
   run            run RightClick locally
   install-local  install RightClick from this checkout
@@ -35,6 +35,7 @@ Examples:
   bash scripts/dev.sh ci
   bash scripts/dev.sh test-list gitstatus search::overlay
   bash scripts/dev.sh test-one plugins::gitstatus
+  bash scripts/dev.sh test-one test_plugin_commands -- --nocapture
   bash scripts/dev.sh test-many test_plugin_commands test_key_hints
   bash scripts/dev.sh test-many test_plugin_commands test_key_hints -- --nocapture
 
@@ -44,6 +45,7 @@ If you use just:
   just quick
   just test-list gitstatus search::overlay
   just test-one plugins::gitstatus
+  just test-one test_plugin_commands -- --nocapture
   just test-many test_plugin_commands test_key_hints
   just test-many test_plugin_commands test_key_hints -- --nocapture
 EOF
