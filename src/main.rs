@@ -740,9 +740,8 @@ impl App {
             build_no_plugins_help_lines()
         };
 
-        let rendered: Vec<Line> = lines
+        let rendered: Vec<Line> = visible_help_lines(lines, inner.height)
             .into_iter()
-            .take(inner.height as usize)
             .map(|line| {
                 if line.ends_with(':') {
                     Line::from(Span::styled(
@@ -847,6 +846,20 @@ fn build_help_lines(
     ]);
 
     lines
+}
+
+fn visible_help_lines(lines: Vec<String>, max_height: u16) -> Vec<String> {
+    let max_lines = max_height as usize;
+    if lines.len() <= max_lines {
+        return lines;
+    }
+    if max_lines == 0 {
+        return Vec::new();
+    }
+
+    let mut visible: Vec<String> = lines.into_iter().take(max_lines).collect();
+    visible[max_lines - 1] = "  ... more help hidden".to_string();
+    visible
 }
 
 fn build_no_plugins_help_lines() -> Vec<String> {
@@ -1106,6 +1119,39 @@ mod tests {
         );
         assert!(lines.iter().any(|line| line.contains("Workers ready")));
         assert!(lines.iter().any(|line| line.contains("Global shortcuts:")));
+    }
+
+    #[test]
+    fn test_visible_help_lines_keeps_short_help_unchanged() {
+        let lines = vec!["Help".to_string(), "  ?  Toggle help".to_string()];
+
+        assert_eq!(visible_help_lines(lines.clone(), 3), lines);
+    }
+
+    #[test]
+    fn test_visible_help_lines_marks_truncated_help() {
+        let lines = vec![
+            "Help".to_string(),
+            "Plugin commands:".to_string(),
+            "  r  Refresh".to_string(),
+            "Global shortcuts:".to_string(),
+        ];
+
+        assert_eq!(
+            visible_help_lines(lines, 3),
+            vec![
+                "Help".to_string(),
+                "Plugin commands:".to_string(),
+                "  ... more help hidden".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn test_visible_help_lines_handles_zero_height() {
+        let lines = vec!["Help".to_string()];
+
+        assert!(visible_help_lines(lines, 0).is_empty());
     }
 
     #[test]
