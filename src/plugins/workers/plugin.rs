@@ -697,7 +697,7 @@ impl WorkersPlugin {
                             // Stop workers
                             commands.push(Command::StopWorkers);
                         }
-                        "Enter" | "o" => {
+                        "Enter" => {
                             if self.state.view_mode == ViewMode::Kanban {
                                 // Transition worker status in kanban view
                                 self.kanban_transition_worker();
@@ -706,6 +706,13 @@ impl WorkersPlugin {
                                 if let Some(intent) = self.state.selected_intent() {
                                     commands.push(Command::OpenIntent(intent.intent.id.clone()));
                                 }
+                            }
+                        }
+                        "o" => {
+                            // Open intent, including from kanban where Enter is reserved
+                            // for worker status transitions.
+                            if let Some(intent) = self.state.selected_intent() {
+                                commands.push(Command::OpenIntent(intent.intent.id.clone()));
                             }
                         }
                         _ => {}
@@ -1279,6 +1286,30 @@ mod tests {
 
         assert_eq!(execution.command_name, "Refresh");
         assert_eq!(plugin.pending_commands.pop_front(), Some(Command::Refresh));
+    }
+
+    #[test]
+    fn test_execute_open_command_opens_intent_from_kanban_view() {
+        let mut plugin = WorkersPlugin::new();
+        let mut intent = Intent::new(
+            "Kanban open polish",
+            PathBuf::from(".rightclick/intents/kanban-open.md"),
+            "2026-05-26T10:00:00Z",
+        );
+        intent.id = "intent-kanban-open".to_string();
+        plugin.state.add_intent(intent);
+        plugin.state.selected_intent = Some(0);
+        plugin.state.view_mode = ViewMode::Kanban;
+
+        let execution = plugin
+            .execute_command("open")
+            .expect("open command should execute");
+
+        assert_eq!(execution.command_name, "Open");
+        assert_eq!(
+            plugin.pending_commands.pop_front(),
+            Some(Command::OpenIntent("intent-kanban-open".to_string()))
+        );
     }
 
     #[test]
