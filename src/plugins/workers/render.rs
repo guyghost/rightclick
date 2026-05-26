@@ -500,7 +500,7 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
 
 fn empty_intents_message(state: &PluginState) -> String {
     format!(
-        "No intents yet\n\nn  New intent\n/  Search commands and intents\n?  Help\n\nSpecs: {}",
+        "No intents yet\n\nn  New intent\nf  Refresh intents\n/  Search commands and intents\n?  Help\n\nSpecs: {}",
         state.intents_dir.display()
     )
 }
@@ -816,6 +816,7 @@ mod tests {
 
         assert!(message.contains("No intents yet"));
         assert!(message.contains("n  New intent"));
+        assert!(message.contains("f  Refresh intents"));
         assert!(message.contains("/  Search commands and intents"));
         assert!(message.contains("?  Help"));
         assert!(message.contains(".rightclick/intents"));
@@ -839,6 +840,7 @@ mod tests {
             .collect();
         assert!(content.contains("No intents yet"));
         assert!(content.contains("New intent"));
+        assert!(content.contains("Refresh intents"));
         assert!(content.contains("Search commands"));
     }
 
