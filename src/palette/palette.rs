@@ -341,7 +341,7 @@ impl Palette {
                 style_for_ui_element(theme, UiElement::MutedText),
             ),
             Span::styled(
-                " (Tab: toggle contexts)",
+                " (Tab: contexts)",
                 style_for_ui_element(theme, UiElement::MutedText),
             ),
         ])
@@ -364,7 +364,7 @@ impl Palette {
 
         // Draw the input text or placeholder
         let display_text = if self.input.is_empty() {
-            "Type to search commands..."
+            "Search commands..."
         } else {
             &self.input
         };
@@ -623,13 +623,13 @@ impl Palette {
 fn palette_empty_state_message(input: &str) -> String {
     if input.is_empty() {
         format!(
-            "No commands available\n\n{}\n\nCommands appear here after plugins finish loading.",
+            "No commands yet\n\n{}\n\nCommands appear after plugins finish loading.",
             PALETTE_EMPTY_ACTION_HINT
         )
     } else {
         let input = truncate_query(input, 40);
         format!(
-            "No commands match \"{}\"\n\n{}",
+            "No command matches \"{}\"\n\n{}",
             input, PALETTE_NO_MATCH_ACTION_HINT
         )
     }
@@ -863,14 +863,14 @@ mod tests {
     #[test]
     fn test_palette_empty_state_message_points_to_next_actions() {
         let empty = palette_empty_state_message("");
-        assert!(empty.contains("No commands available"));
+        assert!(empty.contains("No commands yet"));
         assert!(empty.contains(PALETTE_EMPTY_ACTION_HINT));
         assert!(!empty.contains("Esc  Close palette"));
         assert!(!empty.contains("Tab  Toggle contexts"));
-        assert!(empty.contains("Commands appear here after plugins finish loading"));
+        assert!(empty.contains("Commands appear after plugins finish loading"));
 
         let no_match = palette_empty_state_message("deploy");
-        assert!(no_match.contains("No commands match \"deploy\""));
+        assert!(no_match.contains("No command matches \"deploy\""));
         assert!(no_match.contains(PALETTE_NO_MATCH_ACTION_HINT));
         assert!(!no_match.contains("Backspace  Edit search"));
         assert!(!no_match.contains("Ctrl+U  Clear search"));
@@ -879,7 +879,7 @@ mod tests {
 
         let truncated = palette_empty_state_message("abcdefghijklmnopqrstuvwxyz0123456789abcdef");
         assert!(
-            truncated.contains("No commands match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
+            truncated.contains("No command matches \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
         );
     }
 
@@ -904,7 +904,7 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("No commands available"));
+        assert!(content.contains("No commands yet"));
         assert!(content.contains(PALETTE_EMPTY_ACTION_HINT));
     }
 
