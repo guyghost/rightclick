@@ -200,12 +200,7 @@ fn render_output_content(state: &PluginState, area: Rect, buf: &mut Buffer, them
     block.render(area, buf);
 
     if state.output_text.is_empty() {
-        let message = if state.worktrees.is_empty() {
-            "No output yet. Create a worktree, then run workspace actions."
-        } else {
-            "No output yet. Run an action to see output here."
-        };
-        let empty = Paragraph::new(message)
+        let empty = Paragraph::new(output_empty_message(state))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -305,6 +300,16 @@ fn no_linked_task_message() -> &'static str {
 
 fn select_worktree_message() -> &'static str {
     "No worktree selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar"
+}
+
+fn output_empty_message(state: &PluginState) -> &'static str {
+    if state.worktrees.is_empty() {
+        "No output yet\n\nn  Create worktree\nr  Refresh worktrees"
+    } else if state.selected_worktree().is_none() {
+        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree"
+    } else {
+        "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task"
+    }
 }
 
 /// Render kanban mode
@@ -812,6 +817,79 @@ mod tests {
         assert!(content.contains("Create worktree"));
         assert!(content.contains("Refresh worktrees"));
         assert!(content.contains("Search commands"));
+    }
+
+    #[test]
+    fn test_render_output_without_worktrees_points_to_creation() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Output;
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No output yet"));
+        assert!(content.contains("n  Create worktree"));
+        assert!(content.contains("r  Refresh worktrees"));
+    }
+
+    #[test]
+    fn test_render_output_without_selection_points_to_navigation() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Output;
+        state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        state.selected = None;
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No output selected"));
+        assert!(content.contains("j/k  Navigate worktrees"));
+        assert!(content.contains("Enter/o  Open worktree"));
+    }
+
+    #[test]
+    fn test_render_output_for_selected_worktree_points_to_actions() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.preview_tab = PreviewTab::Output;
+        state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        state.selected = Some(0);
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No output yet"));
+        assert!(content.contains("a  Launch agent"));
+        assert!(content.contains("Enter/o  Open interactive shell"));
+        assert!(content.contains("T  Link task"));
     }
 
     #[test]
