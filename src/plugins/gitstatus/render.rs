@@ -12,7 +12,7 @@ use ratatui::{
 };
 
 use crate::core::models::Theme;
-use crate::core::models::{ChangeType, Diff, FileChange, FileStatus};
+use crate::core::models::{ChangeType, Diff, FileChange, FileDiff, FileStatus};
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
 
 use super::state::{FocusPane, PluginState, ViewMode};
@@ -322,19 +322,12 @@ fn render_diff_content(diff: &Diff, area: Rect, buf: &mut Buffer, theme: &Theme)
             ),
         ]));
 
-        if file_diff.is_binary {
+        if let Some(status_label) = diff_content_status_label(file_diff) {
             lines.push(Line::from(vec![Span::styled(
-                "Binary file",
+                status_label,
                 style_for_ui_element(theme, UiElement::MutedText),
             )]));
             continue;
-        }
-
-        if file_diff.hunks.is_empty() {
-            lines.push(Line::from(vec![Span::styled(
-                "No diff content available",
-                style_for_ui_element(theme, UiElement::MutedText),
-            )]));
         }
 
         // Hunks
@@ -365,6 +358,16 @@ fn render_diff_content(diff: &Diff, area: Rect, buf: &mut Buffer, theme: &Theme)
     // Render with scroll handling
     let text = Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false });
     text.render(area, buf);
+}
+
+fn diff_content_status_label(file_diff: &FileDiff) -> Option<&'static str> {
+    if file_diff.is_binary {
+        Some("Binary file")
+    } else if file_diff.hunks.is_empty() {
+        Some("No diff content available")
+    } else {
+        None
+    }
 }
 
 /// Render the commit list sidebar
@@ -602,10 +605,8 @@ fn render_commit_details(
                 lines.push(Line::raw(""));
 
                 // Show diff hunks
-                if file_diff.is_binary {
-                    lines.push(Line::styled("  [Binary file]", muted_style));
-                } else if file_diff.hunks.is_empty() {
-                    lines.push(Line::styled("  [No diff content available]", muted_style));
+                if let Some(status_label) = diff_content_status_label(file_diff) {
+                    lines.push(Line::styled(format!("  {}", status_label), muted_style));
                 } else {
                     for hunk in &file_diff.hunks {
                         // Hunk header
@@ -1494,6 +1495,19 @@ mod tests {
         assert!(content.contains("File:"));
         assert!(content.contains("src/main.rs"));
         assert!(content.contains("No diff content available"));
+    }
+
+    #[test]
+    fn test_diff_content_status_label_handles_binary_and_empty_diffs() {
+        let mut binary = FileDiff::new("assets/logo.png");
+        binary.is_binary = true;
+        assert_eq!(diff_content_status_label(&binary), Some("Binary file"));
+
+        let empty = FileDiff::new("src/main.rs");
+        assert_eq!(
+            diff_content_status_label(&empty),
+            Some("No diff content available")
+        );
     }
 
     #[test]
