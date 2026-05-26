@@ -492,7 +492,7 @@ impl<'a> Widget for SimplePreviewWidget<'a> {
         let lines: Vec<&str> = self.preview.content.lines().collect();
 
         for i in 0..inner.height as usize {
-            let line_idx = self.scroll_offset + i;
+            let line_idx = self.scroll_offset.saturating_add(i);
             if line_idx < lines.len() {
                 let line = format!("{:4} │ {}", line_idx + 1, lines[line_idx]);
                 let truncated = truncate_to_width(&line, inner.width as usize);
@@ -688,5 +688,31 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("é"));
+    }
+
+    #[test]
+    fn test_simple_preview_tolerates_extreme_scroll_offset() {
+        let preview = Preview {
+            content: "first\nsecond\n".to_string(),
+            language: None,
+            is_binary: false,
+            is_image: false,
+            file_size: 0,
+            total_lines: 2,
+            is_truncated: false,
+            path: PathBuf::from("scroll.txt"),
+        };
+        let area = Rect::new(0, 0, 20, 4);
+        let mut buf = Buffer::empty(area);
+
+        SimplePreviewWidget::new(&preview, usize::MAX).render(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("scroll.txt"));
+        assert!(!content.contains("first"));
     }
 }
