@@ -26,7 +26,7 @@ Commands:
   doc-test       run cargo test --doc
   test-list      list available tests, optionally filtered by one or more filters
   test-one       run cargo test with a filter
-  test-many      run cargo test once per filter
+  test-many      run cargo test once per filter, with optional shared cargo test args
   run            run RightClick locally
   install-local  install RightClick from this checkout
 
@@ -35,7 +35,8 @@ Examples:
   bash scripts/dev.sh ci
   bash scripts/dev.sh test-list gitstatus search::overlay
   bash scripts/dev.sh test-one plugins::gitstatus
-  bash scripts/dev.sh test-many test_plugin_commands test_footer_hints
+  bash scripts/dev.sh test-many test_plugin_commands test_key_hints
+  bash scripts/dev.sh test-many test_plugin_commands test_key_hints -- --nocapture
 
 If you use just:
   just help
@@ -43,7 +44,8 @@ If you use just:
   just quick
   just test-list gitstatus search::overlay
   just test-one plugins::gitstatus
-  just test-many test_plugin_commands test_footer_hints
+  just test-many test_plugin_commands test_key_hints
+  just test-many test_plugin_commands test_key_hints -- --nocapture
 EOF
 }
 
@@ -255,14 +257,39 @@ case "$cmd" in
   test-many)
     shift
     if [ "$#" -eq 0 ]; then
-      echo "Usage: bash scripts/dev.sh test-many <test-filter>..." >&2
+      echo "Usage: bash scripts/dev.sh test-many <test-filter>... [-- <cargo-test-args>]" >&2
       exit 2
     fi
-    for filter in "$@"; do
+
+    filters=()
+    cargo_test_args=()
+    collect_cargo_args=0
+    for arg in "$@"; do
+      if [ "$collect_cargo_args" -eq 0 ] && [ "$arg" = "--" ]; then
+        collect_cargo_args=1
+        continue
+      fi
+      if [ "$collect_cargo_args" -eq 0 ]; then
+        filters+=("$arg")
+      else
+        cargo_test_args+=("$arg")
+      fi
+    done
+
+    if [ "${#filters[@]}" -eq 0 ]; then
+      echo "Usage: bash scripts/dev.sh test-many <test-filter>... [-- <cargo-test-args>]" >&2
+      exit 2
+    fi
+
+    for filter in "${filters[@]}"; do
       ensure_test_filter_matches "$filter"
     done
-    for filter in "$@"; do
-      run_step cargo test "$filter"
+    for filter in "${filters[@]}"; do
+      if [ "${#cargo_test_args[@]}" -eq 0 ]; then
+        run_step cargo test "$filter"
+      else
+        run_step cargo test "$filter" -- "${cargo_test_args[@]}"
+      fi
     done
     ;;
   run)
