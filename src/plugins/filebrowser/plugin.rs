@@ -157,6 +157,41 @@ impl Plugin for FileBrowserPlugin {
     fn commands(&self) -> Vec<PluginCommand> {
         vec![
             PluginCommand::with_context_description(
+                "create_file",
+                "New File",
+                "Create a file in the current directory",
+                'a',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context_description(
+                "create_dir",
+                "New Directory",
+                "Create a directory in the current directory",
+                'A',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context_description(
+                "delete",
+                "Delete",
+                "Delete the selected file or directory",
+                'd',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context_description(
+                "rename",
+                "Rename",
+                "Rename the selected file or directory",
+                'R',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context_description(
+                "filter",
+                "Filter",
+                "Filter visible files",
+                'f',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context_description(
                 "refresh",
                 "Refresh",
                 "Reload the file tree",
@@ -175,6 +210,27 @@ impl Plugin for FileBrowserPlugin {
                 "Toggle Ignored",
                 "Show or hide ignored files",
                 'i',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context_description(
+                "file_info",
+                "File Info",
+                "Show metadata for the selected file",
+                'I',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context_description(
+                "preview_top",
+                "Preview Top",
+                "Scroll the preview to the top",
+                'g',
+                crate::keymap::FocusContext::FileBrowserTree,
+            ),
+            PluginCommand::with_context_description(
+                "preview_bottom",
+                "Preview Bottom",
+                "Scroll the preview to the bottom",
+                'G',
                 crate::keymap::FocusContext::FileBrowserTree,
             ),
         ]
@@ -1336,6 +1392,62 @@ mod tests {
 
         // Unknown key
         assert!(!plugin.handle_key("unknown_key"));
+    }
+
+    #[test]
+    fn test_file_browser_commands_include_visible_actions() {
+        let temp_dir = TempDir::new().unwrap();
+        let plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        let commands = plugin.commands();
+
+        for (id, key, name) in [
+            ("create_file", 'a', "New File"),
+            ("create_dir", 'A', "New Directory"),
+            ("delete", 'd', "Delete"),
+            ("rename", 'R', "Rename"),
+            ("filter", 'f', "Filter"),
+            ("toggle_ignored", 'i', "Toggle Ignored"),
+            ("toggle_hidden", 'H', "Toggle Hidden"),
+        ] {
+            assert!(
+                commands
+                    .iter()
+                    .any(|command| command.id == id && command.key == key && command.name == name),
+                "missing command {id}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_file_browser_execute_command_opens_create_file_modal() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        let execution = plugin
+            .execute_command("create_file")
+            .expect("create file command should execute");
+
+        assert_eq!(execution.command_name, "New File");
+        assert!(plugin.state.modal_active);
+        assert_eq!(
+            plugin.state.active_modal,
+            Some(FileOperationModal::CreateFile)
+        );
+    }
+
+    #[test]
+    fn test_file_browser_execute_command_opens_filter_modal() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        let execution = plugin
+            .execute_command("filter")
+            .expect("filter command should execute");
+
+        assert_eq!(execution.command_name, "Filter");
+        assert!(plugin.state.modal_active);
+        assert_eq!(plugin.state.active_modal, Some(FileOperationModal::Filter));
     }
 
     #[test]
