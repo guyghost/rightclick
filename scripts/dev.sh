@@ -210,10 +210,10 @@ case "$cmd" in
     require_cmd cargo-clippy
     require_cmd git
     require_cmd rg
-    optional_cmd_hint tmux "needed for embedded terminal sessions"
-    optional_cmd_hint td "enables task tracking workflows"
+    optional_cmd_hint tmux "needed for embedded terminal sessions; install with brew install tmux"
+    optional_cmd_hint td "enables task tracking workflows; run td init in this checkout after installing"
     optional_td_workspace
-    optional_cmd_hint just "enables shorter justfile commands"
+    optional_cmd_hint just "enables shorter justfile commands; install with brew install just or cargo install just"
 
     if command -v cargo >/dev/null 2>&1; then
       cargo --version

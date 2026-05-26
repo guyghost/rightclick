@@ -39,7 +39,8 @@ checks Rust, Cargo, the required `rust-version`, `rustfmt`, `clippy`, Git, and
 `rg`, plus optional tools like `tmux`, `td`, and `just`. The script can be launched
 from any directory inside the checkout. When `td` is installed, `doctor` also
 reports whether this checkout has task tracking initialized. Missing optional
-tools include a short hint explaining what workflow they unlock.
+tools include a short hint explaining what workflow they unlock and, for common
+tools, the install command to use.
 
 ```bash
 bash scripts/dev.sh ci            # same checks used by GitHub Actions
