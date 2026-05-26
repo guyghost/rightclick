@@ -937,7 +937,7 @@ fn format_command_search_preview(command: &rightclick::plugin::PluginCommand) ->
     if command.description.is_empty() {
         format!("Shortcut: {}", command.key)
     } else {
-        format!("{} - {}", command.key, command.description)
+        format!("Shortcut: {} | {}", command.key, command.description)
     }
 }
 
@@ -1141,7 +1141,7 @@ mod tests {
 
         assert_eq!(
             format_command_search_preview(&command),
-            "r - Reload repository state"
+            "Shortcut: r | Reload repository state"
         );
     }
 
