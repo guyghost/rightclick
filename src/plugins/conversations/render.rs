@@ -359,7 +359,7 @@ impl ConversationsRenderer {
             muted_style,
         )]));
         text_lines.push(Line::from(vec![Span::styled(
-            "  /             Search sessions",
+            "  f             Filter sessions",
             muted_style,
         )]));
         text_lines.push(Line::from(vec![Span::styled(
@@ -660,7 +660,7 @@ impl ConversationsRenderer {
         }
     }
 
-    /// Render search overlay
+    /// Render session filter overlay
     fn render_search_overlay(
         &self,
         state: &PluginState,
@@ -691,7 +691,7 @@ impl ConversationsRenderer {
 
         let block = Block::default()
             .title(Line::from(vec![Span::styled(
-                " Search Sessions ",
+                " Filter Sessions ",
                 title_style,
             )]))
             .borders(Borders::ALL)
@@ -705,7 +705,7 @@ impl ConversationsRenderer {
         let query = state.search_query.as_deref().unwrap_or("");
 
         let input_text = if query.is_empty() {
-            "Type to search...".to_string()
+            "Type to filter...".to_string()
         } else {
             query.to_string()
         };
@@ -841,7 +841,7 @@ fn empty_sessions_message(state: &PluginState) -> String {
             "No sessions match \"{}\"\n\nType another query\nEsc  clear search",
             query
         ),
-        None => "No sessions found\n\nr  Refresh detected adapters\n/  Search sessions\n?  Help"
+        None => "No sessions found\n\nr  Refresh detected adapters\nf  Filter sessions\n?  Help"
             .to_string(),
     }
 }
@@ -917,7 +917,7 @@ mod tests {
 
         assert!(message.contains("No sessions found"));
         assert!(message.contains("r  Refresh detected adapters"));
-        assert!(message.contains("/  Search sessions"));
+        assert!(message.contains("f  Filter sessions"));
         assert!(message.contains("?  Help"));
     }
 

@@ -353,8 +353,8 @@ impl ConversationsPlugin {
                 true
             }
 
-            // Search
-            (KeyCode::Char('/'), KeyModifiers::NONE) => {
+            // Filter
+            (KeyCode::Char('f'), KeyModifiers::NONE) => {
                 self.state.start_search(String::new());
                 true
             }
@@ -506,7 +506,7 @@ impl ConversationsPlugin {
             ConversationView::SessionsList => vec![
                 ("↑/↓", "Navigate"),
                 ("Enter/l/o", "Open"),
-                ("/", "Search"),
+                ("f", "Filter"),
                 ("r", "Refresh"),
                 ("Ctrl+d/u", "Page"),
                 ("g/G", "First/Last"),
@@ -755,7 +755,7 @@ impl Plugin for ConversationsPlugin {
                                     self.pending_load_messages = true;
                                 }
                             }
-                            "/" => {
+                            "f" => {
                                 self.state.start_search(String::new());
                                 self.refresh_search_navigation();
                             }
@@ -872,9 +872,9 @@ impl Plugin for ConversationsPlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "search",
-                "Search",
+                "Filter",
                 "Filter loaded sessions",
-                '/',
+                'f',
                 crate::keymap::FocusContext::Conversations,
             ),
             crate::plugin::PluginCommand::with_context_description(
@@ -976,7 +976,7 @@ fn conversations_status_line(state: &PluginState) -> String {
     }
 
     if state.sessions.is_empty() {
-        return "No sessions | r Refresh | / Search".to_string();
+        return "No sessions | r Refresh | f Filter".to_string();
     }
 
     let visible = state.filtered_sessions().len();
@@ -1035,6 +1035,42 @@ mod tests {
 
         let hints = plugin.key_hints();
         assert!(!hints.is_empty());
+        assert!(hints.contains(&("f", "Filter")));
+        assert!(
+            !hints
+                .iter()
+                .any(|(key, label)| *key == "/" && *label == "Search")
+        );
+    }
+
+    #[test]
+    fn test_filter_key_enters_session_search() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let mut plugin = ConversationsPlugin::new(registry);
+
+        plugin.handle_event(crate::event::Event::Key {
+            code: "f".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert_eq!(plugin.state().view, ConversationView::Search);
+        assert_eq!(plugin.state().search_query, Some(String::new()));
+    }
+
+    #[test]
+    fn test_commands_use_filter_key_to_avoid_global_search_conflict() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let plugin = ConversationsPlugin::new(registry);
+
+        let commands = plugin.commands();
+        let filter_command = commands
+            .iter()
+            .find(|command| command.id == "search")
+            .expect("conversations filter command");
+
+        assert_eq!(filter_command.name, "Filter");
+        assert_eq!(filter_command.key, 'f');
+        assert!(!commands.iter().any(|command| command.key == '/'));
     }
 
     #[test]
@@ -1105,7 +1141,7 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("No sessions | r Refresh | / Search".to_string())
+            Some("No sessions | r Refresh | f Filter".to_string())
         );
     }
 
