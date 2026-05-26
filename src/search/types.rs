@@ -20,7 +20,7 @@ impl SearchScope {
         match self {
             SearchScope::All => "All",
             SearchScope::Files => "Files",
-            SearchScope::Items => "Items",
+            SearchScope::Items => "Project",
             SearchScope::Commands => "Commands",
         }
     }
@@ -105,7 +105,7 @@ mod tests {
     fn test_search_scope_label() {
         assert_eq!(SearchScope::All.label(), "All");
         assert_eq!(SearchScope::Files.label(), "Files");
-        assert_eq!(SearchScope::Items.label(), "Items");
+        assert_eq!(SearchScope::Items.label(), "Project");
         assert_eq!(SearchScope::Commands.label(), "Commands");
     }
 

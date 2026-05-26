@@ -1042,6 +1042,7 @@ mod tests {
             .collect();
         assert!(content.contains("Global Search"));
         assert!(content.contains("Search files, commands, sessions"));
+        assert!(content.contains("Project"));
     }
 
     #[test]

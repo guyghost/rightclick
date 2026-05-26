@@ -86,7 +86,7 @@ Press `/` to open global search. Use `tab` inside the overlay to switch scope:
 
 - **All**: search files, commands, sessions, worktrees, and intents together
 - **Files**: search file contents with `rg`
-- **Items**: search sessions, worktrees, and intents exposed by plugins
+- **Project**: search sessions, worktrees, and intents exposed by plugins
 - **Commands**: search available commands with their current descriptions
 
 Selecting an item opens the owning plugin and focuses the matching session,
