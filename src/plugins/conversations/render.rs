@@ -158,12 +158,7 @@ impl ConversationsRenderer {
         let sessions: Vec<&SessionInfo> = state.filtered_sessions();
 
         if sessions.is_empty() && !state.is_loading {
-            // Show empty state
-            let empty_text = if state.search_query.is_some() {
-                "No matching sessions"
-            } else {
-                "No sessions found\n\nUse adapters to create\nconversations"
-            };
+            let empty_text = empty_sessions_message(state);
 
             let paragraph = Paragraph::new(empty_text)
                 .style(muted_style)
@@ -836,6 +831,21 @@ fn wrap_text(text: &str, width: usize) -> Vec<&str> {
     lines
 }
 
+fn empty_sessions_message(state: &PluginState) -> String {
+    match state
+        .search_query
+        .as_deref()
+        .filter(|query| !query.is_empty())
+    {
+        Some(query) => format!(
+            "No sessions match \"{}\"\n\nType another query\nEsc  clear search",
+            query
+        ),
+        None => "No sessions found\n\nr  Refresh detected adapters\n/  Search sessions\n?  Help"
+            .to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -898,5 +908,27 @@ mod tests {
         let old_str = format_date(&old);
         // Should show date format for old dates
         assert!(old_str.contains('-'));
+    }
+
+    #[test]
+    fn test_empty_sessions_message_points_to_next_actions() {
+        let state = PluginState::new();
+        let message = empty_sessions_message(&state);
+
+        assert!(message.contains("No sessions found"));
+        assert!(message.contains("r  Refresh detected adapters"));
+        assert!(message.contains("/  Search sessions"));
+        assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_empty_sessions_message_mentions_query() {
+        let mut state = PluginState::new();
+        state.start_search("render".to_string());
+        let message = empty_sessions_message(&state);
+
+        assert!(message.contains("No sessions match \"render\""));
+        assert!(message.contains("Type another query"));
+        assert!(message.contains("Esc  clear search"));
     }
 }
