@@ -268,7 +268,7 @@ pub fn render_search_overlay(
     let title = if state.results.is_empty() {
         " Search ".to_string()
     } else {
-        format!(" Search - {} results ", state.results.len())
+        format!(" Search - {} ", result_count_label(state.results.len()))
     };
 
     // Outer block
@@ -889,6 +889,35 @@ mod tests {
         let theme = Theme::default();
         render_search_overlay(&state, area, &mut buf, &theme);
         // Should not panic
+    }
+
+    #[test]
+    fn test_render_search_overlay_title_uses_singular_result_count() {
+        let mut state = SearchOverlayState::new();
+        state.open();
+        state.set_results(vec![SearchResult {
+            kind: SearchResultKind::FileContent {
+                path: "test.rs".into(),
+                line: 10,
+                column: 1,
+            },
+            title: "test.rs".into(),
+            preview: "fn main()".into(),
+            score: 100,
+        }]);
+
+        let area = Rect::new(0, 0, 100, 30);
+        let mut buf = Buffer::empty(area);
+        let theme = Theme::default();
+        render_search_overlay(&state, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Search - 1 result"));
+        assert!(!content.contains("Search - 1 results"));
     }
 
     #[test]
