@@ -557,11 +557,7 @@ impl WorkersPlugin {
                             "Esc" => self.state.close_modal(),
                             "Backspace" => self.handle_backspace(),
                             "Enter" => {
-                                let title = self.state.new_intent_title.trim().to_string();
-                                if !title.is_empty() {
-                                    commands.push(Command::CreateIntent { title });
-                                }
-                                self.state.close_modal();
+                                self.confirm_create_intent(&mut commands);
                             }
                             _ => {
                                 if code.len() == 1 {
@@ -838,12 +834,7 @@ impl WorkersPlugin {
         match self.state.modal_state {
             ModalState::CreateIntent => match action {
                 Action::Confirm => {
-                    if !self.state.new_intent_title.is_empty() {
-                        commands.push(Command::CreateIntent {
-                            title: self.state.new_intent_title.clone(),
-                        });
-                        self.state.close_modal();
-                    }
+                    self.confirm_create_intent(commands);
                 }
                 Action::Cancel => {
                     self.state.close_modal();
@@ -864,6 +855,16 @@ impl WorkersPlugin {
             },
             _ => {}
         }
+    }
+
+    fn confirm_create_intent(&mut self, commands: &mut Vec<Command>) {
+        let title = self.state.new_intent_title.trim().to_string();
+        if title.is_empty() {
+            return;
+        }
+
+        commands.push(Command::CreateIntent { title });
+        self.state.close_modal();
     }
 
     /// Handle character input (for modal text entry)
@@ -1250,6 +1251,55 @@ mod tests {
             plugin.pending_commands.pop_front(),
             Some(Command::StopWorkers)
         );
+    }
+
+    #[test]
+    fn test_create_intent_enter_keeps_modal_open_when_title_is_blank() {
+        let mut plugin = WorkersPlugin::new();
+        plugin.state.modal_state = ModalState::CreateIntent;
+        plugin.state.new_intent_title = "   ".to_string();
+
+        let commands = plugin.handle_event_internal(Event::Key {
+            code: "Enter".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert!(commands.is_empty());
+        assert_eq!(plugin.state.modal_state, ModalState::CreateIntent);
+        assert_eq!(plugin.state.new_intent_title, "   ");
+    }
+
+    #[test]
+    fn test_create_intent_enter_trims_title_before_creating() {
+        let mut plugin = WorkersPlugin::new();
+        plugin.state.modal_state = ModalState::CreateIntent;
+        plugin.state.new_intent_title = "  Polish worker UX  ".to_string();
+
+        let commands = plugin.handle_event_internal(Event::Key {
+            code: "Enter".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert_eq!(
+            commands,
+            vec![Command::CreateIntent {
+                title: "Polish worker UX".to_string()
+            }]
+        );
+        assert_eq!(plugin.state.modal_state, ModalState::None);
+        assert!(plugin.state.new_intent_title.is_empty());
+    }
+
+    #[test]
+    fn test_create_intent_action_keeps_modal_open_when_title_is_blank() {
+        let mut plugin = WorkersPlugin::new();
+        plugin.state.modal_state = ModalState::CreateIntent;
+        plugin.state.new_intent_title = String::new();
+
+        let commands = plugin.handle_action(&Action::Confirm);
+
+        assert!(commands.is_empty());
+        assert_eq!(plugin.state.modal_state, ModalState::CreateIntent);
     }
 
     #[test]
