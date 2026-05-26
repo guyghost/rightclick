@@ -546,7 +546,7 @@ fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
 
 fn search_footer_hint(width: u16) -> &'static str {
     match width {
-        0..=26 => "Enter: Open  Esc",
+        0..=26 => "Enter: Open  Esc: Close",
         27..=40 => "Enter: Open  |  Esc: Close",
         41..=60 => "Tab: Scope  |  Enter: Open  |  Esc: Close",
         61..=78 => "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close",
@@ -887,7 +887,7 @@ mod tests {
 
     #[test]
     fn test_search_footer_hint_compacts_for_narrow_widths() {
-        assert_eq!(search_footer_hint(20), "Enter: Open  Esc");
+        assert_eq!(search_footer_hint(20), "Enter: Open  Esc: Close");
         assert_eq!(search_footer_hint(32), "Enter: Open  |  Esc: Close");
         assert_eq!(
             search_footer_hint(48),
