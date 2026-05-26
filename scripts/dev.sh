@@ -62,9 +62,15 @@ run_quick_checks() {
 
 ensure_test_filter_matches() {
   local filter="$1"
+  local output
   local matches
 
-  matches="$(cargo test "$filter" -- --list | grep -c ': test$' || true)"
+  if ! output="$(cargo test "$filter" -- --list 2>&1)"; then
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+
+  matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
   if [ "$matches" -eq 0 ]; then
     echo "No tests matched filter: $filter" >&2
     echo "Use 'cargo test -- --list' to inspect available test names." >&2
