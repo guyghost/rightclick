@@ -531,7 +531,10 @@ impl ConversationsPlugin {
                 if let Some(ref query) = self.state.search_query {
                     format!("Sessions (filter: '{}')", query)
                 } else {
-                    format!("Sessions ({})", self.state.sessions.len())
+                    format!(
+                        "Sessions ({})",
+                        conversation_count_label(self.state.sessions.len(), "session")
+                    )
                 }
             }
             ConversationView::Conversation => {
@@ -1101,10 +1104,19 @@ mod tests {
     #[test]
     fn test_view_title() {
         let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
-        let plugin = ConversationsPlugin::new(registry);
+        let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin.state_mut().set_sessions(vec![SessionInfo::new(
+            crate::core::models::conversation::Session::new(
+                "session-1",
+                "Title polish",
+                "test-adapter",
+            ),
+            &adapter,
+        )]);
 
         let title = plugin.view_title();
-        assert!(title.contains("Sessions"));
+        assert_eq!(title, "Sessions (1 session)");
     }
 
     #[test]

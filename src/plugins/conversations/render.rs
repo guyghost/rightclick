@@ -141,9 +141,12 @@ impl ConversationsRenderer {
         let title = if state.is_loading {
             " Sessions (Loading...) ".to_string()
         } else if state.search_query.is_some() {
-            format!(" Sessions ({} filtered) ", state.filtered_sessions().len())
+            format!(
+                " Sessions ({}) ",
+                result_count_label(state.filtered_sessions().len())
+            )
         } else {
-            format!(" Sessions ({}) ", state.sessions.len())
+            format!(" Sessions ({}) ", session_count_label(state.sessions.len()))
         };
 
         let block = Block::default()
@@ -870,6 +873,14 @@ fn session_count_label(count: usize) -> String {
     }
 }
 
+fn result_count_label(count: usize) -> String {
+    if count == 1 {
+        "1 result".to_string()
+    } else {
+        format!("{} results", count)
+    }
+}
+
 fn token_count_label(count: usize) -> String {
     if count < 1000 {
         if count == 1 {
@@ -1085,6 +1096,67 @@ mod tests {
         assert!(content.contains("Messages: 1 msg"));
         assert!(!content.contains("Total Sessions: 1"));
         assert!(!content.contains("Total Messages: 1"));
+    }
+
+    #[test]
+    fn test_render_sidebar_title_uses_session_count_label() {
+        let renderer = ConversationsRenderer::new();
+        let mut state = PluginState::new();
+        let session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Sidebar polish",
+            "test-adapter",
+        );
+        state.set_sessions(vec![SessionInfo {
+            session,
+            adapter_type: crate::adapters::types::AdapterType::Codex,
+            adapter_icon: 'T',
+            adapter_name: "Test Adapter".to_string(),
+        }]);
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Sessions (1 session)"));
+        assert!(!content.contains("Sessions (1)"));
+    }
+
+    #[test]
+    fn test_render_sidebar_title_uses_search_result_count_label() {
+        let renderer = ConversationsRenderer::new();
+        let mut state = PluginState::new();
+        let session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Search polish",
+            "test-adapter",
+        );
+        state.set_sessions(vec![SessionInfo {
+            session,
+            adapter_type: crate::adapters::types::AdapterType::Codex,
+            adapter_icon: 'T',
+            adapter_name: "Test Adapter".to_string(),
+        }]);
+        state.start_search("search".to_string());
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Sessions (1 result)"));
+        assert!(!content.contains("Sessions (1 filtered)"));
     }
 
     #[test]
