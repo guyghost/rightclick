@@ -703,7 +703,14 @@ impl App {
     }
 
     fn render_help_overlay(&self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
+
         if area.width < 30 || area.height < 10 {
+            Paragraph::new(compact_help_overlay_text(area.width))
+                .alignment(Alignment::Center)
+                .render(area, buf);
             return;
         }
 
@@ -861,6 +868,16 @@ fn visible_help_lines(lines: Vec<String>, max_height: u16) -> Vec<String> {
     let mut visible: Vec<String> = lines.into_iter().take(max_lines).collect();
     visible[max_lines - 1] = "  ... more help hidden".to_string();
     visible
+}
+
+fn compact_help_overlay_text(width: u16) -> &'static str {
+    match width {
+        0 => "",
+        1..=7 => "?",
+        8..=18 => "? Help",
+        19..=25 => "? Help  / Search",
+        _ => "? Help  / Search  q Quit",
+    }
 }
 
 fn build_no_plugins_help_lines() -> Vec<String> {
@@ -1159,6 +1176,39 @@ mod tests {
         let lines = vec!["Help".to_string()];
 
         assert!(visible_help_lines(lines, 0).is_empty());
+    }
+
+    #[test]
+    fn test_compact_help_overlay_text_fits_width() {
+        for width in 0..=40 {
+            assert!(compact_help_overlay_text(width).len() <= width as usize);
+        }
+        assert_eq!(compact_help_overlay_text(0), "");
+        assert_eq!(compact_help_overlay_text(7), "?");
+        assert_eq!(compact_help_overlay_text(18), "? Help");
+        assert_eq!(compact_help_overlay_text(25), "? Help  / Search");
+        assert_eq!(compact_help_overlay_text(30), "? Help  / Search  q Quit");
+    }
+
+    #[test]
+    fn test_help_overlay_renders_compact_text_in_small_area() {
+        let app = App::new(
+            Vec::new(),
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+        );
+        let area = Rect::new(0, 0, 26, 3);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+
+        app.render_help_overlay(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("? Help"));
+        assert!(content.contains("/ Search"));
     }
 
     #[test]
