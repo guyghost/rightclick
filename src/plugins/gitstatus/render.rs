@@ -231,9 +231,10 @@ fn render_sidebar(
     }
 
     if lines.is_empty() {
-        let empty_text = Paragraph::new("No changes or commits available")
+        let empty_text = Paragraph::new(git_sidebar_empty_message(state))
             .alignment(Alignment::Center)
-            .style(style_for_ui_element(theme, UiElement::MutedText));
+            .style(style_for_ui_element(theme, UiElement::MutedText))
+            .wrap(ratatui::widgets::Wrap { trim: true });
         empty_text.render(inner, buf);
         return;
     }
@@ -1258,6 +1259,14 @@ fn git_diff_empty_message(state: &PluginState) -> &'static str {
     }
 }
 
+fn git_sidebar_empty_message(state: &PluginState) -> &'static str {
+    if state.branch.is_empty() {
+        "No repository data loaded\n\nr Refresh"
+    } else {
+        "No changes or commits\n\nB Branches | H History | r Refresh"
+    }
+}
+
 fn git_commits_empty_message() -> &'static str {
     "No commits\n\nS Status | B Branches | r Refresh"
 }
@@ -1385,6 +1394,22 @@ mod tests {
         assert!(message.contains("H History"));
         assert!(message.contains("B Branches"));
         assert!(message.contains("r Refresh"));
+    }
+
+    #[test]
+    fn test_git_sidebar_empty_message_points_to_next_actions() {
+        let state = PluginState::new();
+        let unloaded = git_sidebar_empty_message(&state);
+        assert!(unloaded.contains("No repository data loaded"));
+        assert!(unloaded.contains("r Refresh"));
+
+        let mut clean_state = PluginState::new();
+        clean_state.branch = "main".to_string();
+        let clean = git_sidebar_empty_message(&clean_state);
+        assert!(clean.contains("No changes or commits"));
+        assert!(clean.contains("B Branches"));
+        assert!(clean.contains("H History"));
+        assert!(clean.contains("r Refresh"));
     }
 
     #[test]
