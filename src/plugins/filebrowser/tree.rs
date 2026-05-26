@@ -578,7 +578,7 @@ impl<'a> Widget for FileTreeWidget<'a> {
 
             // Render the line
             let line = Line::from(spans);
-            buf.set_line(area.x, area.y + i as u16, &line, area.width);
+            buf.set_line(area.x, area.y.saturating_add(i as u16), &line, area.width);
         }
     }
 }
@@ -709,6 +709,26 @@ mod tests {
         assert_eq!(tree.root, temp_dir.path());
         assert!(!tree.entries.is_empty());
         assert_eq!(tree.entries[0].name, ".");
+    }
+
+    #[test]
+    fn test_file_tree_widget_renders_inside_offset_area_near_u16_max() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::File::create(temp_dir.path().join("file.txt")).unwrap();
+        let tree = FileTree::new(temp_dir.path().to_path_buf());
+        let area = Rect::new(u16::MAX - 30, u16::MAX - 2, 30, 3);
+        let mut buf = Buffer::empty(area);
+
+        FileTreeWidget::new(&tree)
+            .show_icons(false)
+            .render(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("."));
     }
 
     #[test]
