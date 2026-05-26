@@ -986,6 +986,9 @@ fn conversations_status_line(state: &PluginState) -> String {
 
     if state.search_query.is_some() || state.adapter_filter.is_some() {
         let mut status = format!("{} of {} sessions | {} messages", visible, total, messages);
+        if let Some(adapter_type) = state.adapter_filter {
+            status.push_str(&format!(" | adapter: {}", adapter_type.display_name()));
+        }
         if state.search_query.is_some() {
             status.push_str(" | Esc Clear search");
         }
@@ -1179,6 +1182,29 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some("1 of 2 sessions | 8 messages | Esc Clear search".to_string())
+        );
+    }
+
+    #[test]
+    fn test_status_line_names_adapter_filter() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
+        let mut first =
+            crate::core::models::conversation::Session::new("session-1", "Render bug", "codex");
+        first.message_count = 3;
+        let mut second =
+            crate::core::models::conversation::Session::new("session-2", "CLI polish", "codex");
+        second.message_count = 5;
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin.state_mut().set_sessions(vec![
+            SessionInfo::new(first, &adapter),
+            SessionInfo::new(second, &adapter),
+        ]);
+        plugin.set_adapter_filter(Some(crate::adapters::types::AdapterType::Codex));
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("2 of 2 sessions | 8 messages | adapter: Codex CLI".to_string())
         );
     }
 
