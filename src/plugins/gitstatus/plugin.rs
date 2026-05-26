@@ -342,10 +342,7 @@ impl GitStatusPlugin {
                         }
                     } else {
                         self.state.selected_file = Some(idx);
-                        // Queue diff loading for the newly selected file
-                        if let Some(file) = self.state.selected_file() {
-                            self.pending_diff_path = Some((PathBuf::from(&file.path), file.status));
-                        }
+                        self.queue_selected_file_diff();
                     }
                     commands.push(Command::Refresh);
                 }
@@ -564,6 +561,12 @@ impl GitStatusPlugin {
                 }
 
                 self.validate_selections();
+                if matches!(mode, ViewMode::Status | ViewMode::Diff) {
+                    self.ensure_file_selection();
+                    self.queue_selected_file_diff();
+                } else {
+                    self.pending_diff_path = None;
+                }
                 self.sync_state_machine();
                 events.push(Event::RefreshNeeded);
             }
@@ -858,20 +861,34 @@ impl GitStatusPlugin {
     /// Refresh the repository status
     async fn refresh(&mut self) -> Result<()> {
         let status = self.fetch_repo_status().await?;
-        self.state.update_status(status);
-        // Validate selections after data changes to ensure they stay in bounds
-        self.validate_selections();
-        self.sync_state_machine();
+        self.apply_repo_status(status);
+        Ok(())
+    }
 
-        // Auto-select first file if none selected and queue diff preview
-        if self.state.selected_file.is_none() && !self.state.files.is_empty() {
+    fn apply_repo_status(&mut self, status: RepoStatus) {
+        self.state.update_status(status);
+        self.validate_selections();
+        self.ensure_file_selection();
+        self.queue_selected_file_diff();
+        self.sync_state_machine();
+    }
+
+    fn ensure_file_selection(&mut self) {
+        if matches!(self.state.view_mode, ViewMode::Status | ViewMode::Diff)
+            && self.state.selected_file.is_none()
+            && !self.state.files.is_empty()
+        {
             self.state.selected_file = Some(0);
         }
+    }
+
+    fn queue_selected_file_diff(&mut self) {
         if let Some(file) = self.state.selected_file() {
             self.pending_diff_path = Some((PathBuf::from(&file.path), file.status));
+        } else {
+            self.pending_diff_path = None;
+            self.state.diff = None;
         }
-
-        Ok(())
     }
 
     /// Fetch repository status
@@ -1078,8 +1095,7 @@ impl Plugin for GitStatusPlugin {
         self.state_machine = GitStateMachine::new(self.repo_path.clone());
         tracing::debug!("Git plugin initialized with repo: {:?}", self.repo_path);
         if let Ok(repo_status) = self.fetch_repo_status().await {
-            self.state.update_status(repo_status);
-            self.sync_state_machine();
+            self.apply_repo_status(repo_status);
         }
         // Load commits for history view (lazygit-style)
         if let Err(e) = self.load_commits().await {
@@ -1322,6 +1338,15 @@ mod tests {
         Commit::new(hash, "subject", "author", Utc::now())
     }
 
+    fn repo_status_with_unstaged(path: &str) -> RepoStatus {
+        RepoStatus {
+            branch: "main".to_string(),
+            is_dirty: true,
+            unstaged: vec![FileChange::new(path, FileStatus::Modified)],
+            ..RepoStatus::default()
+        }
+    }
+
     fn test_branch(name: &str, is_current: bool) -> Branch {
         Branch {
             name: name.to_string(),
@@ -1463,6 +1488,40 @@ mod tests {
 
         let commands = plugin.handle_key("s");
         assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn test_apply_repo_status_selects_first_file_and_queues_diff() {
+        let mut plugin = GitStatusPlugin::new();
+
+        plugin.apply_repo_status(repo_status_with_unstaged("src/main.rs"));
+
+        assert_eq!(plugin.state.selected_file, Some(0));
+        assert_eq!(
+            plugin.pending_diff_path,
+            Some((PathBuf::from("src/main.rs"), FileStatus::Modified))
+        );
+        assert_eq!(plugin.state_machine.selected_index(), Some(0));
+    }
+
+    #[tokio::test]
+    async fn test_switch_to_status_queues_selected_file_diff_after_validation() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::History;
+        plugin.state.files = vec![FileChange::new("src/lib.rs", FileStatus::Modified)];
+        plugin.state.selected_file = Some(99);
+
+        plugin
+            .execute_internal(Command::SwitchMode(ViewMode::Status))
+            .await
+            .unwrap();
+
+        assert_eq!(plugin.state.selected_file, Some(0));
+        assert_eq!(
+            plugin.pending_diff_path,
+            Some((PathBuf::from("src/lib.rs"), FileStatus::Modified))
+        );
+        assert_eq!(plugin.state_machine.selected_index(), Some(0));
     }
 
     #[test]
