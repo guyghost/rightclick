@@ -810,7 +810,7 @@ fn truncate_string(s: &str, max_len: usize) -> String {
 /// Wrap text to a maximum width
 fn wrap_text(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
-        return vec![text.to_string()];
+        return vec![String::new()];
     }
 
     let mut lines = Vec::new();
@@ -972,6 +972,14 @@ mod tests {
 
         let narrow_lines = wrap_text("検索", 1);
         assert_eq!(narrow_lines, vec!["検".to_string(), "索".to_string()]);
+    }
+
+    #[test]
+    fn test_wrap_text_zero_width_never_returns_visible_content() {
+        let lines = wrap_text("content that cannot fit", 0);
+
+        assert_eq!(lines, vec![String::new()]);
+        assert!(lines.iter().all(|line| line.width() == 0));
     }
 
     #[test]
