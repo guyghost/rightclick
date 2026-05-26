@@ -31,6 +31,8 @@ case "$cmd" in
 
     require_cmd cargo
     require_cmd rustc
+    require_cmd cargo-fmt
+    require_cmd cargo-clippy
     require_cmd git
     require_cmd rg
     optional_cmd tmux
