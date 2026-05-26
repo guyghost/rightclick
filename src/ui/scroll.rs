@@ -129,7 +129,7 @@ impl ScrollState {
     /// assert_eq!(scroll.offset, 20);
     /// ```
     pub fn scroll_down(&mut self, lines: usize) {
-        self.offset = (self.offset + lines).min(self.max_offset());
+        self.offset = self.offset.saturating_add(lines).min(self.max_offset());
     }
 
     /// Scroll to a specific line
@@ -248,9 +248,9 @@ impl ScrollState {
         if line < self.offset {
             // Line is above current view
             self.offset = line;
-        } else if line >= self.offset + self.visible_lines {
+        } else if line >= self.offset.saturating_add(self.visible_lines) {
             // Line is below current view
-            self.offset = line.saturating_sub(self.visible_lines - 1);
+            self.offset = line.saturating_sub(self.visible_lines.saturating_sub(1));
             self.clamp_offset();
         }
     }
@@ -279,9 +279,9 @@ impl ScrollState {
         if cursor_line < self.offset {
             // Cursor above view
             self.offset = cursor_line;
-        } else if cursor_line >= self.offset + self.visible_lines {
+        } else if cursor_line >= self.offset.saturating_add(self.visible_lines) {
             // Cursor below view
-            self.offset = cursor_line.saturating_sub(self.visible_lines - 1);
+            self.offset = cursor_line.saturating_sub(self.visible_lines.saturating_sub(1));
         }
 
         self.clamp_offset();
@@ -365,7 +365,7 @@ impl ScrollState {
     /// assert!(!scroll.is_visible(19));
     /// ```
     pub fn is_visible(&self, line: usize) -> bool {
-        line >= self.offset && line < self.offset + self.visible_lines
+        line >= self.offset && line < self.offset.saturating_add(self.visible_lines)
     }
 
     /// Get the visible line range
@@ -383,7 +383,10 @@ impl ScrollState {
     /// assert_eq!(scroll.visible_range(), (20, 30));
     /// ```
     pub fn visible_range(&self) -> (usize, usize) {
-        let end = (self.offset + self.visible_lines).min(self.total_lines);
+        let end = self
+            .offset
+            .saturating_add(self.visible_lines)
+            .min(self.total_lines);
         (self.offset, end)
     }
 
@@ -422,11 +425,19 @@ impl ScrollState {
     /// assert!(size <= scroll.visible_lines);
     /// ```
     pub fn scrollbar_info(&self) -> (usize, usize) {
+        if self.visible_lines == 0 {
+            return (0, 0);
+        }
+
         if self.total_lines <= self.visible_lines {
             return (0, self.visible_lines);
         }
 
-        let thumb_size = ((self.visible_lines * self.visible_lines) / self.total_lines).max(1);
+        let thumb_size = self
+            .visible_lines
+            .saturating_mul(self.visible_lines)
+            .saturating_div(self.total_lines)
+            .max(1);
         let max_thumb_pos = self.visible_lines.saturating_sub(thumb_size);
         let thumb_pos = ((self.offset * max_thumb_pos) / self.max_offset()).min(max_thumb_pos);
 
@@ -462,7 +473,9 @@ impl ScrollState {
     /// assert_eq!(scroll.bottom_line(), 34);
     /// ```
     pub fn bottom_line(&self) -> usize {
-        (self.offset + self.visible_lines - 1).min(self.total_lines.saturating_sub(1))
+        self.offset
+            .saturating_add(self.visible_lines.saturating_sub(1))
+            .min(self.total_lines.saturating_sub(1))
     }
 }
 
@@ -671,6 +684,33 @@ mod tests {
         assert!(size > 0);
         assert!(size <= scroll.visible_lines);
         assert!(pos <= scroll.visible_lines - size);
+    }
+
+    #[test]
+    fn test_zero_visible_lines_is_safe_for_visibility_helpers() {
+        let mut scroll = ScrollState::new(10);
+        scroll.set_total_lines(100);
+        scroll.scroll_to(25);
+        scroll.visible_lines = 0;
+
+        assert!(!scroll.is_visible(25));
+        assert_eq!(scroll.visible_range(), (25, 25));
+        assert_eq!(scroll.bottom_line(), 25);
+
+        scroll.ensure_visible(40);
+        assert_eq!(scroll.offset, 40);
+
+        scroll.follow_cursor(60);
+        assert_eq!(scroll.offset, 60);
+    }
+
+    #[test]
+    fn test_zero_visible_lines_has_empty_scrollbar_info() {
+        let mut scroll = ScrollState::new(10);
+        scroll.set_total_lines(100);
+        scroll.visible_lines = 0;
+
+        assert_eq!(scroll.scrollbar_info(), (0, 0));
     }
 
     #[test]
