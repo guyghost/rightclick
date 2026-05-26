@@ -15,6 +15,9 @@ check:
 doctor:
     bash scripts/dev.sh doctor
 
+rust-version:
+    bash scripts/dev.sh rust-version
+
 fmt-check:
     bash scripts/dev.sh fmt-check
 

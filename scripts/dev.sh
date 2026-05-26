@@ -10,6 +10,7 @@ Usage: bash scripts/dev.sh <command>
 Commands:
   ci             same checks used by GitHub Actions
   doctor         check required and optional local developer tools
+  rust-version   print the required Rust version from Cargo.toml
   check          fmt check, clippy with warnings denied, and tests
   fmt-check      run cargo fmt --check
   fmt            run cargo fmt
@@ -41,9 +42,16 @@ run_checks() {
   cargo test
 }
 
+rust_version() {
+  sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1
+}
+
 case "$cmd" in
   ci)
     run_checks
+    ;;
+  rust-version)
+    rust_version
     ;;
   doctor)
     missing_required=0
@@ -101,7 +109,7 @@ case "$cmd" in
     fi
     if command -v rustc >/dev/null 2>&1; then
       rustc --version
-      required_rust="$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
+      required_rust="$(rust_version)"
       current_rust="$(rustc --version | awk '{print $2}')"
       if [ -n "$required_rust" ]; then
         if version_ge "$current_rust" "$required_rust"; then
