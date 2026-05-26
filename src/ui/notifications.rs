@@ -13,6 +13,7 @@ use ratatui::{
 use std::collections::VecDeque;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
+use unicode_width::UnicodeWidthStr;
 
 use crate::core::models::Theme;
 
@@ -248,15 +249,8 @@ fn render_toast(area: Rect, buf: &mut Buffer, notification: &Notification, theme
     // Render icon + message
     if inner.width > 0 && inner.height > 0 {
         let icon = notification.level.icon();
-        let max_msg_len = (inner.width as usize).saturating_sub(icon.len() + 1);
-        let msg = if notification.message.len() > max_msg_len {
-            format!(
-                "{}...",
-                &notification.message[..max_msg_len.saturating_sub(3)]
-            )
-        } else {
-            notification.message.clone()
-        };
+        let max_msg_width = (inner.width as usize).saturating_sub(UnicodeWidthStr::width(icon) + 1);
+        let msg = truncate_notification_message(&notification.message, max_msg_width);
 
         let line = Line::from(vec![
             Span::styled(
@@ -272,6 +266,33 @@ fn render_toast(area: Rect, buf: &mut Buffer, notification: &Notification, theme
 
         Paragraph::new(line).render(inner, buf);
     }
+}
+
+fn truncate_notification_message(message: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+
+    if UnicodeWidthStr::width(message) <= max_width {
+        return message.to_string();
+    }
+
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in message.chars() {
+        let ch_width = UnicodeWidthStr::width(ch.to_string().as_str());
+        if width + ch_width + 3 > max_width {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output.push_str("...");
+    output
 }
 
 #[cfg(test)]
@@ -407,5 +428,32 @@ mod tests {
         let mut buf = Buffer::empty(Rect::new(0, 0, 10, 5));
         manager.render(Rect::new(0, 0, 10, 5), &mut buf, &theme);
         // Verify no panic with small area
+    }
+
+    #[test]
+    fn truncate_notification_message_handles_unicode_boundaries() {
+        assert_eq!(truncate_notification_message("éclair session", 5), "éc...");
+        assert_eq!(truncate_notification_message("ok", 5), "ok");
+        assert_eq!(truncate_notification_message("abcdef", 2), "..");
+    }
+
+    #[test]
+    fn render_toast_handles_unicode_message() {
+        let notification = Notification::new(
+            "éclair session opened from workspace",
+            NotificationLevel::Info,
+        );
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 20, 3);
+        let mut buf = Buffer::empty(area);
+
+        render_toast(area, &mut buf, &notification, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("éc"));
     }
 }
