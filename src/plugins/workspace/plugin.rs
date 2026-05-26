@@ -1174,6 +1174,13 @@ impl Plugin for WorkspacePlugin {
                 crate::keymap::FocusContext::Workspace,
             ),
             crate::plugin::PluginCommand::with_context_description(
+                "switch-view",
+                "Switch View",
+                "Toggle workspace view mode",
+                'v',
+                crate::keymap::FocusContext::Workspace,
+            ),
+            crate::plugin::PluginCommand::with_context_description(
                 "prev-tab",
                 "Prev",
                 "Switch to the previous worktree tab",
@@ -1310,6 +1317,18 @@ mod tests {
             link_command.description,
             "Attach a task id to the selected worktree"
         );
+
+        let switch_view_command = commands
+            .iter()
+            .find(|command| command.id == "switch-view")
+            .expect("workspace switch view command");
+
+        assert_eq!(switch_view_command.name, "Switch View");
+        assert_eq!(switch_view_command.key, 'v');
+        assert_eq!(
+            switch_view_command.description,
+            "Toggle workspace view mode"
+        );
     }
 
     #[test]
@@ -1328,6 +1347,22 @@ mod tests {
 
         assert_eq!(execution.command_name, "Link Task");
         assert_eq!(plugin.state.modal_state, ModalState::LinkTask);
+    }
+
+    #[test]
+    fn test_execute_switch_view_command_uses_declared_shortcut() {
+        let mut plugin = WorkspacePlugin::new();
+
+        let execution = plugin
+            .execute_command("switch-view")
+            .expect("switch view command should execute");
+
+        assert_eq!(execution.command_name, "Switch View");
+        assert_eq!(plugin.state.view_mode, ViewMode::Kanban);
+        assert_eq!(
+            plugin.pending_commands.pop_front(),
+            Some(Command::SwitchMode(ViewMode::Kanban))
+        );
     }
 
     #[test]
