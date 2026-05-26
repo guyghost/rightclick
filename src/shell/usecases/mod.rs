@@ -285,14 +285,19 @@ impl AppUsecase {
             .context("Failed to refresh configuration")?;
 
         // Reload state
-        let _state = self
+        let state = self
             .state_repo
             .load()
             .await
             .context("Failed to refresh state")?;
 
-        // TODO: Refresh git status for active projects
-        // This would iterate through active projects and refresh their git status
+        for project_path in state.active_plugins.keys() {
+            debug!("Refreshing git status for active project: {}", project_path);
+            self.git_service
+                .status(Path::new(project_path))
+                .await
+                .with_context(|| format!("Failed to refresh git status for {}", project_path))?;
+        }
 
         info!("All data refreshed successfully");
         Ok(())
@@ -317,9 +322,61 @@ impl AppUsecase {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::models::{Commit, Diff, FileDiff, RepoStatus};
     use crate::shell::repositories::{FileConfigRepository, FileStateRepository};
-    use crate::shell::services::CliGitService;
+    use crate::shell::services::{CliGitService, GitService};
+    use crate::state::State;
+    use async_trait::async_trait;
+    use std::sync::Mutex;
     use tempfile::TempDir;
+
+    #[derive(Default)]
+    struct RecordingGitService {
+        status_calls: Mutex<Vec<String>>,
+    }
+
+    #[async_trait]
+    impl GitService for RecordingGitService {
+        async fn status(&self, repo_path: &Path) -> Result<RepoStatus> {
+            self.status_calls
+                .lock()
+                .unwrap()
+                .push(repo_path.display().to_string());
+            Ok(RepoStatus::default())
+        }
+
+        async fn diff(&self, _repo_path: &Path, _file: &Path) -> Result<Diff> {
+            Ok(Diff::default())
+        }
+
+        async fn commits(&self, _repo_path: &Path, _limit: usize) -> Result<Vec<Commit>> {
+            Ok(Vec::new())
+        }
+
+        async fn stage(&self, _repo_path: &Path, _file: &Path) -> Result<()> {
+            Ok(())
+        }
+
+        async fn unstage(&self, _repo_path: &Path, _file: &Path) -> Result<()> {
+            Ok(())
+        }
+
+        async fn commit(&self, _repo_path: &Path, _message: &str) -> Result<()> {
+            Ok(())
+        }
+
+        async fn commit_details(
+            &self,
+            _repo_path: &Path,
+            _commit_hash: &str,
+        ) -> Result<Vec<FileDiff>> {
+            Ok(Vec::new())
+        }
+
+        async fn commit_diff(&self, _repo_path: &Path, _commit_hash: &str) -> Result<Diff> {
+            Ok(Diff::default())
+        }
+    }
 
     #[tokio::test]
     async fn test_project_new() {
@@ -393,5 +450,33 @@ mod tests {
 
         let result = usecase.load_project(&file_path).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_refresh_all_refreshes_active_project_git_status() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.json");
+        let state_path = temp_dir.path().join("state.json");
+        let project_path = temp_dir.path().join("active_project");
+        tokio::fs::create_dir(&project_path).await.unwrap();
+
+        let state_repo = Arc::new(FileStateRepository::new(&state_path));
+        let mut state = State::default();
+        state
+            .active_plugins
+            .insert(project_path.display().to_string(), "gitstatus".to_string());
+        state_repo.save(&state).await.unwrap();
+
+        let git_service = Arc::new(RecordingGitService::default());
+        let usecase = AppUsecase::new(
+            Arc::new(FileConfigRepository::new(&config_path)),
+            state_repo,
+            git_service.clone(),
+        );
+
+        usecase.refresh_all().await.unwrap();
+
+        let calls = git_service.status_calls.lock().unwrap();
+        assert_eq!(calls.as_slice(), &[project_path.display().to_string()]);
     }
 }
