@@ -530,11 +530,11 @@ fn output_empty_message(state: &PluginState) -> &'static str {
 }
 
 fn select_intent_details_message() -> &'static str {
-    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent\n/  Search intents\n?  Help"
+    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Search intents\n?  Help"
 }
 
 fn select_intent_criteria_message() -> &'static str {
-    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent\n/  Search intents\n?  Help"
+    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Search intents\n?  Help"
 }
 
 fn empty_criteria_message() -> &'static str {
@@ -960,6 +960,7 @@ mod tests {
         assert!(content.contains("Select an intent to view details"));
         assert!(content.contains("j/k  Navigate intents"));
         assert!(content.contains("Enter/o  Open intent"));
+        assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Search intents"));
         assert!(content.contains("?  Help"));
     }
@@ -1011,6 +1012,40 @@ mod tests {
         assert!(content.contains("n  New intent"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Search commands and intents"));
+        assert!(content.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_render_criteria_without_selection_points_to_navigation() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let mut state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        state.preview_tab = PreviewTab::Criteria;
+        state.add_intent(Intent::new(
+            "Clarify criteria navigation",
+            PathBuf::from(".rightclick/intents/criteria-navigation.md"),
+            "2026-02-14T10:00:00Z",
+        ));
+        state.selected_intent = None;
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Select an intent to view criteria"));
+        assert!(content.contains("j/k  Navigate intents"));
+        assert!(content.contains("Enter/o  Open intent"));
+        assert!(content.contains("f  Refresh intents"));
+        assert!(content.contains("/  Search intents"));
         assert!(content.contains("?  Help"));
     }
 
