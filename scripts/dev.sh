@@ -17,6 +17,7 @@ Commands:
   build          run cargo build
   build-release  run cargo build --release
   test           run cargo test
+  doc-test       run cargo test --doc
   test-one       run cargo test with a filter
   run            run RightClick locally
   install-local  install RightClick from this checkout
@@ -102,6 +103,9 @@ case "$cmd" in
     ;;
   test)
     cargo test
+    ;;
+  doc-test)
+    cargo test --doc
     ;;
   test-one)
     shift

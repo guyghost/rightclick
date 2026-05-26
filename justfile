@@ -33,6 +33,9 @@ build-release:
 test:
     bash scripts/dev.sh test
 
+doc-test:
+    bash scripts/dev.sh doc-test
+
 test-one filter:
     bash scripts/dev.sh test-one "{{filter}}"
 
