@@ -296,11 +296,7 @@ impl App {
         match event {
             CEvent::Key(key) if key.kind == KeyEventKind::Press => {
                 // Ctrl+C always quits regardless of any mode
-                if key.code == KeyCode::Char('c')
-                    && key
-                        .modifiers
-                        .contains(crossterm::event::KeyModifiers::CONTROL)
-                {
+                if is_ctrl_c_quit_key(&key) {
                     self.should_quit = true;
                     return Ok(());
                 }
@@ -843,7 +839,7 @@ fn build_help_lines(
         "  Shift+Tab Switch to previous plugin or pane".to_string(),
         "  1-9      Jump to plugin".to_string(),
         "  Esc      Back or close active view".to_string(),
-        "  q        Quit".to_string(),
+        "  q/Ctrl+C Quit".to_string(),
     ]);
 
     lines
@@ -890,7 +886,7 @@ fn build_footer_hints(
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?  Help\n/  Search commands\nq  Quit\n\nRestart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
+    "No plugins loaded\n\n?  Help\n/  Search commands\nq/Ctrl+C  Quit\n\nRestart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -911,6 +907,13 @@ fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginComma
     } else {
         format!("  {:<8} {} - {}", key, command.name, command.description)
     }
+}
+
+fn is_ctrl_c_quit_key(key: &crossterm::event::KeyEvent) -> bool {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    matches!(key.code, KeyCode::Char('c') | KeyCode::Char('C'))
+        && key.modifiers.contains(KeyModifiers::CONTROL)
 }
 
 /// Convert a crossterm KeyCode to a string representation
@@ -1002,6 +1005,11 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("Shift+Tab") && line.contains("previous plugin"))
         );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("q/Ctrl+C") && line.contains("Quit"))
+        );
         assert!(lines.iter().any(|line| line.contains("3 files changed")));
     }
 
@@ -1071,7 +1079,7 @@ mod tests {
         assert!(message.contains("No plugins loaded"));
         assert!(message.contains("?  Help"));
         assert!(message.contains("/  Search commands"));
-        assert!(message.contains("q  Quit"));
+        assert!(message.contains("q/Ctrl+C  Quit"));
         assert!(message.contains("RUST_LOG=debug"));
         assert!(message.contains("check configuration"));
         assert_eq!(no_plugins_footer_status(), "No plugins loaded");
@@ -1103,5 +1111,21 @@ mod tests {
             rightclick::search::SearchResultKind::PluginEntry { plugin_id, entry_id }
                 if plugin_id == "conversations" && entry_id == "session-1"
         ));
+    }
+
+    #[test]
+    fn test_ctrl_c_quit_key_accepts_lowercase_and_shifted_forms() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+        let ctrl_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        let ctrl_shift_c = KeyEvent::new(
+            KeyCode::Char('C'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        let plain_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE);
+
+        assert!(is_ctrl_c_quit_key(&ctrl_c));
+        assert!(is_ctrl_c_quit_key(&ctrl_shift_c));
+        assert!(!is_ctrl_c_quit_key(&plain_c));
     }
 }
