@@ -39,10 +39,15 @@ If you use just:
 EOF
 }
 
+run_step() {
+  printf '\n==> %s\n' "$*" >&2
+  "$@"
+}
+
 run_checks() {
-  cargo fmt --check
-  cargo clippy --all-targets -- -D warnings
-  cargo test
+  run_step cargo fmt --check
+  run_step cargo clippy --all-targets -- -D warnings
+  run_step cargo test
 }
 
 rust_version() {
@@ -139,25 +144,25 @@ case "$cmd" in
     run_checks
     ;;
   fmt-check)
-    cargo fmt --check
+    run_step cargo fmt --check
     ;;
   fmt)
-    cargo fmt
+    run_step cargo fmt
     ;;
   clippy|lint)
-    cargo clippy --all-targets -- -D warnings
+    run_step cargo clippy --all-targets -- -D warnings
     ;;
   build)
-    cargo build
+    run_step cargo build
     ;;
   build-release)
-    cargo build --release
+    run_step cargo build --release
     ;;
   test)
-    cargo test
+    run_step cargo test
     ;;
   doc-test)
-    cargo test --doc
+    run_step cargo test --doc
     ;;
   test-one)
     shift
@@ -165,13 +170,13 @@ case "$cmd" in
       echo "Usage: bash scripts/dev.sh test-one <test-filter> [-- <cargo-test-args>]" >&2
       exit 2
     fi
-    cargo test "$@"
+    run_step cargo test "$@"
     ;;
   run)
-    cargo run
+    run_step cargo run
     ;;
   install-local)
-    cargo install --path .
+    run_step cargo install --path .
     ;;
   help|--help|-h)
     print_help
