@@ -16,6 +16,7 @@ use crate::core::models::Theme;
 use crate::keymap::Action;
 
 use super::section::Section;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 /// Visual variant of a modal
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -377,7 +378,10 @@ impl Modal {
 
         // Title on second line
         let title_x = area.x + 2;
-        let title_text = format!(" {} ", self.title);
+        let title_text = truncate_display_width(
+            &format!(" {} ", self.title),
+            area.width.saturating_sub(4) as usize,
+        );
         buf.set_string(title_x, area.y + 1, &title_text, title_style);
 
         // Separator line
@@ -546,6 +550,33 @@ impl Modal {
 }
 
 use std::str::FromStr;
+
+fn truncate_display_width(value: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+
+    if value.width() <= max_width {
+        return value.to_string();
+    }
+
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in value.chars() {
+        let ch_width = ch.width().unwrap_or(0);
+        if width + ch_width + 3 > max_width {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output.push_str("...");
+    output
+}
 
 #[cfg(test)]
 mod tests {
@@ -721,5 +752,35 @@ mod tests {
 
         modal.show_hints = true;
         assert_eq!(modal.calculate_height(60), 3 + 1 + 2 + 2); // + hints line
+    }
+
+    #[test]
+    fn truncate_display_width_handles_unicode_boundaries() {
+        assert_eq!(truncate_display_width("Hello", 10), "Hello");
+        assert_eq!(truncate_display_width("éclair session", 7), "écla...");
+        assert_eq!(truncate_display_width("検索 session", 8), "検索 ...");
+        assert_eq!(truncate_display_width("abc", 2), "..");
+        assert_eq!(truncate_display_width("abc", 0), "");
+    }
+
+    #[test]
+    fn modal_title_truncates_before_right_border() {
+        let modal = Modal::new("検索 session title that is far too long");
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 30, 8);
+        let mut buf = Buffer::empty(area);
+
+        modal.render(area, &mut buf, &theme);
+
+        let modal_area =
+            Modal::centered_rect(modal.width.min(area.width.saturating_sub(4)), 5, area);
+        let right_border_x = modal_area.x + modal_area.width - 1;
+
+        assert_eq!(
+            buf.cell((right_border_x, modal_area.y + 1))
+                .unwrap()
+                .symbol(),
+            "│"
+        );
     }
 }
