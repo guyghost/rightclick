@@ -116,6 +116,7 @@ case "$cmd" in
     require_cmd git
     require_cmd rg
     optional_cmd tmux
+    optional_cmd td
     optional_cmd just
 
     if command -v cargo >/dev/null 2>&1; then
