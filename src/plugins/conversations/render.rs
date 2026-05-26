@@ -213,14 +213,7 @@ impl ConversationsRenderer {
 
             // Session name (truncated if needed)
             let name_width = inner_area.width.saturating_sub(6) as usize;
-            let name = if session_info.title().width() > name_width {
-                format!(
-                    "{}...",
-                    &session_info.title()[..name_width.saturating_sub(3)]
-                )
-            } else {
-                session_info.title().to_string()
-            };
+            let name = truncate_string(session_info.title(), name_width);
 
             let name_style = if is_selected {
                 style_for_ui_element(theme, UiElement::ActiveItem).add_modifier(Modifier::BOLD)
@@ -786,11 +779,30 @@ fn format_time(dt: &DateTime<chrono::Utc>) -> String {
 
 /// Truncate a string to a maximum length
 fn truncate_string(s: &str, max_len: usize) -> String {
-    if s.width() > max_len {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
-    } else {
-        s.to_string()
+    if max_len == 0 {
+        return String::new();
     }
+
+    if s.width() <= max_len {
+        return s.to_string();
+    }
+
+    if max_len <= 3 {
+        return ".".repeat(max_len);
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in s.chars() {
+        let ch_width = ch.to_string().width();
+        if width + ch_width + 3 > max_len {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output.push_str("...");
+    output
 }
 
 /// Wrap text to a maximum width
@@ -922,6 +934,9 @@ mod tests {
         assert_eq!(truncate_string("Hello", 10), "Hello");
         assert_eq!(truncate_string("Hello World", 8), "Hello...");
         assert_eq!(truncate_string("Test", 3), "...");
+        assert_eq!(truncate_string("éclair session", 5), "éc...");
+        assert_eq!(truncate_string("éclair", 2), "..");
+        assert_eq!(truncate_string("éclair", 0), "");
     }
 
     #[test]
