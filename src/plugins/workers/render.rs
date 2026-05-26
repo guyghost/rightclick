@@ -124,7 +124,7 @@ fn render_sidebar(
     block.render(area, buf);
 
     if state.intents.is_empty() {
-        let text = Paragraph::new("No intents yet\nPress n to create one")
+        let text = Paragraph::new(empty_intents_message(state))
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme_comment(theme)));
         text.render(inner, buf);
@@ -415,8 +415,13 @@ fn render_output_preview(state: &PluginState, area: Rect, buf: &mut Buffer, them
     }
 
     if lines.is_empty() {
+        let message = if state.intents.is_empty() {
+            "No output yet. Create an intent, then run workers."
+        } else {
+            "No output yet. Run workers to see output here."
+        };
         lines.push(Line::from(Span::styled(
-            "No output yet. Run workers to see output here.",
+            message,
             Style::default().fg(theme_comment(theme)),
         )));
     }
@@ -481,11 +486,23 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
 
         content.render(area, buf);
     } else {
-        let text = Paragraph::new("Select an intent to view criteria")
+        let message = if state.intents.is_empty() {
+            "Create an intent to define acceptance criteria"
+        } else {
+            "Select an intent to view criteria"
+        };
+        let text = Paragraph::new(message)
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme_comment(theme)));
         text.render(area, buf);
     }
+}
+
+fn empty_intents_message(state: &PluginState) -> String {
+    format!(
+        "No intents yet\n\nn  New intent\n/  Search commands and intents\n?  Help\n\nSpecs: {}",
+        state.intents_dir.display()
+    )
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -788,6 +805,41 @@ mod tests {
         assert!(content.contains("Running"));
         assert!(content.contains("Completed"));
         assert!(content.contains("Failed"));
+    }
+
+    #[test]
+    fn test_empty_intents_message_points_to_next_actions() {
+        use std::path::PathBuf;
+
+        let state = PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        let message = empty_intents_message(&state);
+
+        assert!(message.contains("No intents yet"));
+        assert!(message.contains("n  New intent"));
+        assert!(message.contains("/  Search commands and intents"));
+        assert!(message.contains("?  Help"));
+        assert!(message.contains(".rightclick/intents"));
+    }
+
+    #[test]
+    fn test_render_workers_empty_state_includes_next_actions() {
+        use std::path::PathBuf;
+
+        let state = PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No intents yet"));
+        assert!(content.contains("New intent"));
+        assert!(content.contains("Search commands"));
     }
 
     #[test]

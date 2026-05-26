@@ -973,6 +973,42 @@ impl super::state::PluginState {
     }
 }
 
+fn workers_status_line(state: &PluginState) -> String {
+    if state.intents.is_empty() {
+        return format!("No intents | specs: {}", state.intents_dir.display());
+    }
+
+    let running = state.running_workers_count();
+    let completed = state.completed_workers_count();
+    let failed = state
+        .workers
+        .values()
+        .filter(|entry| {
+            matches!(
+                entry.worker.status,
+                WorkerStatus::Failed | WorkerStatus::Cancelled
+            )
+        })
+        .count();
+
+    if running > 0 || failed > 0 {
+        format!(
+            "{} intents | {} workers | {} running | {} failed",
+            state.intents.len(),
+            state.workers.len(),
+            running,
+            failed
+        )
+    } else {
+        format!(
+            "{} intents | {} workers | {} completed",
+            state.intents.len(),
+            state.workers.len(),
+            completed
+        )
+    }
+}
+
 // ============================================================================
 // Plugin Trait Implementation
 // ============================================================================
@@ -1096,12 +1132,7 @@ impl Plugin for WorkersPlugin {
     }
 
     fn status_line(&self) -> Option<String> {
-        Some(format!(
-            "{} intents | {} workers | {} running",
-            self.state.intents.len(),
-            self.state.workers.len(),
-            self.state.running_workers_count()
-        ))
+        Some(workers_status_line(&self.state))
     }
 
     fn search_entries(&self) -> Vec<crate::plugin::PluginSearchEntry> {
@@ -1231,6 +1262,59 @@ mod tests {
         assert_eq!(plugin.state.view_mode, ViewMode::List);
         assert_eq!(plugin.state.preview_tab, PreviewTab::Spec);
         assert_eq!(plugin.focus_pane, FocusPane::Preview);
+    }
+
+    #[test]
+    fn test_status_line_points_to_specs_when_empty() {
+        let plugin = WorkersPlugin::new();
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("No intents | specs: .rightclick/intents".to_string())
+        );
+    }
+
+    #[test]
+    fn test_status_line_summarizes_worker_outcomes() {
+        let mut plugin = WorkersPlugin::new();
+        let mut intent = Intent::new(
+            "Ship workers polish",
+            PathBuf::from(".rightclick/intents/workers-polish.md"),
+            "2026-05-26T10:00:00Z",
+        );
+        intent.id = "intent-workers-polish".to_string();
+        plugin.state.add_intent(intent);
+
+        let mut running = Worker::new(
+            "implement",
+            WorkerType::Implementer,
+            "intent-workers-polish",
+            PathBuf::from("/repo/w1"),
+            "branch",
+            "claude",
+            PathBuf::from("/repo/log1"),
+            "2026-05-26T10:00:00Z",
+        );
+        running.mark_running();
+        let mut failed = Worker::new(
+            "verify",
+            WorkerType::Verifier,
+            "intent-workers-polish",
+            PathBuf::from("/repo/w2"),
+            "branch",
+            "claude",
+            PathBuf::from("/repo/log2"),
+            "2026-05-26T10:00:00Z",
+        );
+        failed.mark_failed("2026-05-26T11:00:00Z", 1);
+
+        plugin.state.add_worker(running);
+        plugin.state.add_worker(failed);
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("1 intents | 2 workers | 1 running | 1 failed".to_string())
+        );
     }
 
     #[test]
