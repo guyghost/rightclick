@@ -277,7 +277,7 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
                 .style(style_for_ui_element(theme, UiElement::Text));
             text.render(inner, buf);
         } else {
-            let empty = Paragraph::new("No linked task\nPress 'T' to link a task")
+            let empty = Paragraph::new(no_linked_task_message())
                 .alignment(Alignment::Center)
                 .style(style_for_ui_element(theme, UiElement::MutedText));
             empty.render(inner, buf);
@@ -297,6 +297,10 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
 
 fn empty_worktrees_message() -> &'static str {
     "No worktrees found\n\nn  Create worktree\nr  Refresh worktrees\n/  Search commands and worktrees\n?  Help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
+}
+
+fn no_linked_task_message() -> &'static str {
+    "No linked task\n\nT  Link task\n/  Search commands"
 }
 
 /// Render kanban mode
@@ -827,7 +831,9 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("Press 'T' to link a task"));
-        assert!(!content.contains("Press 't' to link a task"));
+        assert!(content.contains("No linked task"));
+        assert!(content.contains("T  Link task"));
+        assert!(content.contains("/  Search commands"));
+        assert!(!content.contains("t  Link task"));
     }
 }
