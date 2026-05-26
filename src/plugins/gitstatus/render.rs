@@ -201,7 +201,9 @@ fn render_sidebar(
         let header_style =
             style_for_ui_element(theme, UiElement::Secondary).add_modifier(Modifier::BOLD);
         lines.push(Line::styled(
-            format!(" Recent Commits ({})", state.commits.len()),
+            count_title("Recent Commit", "Recent Commits", state.commits.len())
+                .trim_end()
+                .to_string(),
             header_style,
         ));
         lines.push(Line::raw(""));
@@ -389,7 +391,7 @@ fn render_commit_list(
     let title = if state.commits.is_empty() {
         " Commits ".to_string()
     } else {
-        format!(" Recent Commits ({}) ", state.commits.len())
+        count_title("Recent Commit", "Recent Commits", state.commits.len())
     };
 
     let block = Block::default()
@@ -1430,6 +1432,14 @@ mod tests {
 
     #[test]
     fn test_count_title_uses_singular_labels() {
+        assert_eq!(
+            count_title("Recent Commit", "Recent Commits", 1),
+            " Recent Commit (1) "
+        );
+        assert_eq!(
+            count_title("Recent Commit", "Recent Commits", 2),
+            " Recent Commits (2) "
+        );
         assert_eq!(count_title("Branch", "Branches", 1), " Branch (1) ");
         assert_eq!(count_title("Branch", "Branches", 2), " Branches (2) ");
         assert_eq!(count_title("Stash", "Stashes", 1), " Stash (1) ");
