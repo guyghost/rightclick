@@ -860,6 +860,7 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         "  q/Ctrl+C  Quit".to_string(),
         String::new(),
         "Diagnostics:".to_string(),
+        "  Run bash scripts/dev.sh doctor to verify local tools.".to_string(),
         "  Restart with RUST_LOG=debug to inspect plugin startup.".to_string(),
         "  Check configuration if this state persists.".to_string(),
     ]
@@ -910,7 +911,7 @@ fn build_footer_hints(
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?  Help\n/  Global search\nq/Ctrl+C  Quit\n\nRestart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
+    "No plugins loaded\n\n?  Help\n/  Global search\nq/Ctrl+C  Quit\n\nRun bash scripts/dev.sh doctor to verify local tools, restart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -1128,6 +1129,11 @@ mod tests {
                 .any(|line| line.contains("q/Ctrl+C") && line.contains("Quit"))
         );
         assert!(lines.contains(&"  q/Ctrl+C  Quit".to_string()));
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("bash scripts/dev.sh doctor"))
+        );
         assert!(lines.iter().any(|line| line.contains("RUST_LOG=debug")));
         assert!(lines.iter().any(|line| line.contains("configuration")));
     }
@@ -1235,6 +1241,7 @@ mod tests {
         assert!(message.contains("?  Help"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains("q/Ctrl+C  Quit"));
+        assert!(message.contains("bash scripts/dev.sh doctor"));
         assert!(message.contains("RUST_LOG=debug"));
         assert!(message.contains("check configuration"));
         assert_eq!(no_plugins_footer_status(), "No plugins loaded");
