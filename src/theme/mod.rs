@@ -193,6 +193,10 @@ pub fn theme_exists(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use once_cell::sync::Lazy;
+    use parking_lot::Mutex;
+
+    static THEME_TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     #[test]
     fn test_theme_exists() {
@@ -225,6 +229,7 @@ mod tests {
 
     #[test]
     fn test_apply_and_get_theme() {
+        let _guard = THEME_TEST_LOCK.lock();
         let dracula = dracula_theme();
         apply_theme(&dracula);
 
@@ -235,6 +240,7 @@ mod tests {
 
     #[test]
     fn test_apply_theme_with_overrides() {
+        let _guard = THEME_TEST_LOCK.lock();
         let default = default_theme();
         let mut overrides = HashMap::new();
         overrides.insert("primary".to_string(), "#ff0000".to_string());
