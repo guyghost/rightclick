@@ -171,7 +171,7 @@ impl GitStatusPlugin {
 
     /// Get the plugin name
     pub fn plugin_name(&self) -> &'static str {
-        "git"
+        "Git Status"
     }
 
     /// Get the plugin icon
@@ -1117,22 +1117,36 @@ impl Plugin for GitStatusPlugin {
         // Build contextual shortcuts based on view mode
         let mut commands = vec![
             // Navigation
-            crate::plugin::PluginCommand::with_context("nav", "nav", 'j', self.focus_context()),
-            crate::plugin::PluginCommand::with_context("nav", "nav", 'k', self.focus_context()),
+            crate::plugin::PluginCommand::with_context_description(
+                "nav-down",
+                "Down",
+                "Move selection down",
+                'j',
+                self.focus_context(),
+            ),
+            crate::plugin::PluginCommand::with_context_description(
+                "nav-up",
+                "Up",
+                "Move selection up",
+                'k',
+                self.focus_context(),
+            ),
         ];
 
         if self.state.view_mode == ViewMode::History {
             // History mode shortcuts
             commands.extend(vec![
-                crate::plugin::PluginCommand::with_context(
+                crate::plugin::PluginCommand::with_context_description(
                     "status",
                     "Status",
+                    "Switch to status view",
                     'S',
                     FocusContext::GitStatus,
                 ),
-                crate::plugin::PluginCommand::with_context(
+                crate::plugin::PluginCommand::with_context_description(
                     "history",
                     "History",
+                    "Show commit history",
                     'H',
                     FocusContext::GitStatus,
                 ),
@@ -1141,36 +1155,41 @@ impl Plugin for GitStatusPlugin {
             // Status/Diff mode shortcuts
             if !self.state.files.is_empty() {
                 commands.extend(vec![
-                    crate::plugin::PluginCommand::with_context(
+                    crate::plugin::PluginCommand::with_context_description(
                         "stage",
                         "Stage",
+                        "Stage the selected file",
                         's',
                         FocusContext::GitStatus,
                     ),
-                    crate::plugin::PluginCommand::with_context(
+                    crate::plugin::PluginCommand::with_context_description(
                         "unstage",
                         "Unstage",
+                        "Unstage the selected file",
                         'u',
                         FocusContext::GitStatus,
                     ),
-                    crate::plugin::PluginCommand::with_context(
+                    crate::plugin::PluginCommand::with_context_description(
                         "diff",
                         "Diff",
+                        "Toggle file diff view",
                         'd',
                         FocusContext::GitStatus,
                     ),
                 ]);
             }
             commands.extend(vec![
-                crate::plugin::PluginCommand::with_context(
+                crate::plugin::PluginCommand::with_context_description(
                     "history",
                     "History",
+                    "Show commit history",
                     'H',
                     FocusContext::GitStatus,
                 ),
-                crate::plugin::PluginCommand::with_context(
+                crate::plugin::PluginCommand::with_context_description(
                     "commit",
                     "Commit",
+                    "Create a commit from staged changes",
                     'c',
                     FocusContext::GitStatus,
                 ),
@@ -1179,27 +1198,31 @@ impl Plugin for GitStatusPlugin {
 
         // Common shortcuts
         commands.extend(vec![
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "refresh",
                 "Refresh",
+                "Reload git status",
                 'r',
                 FocusContext::GitStatus,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "branches",
                 "Branches",
+                "Show local branches",
                 'B',
                 FocusContext::GitStatus,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "stash",
                 "Stash",
+                "Show git stashes",
                 'Z',
                 FocusContext::GitStatus,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "push",
                 "Push",
+                "Push the current branch",
                 'P',
                 FocusContext::GitStatus,
             ),
@@ -1327,7 +1350,7 @@ mod tests {
     fn test_plugin_new() {
         let plugin = GitStatusPlugin::new();
         assert_eq!(plugin.id(), "git-status");
-        assert_eq!(plugin.name(), "git");
+        assert_eq!(plugin.name(), "Git Status");
         assert_eq!(plugin.icon(), 'G');
     }
 
@@ -1344,7 +1367,9 @@ mod tests {
         assert!(!commands.is_empty());
 
         // Check that we have navigation commands
-        let has_nav = commands.iter().any(|c| c.id == "nav");
+        let has_nav = commands
+            .iter()
+            .any(|c| matches!(c.id.as_str(), "nav-down" | "nav-up"));
         let has_refresh = commands.iter().any(|c| c.id == "refresh");
 
         assert!(has_nav);

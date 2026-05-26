@@ -846,7 +846,7 @@ fn build_help_lines(
     for command in commands {
         let key = command.key.to_string();
         if seen.insert((key.clone(), command.name.clone())) {
-            lines.push(format!("  {:<8} {}", key, command.name));
+            lines.push(format_command_help_line(&key, command));
         }
     }
 
@@ -861,6 +861,14 @@ fn build_help_lines(
     ]);
 
     lines
+}
+
+fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginCommand) -> String {
+    if command.description.is_empty() {
+        format!("  {:<8} {}", key, command.name)
+    } else {
+        format!("  {:<8} {} - {}", key, command.name, command.description)
+    }
 }
 
 /// Convert a crossterm KeyCode to a string representation
@@ -943,6 +951,25 @@ mod tests {
         assert!(lines.iter().any(|line| line.contains("Refresh")));
         assert!(lines.iter().any(|line| line.contains("/")));
         assert!(lines.iter().any(|line| line.contains("3 files changed")));
+    }
+
+    #[test]
+    fn test_build_help_lines_includes_command_descriptions() {
+        let commands = vec![rightclick::plugin::PluginCommand::with_context_description(
+            "refresh",
+            "Refresh",
+            "Reload repository state",
+            'r',
+            rightclick::keymap::FocusContext::Global,
+        )];
+
+        let lines = build_help_lines("Git Status", &commands, "ready");
+
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("Refresh - Reload repository state"))
+        );
     }
 
     #[test]

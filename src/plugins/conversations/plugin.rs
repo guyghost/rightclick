@@ -656,7 +656,7 @@ impl Plugin for ConversationsPlugin {
     }
 
     fn name(&self) -> &str {
-        "conversations"
+        "Conversations"
     }
 
     fn icon(&self) -> char {
@@ -863,33 +863,38 @@ impl Plugin for ConversationsPlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "refresh",
                 "Refresh",
+                "Reload sessions from detected adapters",
                 'r',
                 crate::keymap::FocusContext::Conversations,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "search",
                 "Search",
+                "Filter loaded sessions",
                 '/',
                 crate::keymap::FocusContext::Conversations,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "expand",
                 "Expand",
+                "Expand messages in the current conversation",
                 'e',
                 crate::keymap::FocusContext::Conversations,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "open",
                 "Open",
+                "Open the selected session",
                 'o',
                 crate::keymap::FocusContext::Conversations,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "back",
                 "Back",
+                "Return to the sessions list",
                 'h',
                 crate::keymap::FocusContext::Conversations,
             ),

@@ -43,7 +43,7 @@ pub use state::{FocusPane, GitModal, PluginState, ViewMode};
 
 /// Plugin metadata
 pub const PLUGIN_ID: &str = "git-status";
-pub const PLUGIN_NAME: &str = "git";
+pub const PLUGIN_NAME: &str = "Git Status";
 pub const PLUGIN_ICON: char = 'G';
 pub const PLUGIN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_plugin_constants() {
         assert_eq!(PLUGIN_ID, "git-status");
-        assert_eq!(PLUGIN_NAME, "git");
+        assert_eq!(PLUGIN_NAME, "Git Status");
         assert_eq!(PLUGIN_ICON, 'G');
     }
 
@@ -87,7 +87,7 @@ mod tests {
     fn test_create_alias() {
         let plugin = create();
         assert_eq!(plugin.id(), "git-status");
-        assert_eq!(plugin.name(), "git");
+        assert_eq!(plugin.name(), "Git Status");
     }
 
     #[test]

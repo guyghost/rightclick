@@ -187,7 +187,7 @@ impl WorkspacePlugin {
 
     /// Get the plugin name
     pub fn name(&self) -> &str {
-        "workspace"
+        "Workspaces"
     }
 
     /// Get the plugin icon
@@ -1057,7 +1057,7 @@ impl Plugin for WorkspacePlugin {
     }
 
     fn name(&self) -> &str {
-        "workspaces"
+        "Workspaces"
     }
 
     fn icon(&self) -> char {
@@ -1099,57 +1099,66 @@ impl Plugin for WorkspacePlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "create",
                 "Create",
+                "Create a new git worktree",
                 'n',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "delete",
                 "Delete",
+                "Delete the selected worktree",
                 'D',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "link",
                 "Link Task",
+                "Attach a task id to the selected worktree",
                 'T',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "agent",
                 "Launch Agent",
+                "Start an agent in the selected worktree",
                 'a',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "merge",
                 "Merge",
+                "Merge the selected worktree branch",
                 'm',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "prev-tab",
                 "Prev",
+                "Switch to the previous worktree tab",
                 '[',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "next-tab",
                 "Next",
+                "Switch to the next worktree tab",
                 ']',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "interactive",
                 "Interactive",
+                "Open an interactive shell for the worktree",
                 'o',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "refresh",
                 "Refresh",
+                "Reload worktree status",
                 'r',
                 crate::keymap::FocusContext::Workspace,
             ),
@@ -1202,7 +1211,7 @@ mod tests {
     fn test_plugin_id() {
         let plugin = WorkspacePlugin::new();
         assert_eq!(plugin.id(), "workspace");
-        assert_eq!(plugin.name(), "workspace");
+        assert_eq!(plugin.name(), "Workspaces");
         assert_eq!(plugin.icon(), 'W');
     }
 

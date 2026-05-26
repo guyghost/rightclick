@@ -172,7 +172,7 @@ impl WorkersPlugin {
 
     /// Get the plugin name
     pub fn name(&self) -> &str {
-        "workers"
+        "Workers"
     }
 
     /// Get the plugin icon
@@ -987,7 +987,7 @@ impl Plugin for WorkersPlugin {
     }
 
     fn name(&self) -> &str {
-        "workers"
+        "Workers"
     }
 
     fn icon(&self) -> char {
@@ -1029,57 +1029,66 @@ impl Plugin for WorkersPlugin {
 
     fn commands(&self) -> Vec<crate::plugin::PluginCommand> {
         vec![
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "create",
                 "New Intent",
+                "Create a new implementation intent",
                 'n',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "delete",
                 "Delete",
+                "Delete the selected intent",
                 'D',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "run",
                 "Run Workers",
+                "Run workers for the selected intent",
                 'r',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "stop",
                 "Stop",
+                "Stop running workers",
                 's',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "open",
                 "Open",
+                "Open the selected intent",
                 'o',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "switch-view",
                 "View",
+                "Switch workers view mode",
                 'v',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "prev-tab",
                 "Prev",
+                "Switch to the previous tab",
                 '[',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "next-tab",
                 "Next",
+                "Switch to the next tab",
                 ']',
                 crate::keymap::FocusContext::Workspace,
             ),
-            crate::plugin::PluginCommand::with_context(
+            crate::plugin::PluginCommand::with_context_description(
                 "refresh",
                 "Refresh",
+                "Reload worker state",
                 'f',
                 crate::keymap::FocusContext::Workspace,
             ),
@@ -1120,7 +1129,7 @@ mod tests {
     fn test_plugin_id() {
         let plugin = WorkersPlugin::new();
         assert_eq!(plugin.id(), "workers");
-        assert_eq!(plugin.name(), "workers");
+        assert_eq!(plugin.name(), "Workers");
         assert_eq!(plugin.icon(), '🤖');
     }
 

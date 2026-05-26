@@ -156,21 +156,24 @@ impl Plugin for FileBrowserPlugin {
 
     fn commands(&self) -> Vec<PluginCommand> {
         vec![
-            PluginCommand::with_context(
+            PluginCommand::with_context_description(
                 "refresh",
                 "Refresh",
+                "Reload the file tree",
                 'r',
                 crate::keymap::FocusContext::FileBrowserTree,
             ),
-            PluginCommand::with_context(
+            PluginCommand::with_context_description(
                 "toggle_hidden",
                 "Toggle Hidden",
+                "Show or hide dotfiles",
                 'H',
                 crate::keymap::FocusContext::FileBrowserTree,
             ),
-            PluginCommand::with_context(
+            PluginCommand::with_context_description(
                 "toggle_ignored",
                 "Toggle Ignored",
+                "Show or hide ignored files",
                 'i',
                 crate::keymap::FocusContext::FileBrowserTree,
             ),

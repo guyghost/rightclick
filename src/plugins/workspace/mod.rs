@@ -42,7 +42,7 @@ pub use worktree::{AgentLauncher, TmuxManager, WorktreeManager};
 
 /// Plugin metadata
 pub const PLUGIN_ID: &str = "workspace";
-pub const PLUGIN_NAME: &str = "workspace";
+pub const PLUGIN_NAME: &str = "Workspaces";
 pub const PLUGIN_ICON: char = 'W';
 pub const PLUGIN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_plugin_constants() {
         assert_eq!(PLUGIN_ID, "workspace");
-        assert_eq!(PLUGIN_NAME, "workspace");
+        assert_eq!(PLUGIN_NAME, "Workspaces");
         assert_eq!(PLUGIN_ICON, 'W');
     }
 

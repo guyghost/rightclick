@@ -43,7 +43,7 @@ pub use state::{
 
 /// Plugin metadata
 pub const PLUGIN_ID: &str = "workers";
-pub const PLUGIN_NAME: &str = "workers";
+pub const PLUGIN_NAME: &str = "Workers";
 pub const PLUGIN_ICON: char = '🤖';
 pub const PLUGIN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_plugin_constants() {
         assert_eq!(PLUGIN_ID, "workers");
-        assert_eq!(PLUGIN_NAME, "workers");
+        assert_eq!(PLUGIN_NAME, "Workers");
         assert_eq!(PLUGIN_ICON, '🤖');
     }
 

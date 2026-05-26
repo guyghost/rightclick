@@ -578,6 +578,25 @@ impl PluginCommand {
             priority: 0,
         }
     }
+
+    /// Create a new plugin command with context and display description.
+    pub fn with_context_description(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        description: impl Into<String>,
+        key: char,
+        context: FocusContext,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            description: description.into(),
+            category: Category::System,
+            key,
+            context,
+            priority: 0,
+        }
+    }
 }
 
 /// A command exposed by a plugin for the command palette.
@@ -989,6 +1008,22 @@ mod tests {
         );
         assert_eq!(cmd.id, "stage");
         assert_eq!(cmd.name, "Stage");
+    }
+
+    #[test]
+    fn test_plugin_command_with_context_description() {
+        let cmd = PluginCommand::with_context_description(
+            "refresh",
+            "Refresh",
+            "Reload current data",
+            'r',
+            FocusContext::GitStatus,
+        );
+
+        assert_eq!(cmd.id, "refresh");
+        assert_eq!(cmd.name, "Refresh");
+        assert_eq!(cmd.description, "Reload current data");
+        assert_eq!(cmd.context, FocusContext::GitStatus);
     }
 
     #[test]
