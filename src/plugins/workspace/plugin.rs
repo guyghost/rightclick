@@ -1140,14 +1140,14 @@ impl Plugin for WorkspacePlugin {
         vec![
             crate::plugin::PluginCommand::with_context_description(
                 "create",
-                "Create",
+                "Create Worktree",
                 "Create a new git worktree",
                 'n',
                 crate::keymap::FocusContext::Workspace,
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "delete",
-                "Delete",
+                "Delete Worktree",
                 "Delete the selected worktree",
                 'D',
                 crate::keymap::FocusContext::Workspace,
@@ -1196,7 +1196,7 @@ impl Plugin for WorkspacePlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "interactive",
-                "Interactive",
+                "Interactive Mode",
                 "Open an interactive shell for the worktree",
                 'o',
                 crate::keymap::FocusContext::Workspace,
@@ -1306,6 +1306,22 @@ mod tests {
     fn test_trait_commands_use_actual_link_shortcut() {
         let plugin = WorkspacePlugin::new();
         let commands = <WorkspacePlugin as crate::plugin::Plugin>::commands(&plugin);
+        let create_command = commands
+            .iter()
+            .find(|command| command.id == "create")
+            .expect("workspace create command");
+
+        assert_eq!(create_command.name, "Create Worktree");
+        assert_eq!(create_command.key, 'n');
+
+        let delete_command = commands
+            .iter()
+            .find(|command| command.id == "delete")
+            .expect("workspace delete command");
+
+        assert_eq!(delete_command.name, "Delete Worktree");
+        assert_eq!(delete_command.key, 'D');
+
         let link_command = commands
             .iter()
             .find(|command| command.id == "link")
@@ -1329,6 +1345,14 @@ mod tests {
             switch_view_command.description,
             "Toggle workspace view mode"
         );
+
+        let interactive_command = commands
+            .iter()
+            .find(|command| command.id == "interactive")
+            .expect("workspace interactive command");
+
+        assert_eq!(interactive_command.name, "Interactive Mode");
+        assert_eq!(interactive_command.key, 'o');
     }
 
     #[test]
