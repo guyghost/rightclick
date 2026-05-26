@@ -420,7 +420,7 @@ impl ConversationsRenderer {
         if state.messages.is_empty() {
             if state.is_loading {
                 let loading_style = style_for_ui_element(theme, UiElement::Info);
-                let loading = Paragraph::new("Loading messages...")
+                let loading = Paragraph::new(loading_messages_message())
                     .style(loading_style)
                     .alignment(Alignment::Center);
                 loading.render(inner_area, buf);
@@ -850,6 +850,10 @@ fn empty_messages_message() -> &'static str {
     "No messages in this session\n\nEsc/h  Back to sessions\nThen r  Refresh or f  Filter"
 }
 
+fn loading_messages_message() -> &'static str {
+    "Loading messages\n\nEsc/h  Back to sessions\nr  Refresh sessions"
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -943,5 +947,36 @@ mod tests {
         assert!(message.contains("No messages in this session"));
         assert!(message.contains("Esc/h  Back to sessions"));
         assert!(message.contains("Then r  Refresh or f  Filter"));
+    }
+
+    #[test]
+    fn test_loading_messages_message_points_to_next_actions() {
+        let message = loading_messages_message();
+
+        assert!(message.contains("Loading messages"));
+        assert!(message.contains("Esc/h  Back to sessions"));
+        assert!(message.contains("r  Refresh sessions"));
+    }
+
+    #[test]
+    fn test_render_loading_messages_includes_next_actions() {
+        let renderer = ConversationsRenderer::new();
+        let mut state = PluginState::new();
+        state.view = ConversationView::Conversation;
+        state.set_loading(true);
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Loading messages"));
+        assert!(content.contains("Esc/h  Back to sessions"));
+        assert!(content.contains("r  Refresh sessions"));
     }
 }
