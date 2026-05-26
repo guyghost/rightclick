@@ -21,6 +21,9 @@ fmt:
 clippy:
     bash scripts/dev.sh clippy
 
+build:
+    bash scripts/dev.sh build
+
 test:
     bash scripts/dev.sh test
 

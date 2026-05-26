@@ -64,6 +64,9 @@ case "$cmd" in
   clippy)
     cargo clippy --all-targets -- -D warnings
     ;;
+  build)
+    cargo build
+    ;;
   test)
     cargo test
     ;;
@@ -92,6 +95,7 @@ Commands:
   fmt-check      run cargo fmt --check
   fmt            run cargo fmt
   clippy         run cargo clippy --all-targets -- -D warnings
+  build          run cargo build
   test           run cargo test
   test-one       run cargo test with a filter
   run            run RightClick locally
