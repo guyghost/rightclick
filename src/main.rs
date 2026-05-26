@@ -25,11 +25,12 @@ use rightclick::{
     adapters::create_default_registry,
     config,
     core::models::Theme,
-    plugin::{Plugin, PluginCommandError, PluginCommandExecution, PluginContext},
+    plugin::{
+        Plugin, PluginCommandError, PluginCommandExecution, PluginContext, PluginSearchEntry,
+    },
     plugins::{conversations, filebrowser, gitstatus, workers, workspace},
     search::{
-        SearchOverlayAction, SearchOverlayState, SearchScope, render_search_overlay,
-        search_conversations, search_files,
+        SearchOverlayAction, SearchOverlayState, SearchScope, render_search_overlay, search_files,
     },
     state,
     theme::{self, resolve_theme},
@@ -496,20 +497,14 @@ impl App {
 
         // Conversation search (synchronous fuzzy match)
         if matches!(scope, SearchScope::All | SearchScope::Conversations) {
-            let conversations: Vec<(String, String)> = self
+            let conv_results = self
                 .plugins
                 .iter()
-                .filter(|p| p.id() == "conversations")
-                .flat_map(|p| {
-                    p.commands()
-                        .into_iter()
-                        .map(|c| (c.name.to_string(), c.description.to_string()))
-                })
-                .collect();
-            if !conversations.is_empty() {
-                let conv_results = search_conversations(&query, &conversations, 20);
-                all_results.extend(conv_results);
-            }
+                .filter(|plugin| plugin.id() == "conversations")
+                .flat_map(|plugin| {
+                    search_plugin_entries(plugin.id(), &plugin.search_entries(), &query, 20)
+                });
+            all_results.extend(conv_results);
         }
 
         // Sort all results by score descending
@@ -539,7 +534,21 @@ impl App {
                 }
             }
             SearchResultKind::Conversation { id } => {
-                self.notifications.info(format!("Conversation: {}", id));
+                let Some((plugin_id, entry_id)) = id.split_once(':') else {
+                    self.notifications
+                        .warning(format!("Invalid conversation route: {}", id));
+                    return;
+                };
+
+                if let Some(plugin_idx) = self.plugins.iter_mut().position(|plugin| {
+                    plugin.id() == plugin_id && plugin.activate_search_result(entry_id)
+                }) {
+                    self.switch_plugin(plugin_idx);
+                    self.notifications.info(format!("Opened {}", result.title));
+                } else {
+                    self.notifications
+                        .warning(format!("Conversation not available: {}", result.title));
+                }
             }
             SearchResultKind::Command { id } => match self.execute_search_command(&id) {
                 Ok(execution) => {
@@ -782,6 +791,45 @@ impl App {
     }
 }
 
+fn search_plugin_entries(
+    plugin_id: &str,
+    entries: &[PluginSearchEntry],
+    query: &str,
+    max_results: usize,
+) -> Vec<rightclick::search::SearchResult> {
+    use rightclick::search::{SearchResult, SearchResultKind};
+
+    if query.is_empty() {
+        return Vec::new();
+    }
+
+    let mut results: Vec<SearchResult> = entries
+        .iter()
+        .filter_map(|entry| {
+            let title_score = fuzzy_match_simple(&entry.title, query).unwrap_or(0);
+            let preview_score = fuzzy_match_simple(&entry.preview, query).unwrap_or(0);
+            let id_score = fuzzy_match_simple(&entry.id, query).unwrap_or(0);
+            let score = title_score.max(preview_score).max(id_score);
+            if score == 0 {
+                return None;
+            }
+
+            Some(SearchResult {
+                kind: SearchResultKind::Conversation {
+                    id: format!("{}:{}", plugin_id, entry.id),
+                },
+                title: entry.title.clone(),
+                preview: entry.preview.clone(),
+                score,
+            })
+        })
+        .collect();
+
+    results.sort_by(|a, b| b.score.cmp(&a.score));
+    results.truncate(max_results);
+    results
+}
+
 fn build_help_lines(
     plugin_name: &str,
     commands: &[rightclick::plugin::PluginCommand],
@@ -895,5 +943,23 @@ mod tests {
         assert!(lines.iter().any(|line| line.contains("Refresh")));
         assert!(lines.iter().any(|line| line.contains("/")));
         assert!(lines.iter().any(|line| line.contains("3 files changed")));
+    }
+
+    #[test]
+    fn test_search_plugin_entries_routes_to_plugin_and_entry_id() {
+        let entries = vec![rightclick::plugin::PluginSearchEntry {
+            id: "session-1".to_string(),
+            title: "Investigate render bug".to_string(),
+            preview: "Mock Adapter | 4 messages".to_string(),
+        }];
+
+        let results = search_plugin_entries("conversations", &entries, "render", 10);
+
+        assert_eq!(results.len(), 1);
+        assert!(matches!(
+            &results[0].kind,
+            rightclick::search::SearchResultKind::Conversation { id }
+                if id == "conversations:session-1"
+        ));
     }
 }

@@ -912,6 +912,44 @@ impl Plugin for ConversationsPlugin {
         ))
     }
 
+    fn search_entries(&self) -> Vec<crate::plugin::PluginSearchEntry> {
+        self.state
+            .sessions
+            .iter()
+            .map(|session_info| {
+                let mut preview_parts = vec![
+                    session_info.adapter_name.clone(),
+                    format!("{} messages", session_info.message_count()),
+                ];
+                if let Some(total_tokens) = session_info.total_tokens() {
+                    preview_parts.push(format!("{} tokens", total_tokens));
+                }
+
+                crate::plugin::PluginSearchEntry {
+                    id: session_info.session.id.clone(),
+                    title: session_info.title().to_string(),
+                    preview: preview_parts.join(" | "),
+                }
+            })
+            .collect()
+    }
+
+    fn activate_search_result(&mut self, entry_id: &str) -> bool {
+        let Some(index) = self
+            .state
+            .sessions
+            .iter()
+            .position(|session_info| session_info.session.id == entry_id)
+        else {
+            return false;
+        };
+
+        self.state.select_session(index);
+        self.state.enter_conversation();
+        self.pending_load_messages = true;
+        true
+    }
+
     fn focus_context(&self) -> crate::keymap::FocusContext {
         crate::keymap::FocusContext::Conversations
     }
@@ -989,5 +1027,110 @@ mod tests {
 
         let title = plugin.view_title();
         assert!(title.contains("Sessions"));
+    }
+
+    #[test]
+    fn test_search_entries_include_loaded_sessions() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin.state_mut().set_sessions(vec![SessionInfo::new(
+            crate::core::models::conversation::Session::new(
+                "session-1",
+                "Investigate render bug",
+                "test-adapter",
+            ),
+            &adapter,
+        )]);
+
+        let entries = plugin.search_entries();
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].id, "session-1");
+        assert!(entries[0].title.contains("Investigate render bug"));
+        assert!(entries[0].preview.contains("Mock Adapter"));
+    }
+
+    #[test]
+    fn test_activate_search_result_selects_session_and_enters_conversation() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin.state_mut().set_sessions(vec![
+            SessionInfo::new(
+                crate::core::models::conversation::Session::new(
+                    "session-1",
+                    "First",
+                    "test-adapter",
+                ),
+                &adapter,
+            ),
+            SessionInfo::new(
+                crate::core::models::conversation::Session::new(
+                    "session-2",
+                    "Second",
+                    "test-adapter",
+                ),
+                &adapter,
+            ),
+        ]);
+
+        assert!(plugin.activate_search_result("session-2"));
+
+        assert_eq!(plugin.state().selected_session, Some(1));
+        assert_eq!(plugin.state().view, ConversationView::Conversation);
+    }
+
+    #[derive(Debug)]
+    struct TestAdapter;
+
+    #[async_trait::async_trait]
+    impl Adapter for TestAdapter {
+        fn id(&self) -> &str {
+            "test-adapter"
+        }
+
+        fn name(&self) -> &str {
+            "Mock Adapter"
+        }
+
+        fn icon(&self) -> char {
+            'T'
+        }
+
+        fn adapter_type(&self) -> crate::adapters::types::AdapterType {
+            crate::adapters::types::AdapterType::Codex
+        }
+
+        async fn detect(
+            &self,
+            _project_root: &std::path::Path,
+        ) -> crate::adapters::types::Result<bool> {
+            Ok(true)
+        }
+
+        async fn sessions(
+            &self,
+            _project_root: &std::path::Path,
+        ) -> crate::adapters::types::Result<Vec<crate::core::models::conversation::Session>>
+        {
+            Ok(Vec::new())
+        }
+
+        async fn messages(
+            &self,
+            _session_id: &str,
+        ) -> crate::adapters::types::Result<Vec<crate::core::models::conversation::Message>>
+        {
+            Ok(Vec::new())
+        }
+
+        async fn usage(
+            &self,
+            _session_id: &str,
+        ) -> crate::adapters::types::Result<Option<crate::core::models::conversation::TokenUsage>>
+        {
+            Ok(None)
+        }
     }
 }

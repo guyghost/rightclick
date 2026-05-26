@@ -385,6 +385,17 @@ pub struct PluginCommand {
     pub priority: u8,
 }
 
+/// A searchable entity exposed by a plugin for global search.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginSearchEntry {
+    /// Stable entry identifier within the plugin.
+    pub id: String,
+    /// Display title for the search result.
+    pub title: String,
+    /// Preview text shown below the title.
+    pub preview: String,
+}
+
 impl PluginCommand {
     /// Create a new plugin command with all fields.
     ///
@@ -771,6 +782,21 @@ pub trait Plugin: Send + Sync + std::fmt::Debug {
         false
     }
 
+    /// Get searchable entries exposed by this plugin.
+    ///
+    /// Plugins can override this to make domain objects discoverable from the
+    /// global search overlay without leaking plugin-specific state to the shell.
+    fn search_entries(&self) -> Vec<PluginSearchEntry> {
+        Vec::new()
+    }
+
+    /// Activate a searchable entry previously returned by [`Plugin::search_entries`].
+    ///
+    /// Returns `true` when the plugin handled the entry identifier.
+    fn activate_search_result(&mut self, _entry_id: &str) -> bool {
+        false
+    }
+
     /// Execute a command exposed by this plugin by command identifier.
     ///
     /// The default implementation keeps command activation centralized by
@@ -1001,5 +1027,13 @@ mod tests {
         let mut plugin = TestPlugin::default();
 
         assert!(!plugin.reveal_path(std::path::Path::new("src/main.rs")));
+    }
+
+    #[test]
+    fn test_default_search_entries_are_empty_and_activation_is_not_handled() {
+        let mut plugin = TestPlugin::default();
+
+        assert!(plugin.search_entries().is_empty());
+        assert!(!plugin.activate_search_result("anything"));
     }
 }
