@@ -713,7 +713,9 @@ impl ConversationsRenderer {
 
         // Render cursor
         if !query.is_empty() {
-            let cursor_x = inner_area.x + query.len() as u16;
+            let cursor_x = inner_area
+                .x
+                .saturating_add(query.width().min(u16::MAX as usize) as u16);
             let cursor_y = inner_area.y;
             if let Some(cell) = buf.cell_mut((cursor_x, cursor_y)) {
                 let cursor_style = style_for_ui_element(theme, UiElement::Primary);
@@ -1225,6 +1227,33 @@ mod tests {
     fn test_filter_overlay_area_skips_tiny_areas() {
         assert!(filter_overlay_area(Rect::new(0, 0, 19, 10)).is_none());
         assert!(filter_overlay_area(Rect::new(0, 0, 30, 2)).is_none());
+    }
+
+    #[test]
+    fn test_render_search_overlay_positions_cursor_by_display_width() {
+        let renderer = ConversationsRenderer::new();
+        let mut state = PluginState::new();
+        state.start_search("検索a".to_string());
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 60, 5);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render_search_overlay(&state, area, &mut buf, &theme);
+
+        let popup = filter_overlay_area(area).unwrap();
+        let inner_area = Rect::new(popup.x + 1, popup.y + 1, popup.width - 2, popup.height - 2);
+        let cursor_x = inner_area.x + "検索a".width() as u16;
+        let byte_offset_x = inner_area.x + "検索a".len() as u16;
+        let cursor_style = style_for_ui_element(&theme, UiElement::Primary);
+
+        assert_eq!(
+            buf.cell((cursor_x, inner_area.y)).unwrap().style().fg,
+            cursor_style.fg
+        );
+        assert_ne!(
+            buf.cell((byte_offset_x, inner_area.y)).unwrap().style().fg,
+            cursor_style.fg
+        );
     }
 
     #[test]
