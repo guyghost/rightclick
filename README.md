@@ -36,7 +36,8 @@ rightclick
 RightClick keeps the common local checks in `scripts/dev.sh`, with optional
 `justfile` shortcuts if you use `just`. Run `doctor` first on a new machine: it
 checks Rust, Cargo, the required `rust-version`, `rustfmt`, `clippy`, Git, and
-`rg`, plus optional tools like `tmux` and `just`.
+`rg`, plus optional tools like `tmux` and `just`. The script can be launched
+from any directory inside the checkout.
 
 ```bash
 bash scripts/dev.sh ci            # same checks used by GitHub Actions

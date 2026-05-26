@@ -2,6 +2,9 @@
 set -euo pipefail
 
 cmd="${1:-help}"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "$script_dir/.." && pwd)"
+cd "$repo_root"
 
 print_help() {
   cat <<'EOF'
@@ -43,7 +46,13 @@ run_checks() {
 }
 
 rust_version() {
-  sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1
+  local version
+  version="$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
+  if [ -z "$version" ]; then
+    echo "rust-version not found in Cargo.toml" >&2
+    return 1
+  fi
+  printf '%s\n' "$version"
 }
 
 case "$cmd" in
