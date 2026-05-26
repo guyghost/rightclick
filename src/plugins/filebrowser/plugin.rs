@@ -1309,6 +1309,13 @@ fn file_browser_status_line(state: &PluginState) -> String {
         .map(|query| format!(" | filter: {}", query))
         .unwrap_or_default();
 
+    if visible == 0 && state.filter_query.is_some() {
+        return format!(
+            "No matching files | 0 visible{} | f Change filter | r Refresh files",
+            filter
+        );
+    }
+
     let selected = state
         .selected_path
         .as_ref()
@@ -1522,7 +1529,10 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("No matching files | 0 visible | filter: missing".to_string())
+            Some(
+                "No matching files | 0 visible | filter: missing | f Change filter | r Refresh files"
+                    .to_string()
+            )
         );
     }
 
