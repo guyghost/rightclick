@@ -21,6 +21,8 @@ const DELETE_WORKTREE_MODAL_HINT: &str = "y: Confirm  |  Other: Cancel";
 const LINK_TASK_MODAL_HINT: &str = "Enter: Link  |  Esc: Cancel";
 const MERGE_WORKFLOW_MODAL_HINT: &str = "1-3: Select  |  Esc: Cancel";
 const INTERACTIVE_MODE_HINT: &str = "q: Return";
+const MIN_WORKSPACE_MODAL_WIDTH: u16 = 30;
+const MIN_WORKSPACE_MODAL_HEIGHT: u16 = 8;
 
 /// Render the workspace plugin
 pub fn render_workspace(
@@ -480,7 +482,9 @@ fn render_interactive_mode(
 
 /// Render create worktree modal
 fn render_create_worktree_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
-    let modal_area = centered_rect(60, 40, area);
+    let Some(modal_area) = workspace_modal_area(60, 40, area) else {
+        return;
+    };
 
     // Clear background
     Clear.render(modal_area, buf);
@@ -505,7 +509,9 @@ fn render_create_worktree_modal(state: &PluginState, area: Rect, buf: &mut Buffe
 
 /// Render delete confirmation modal
 fn render_delete_confirm_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
-    let modal_area = centered_rect(50, 30, area);
+    let Some(modal_area) = workspace_modal_area(50, 30, area) else {
+        return;
+    };
 
     Clear.render(modal_area, buf);
 
@@ -536,7 +542,9 @@ fn render_delete_confirm_modal(state: &PluginState, area: Rect, buf: &mut Buffer
 
 /// Render link task modal
 fn render_link_task_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
-    let modal_area = centered_rect(50, 30, area);
+    let Some(modal_area) = workspace_modal_area(50, 30, area) else {
+        return;
+    };
 
     Clear.render(modal_area, buf);
 
@@ -560,7 +568,9 @@ fn render_link_task_modal(state: &PluginState, area: Rect, buf: &mut Buffer, the
 
 /// Render merge dialog modal
 fn render_merge_dialog_modal(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
-    let modal_area = centered_rect(60, 50, area);
+    let Some(modal_area) = workspace_modal_area(60, 50, area) else {
+        return;
+    };
 
     Clear.render(modal_area, buf);
 
@@ -699,25 +709,25 @@ fn calculate_scroll_offset(
     }
 }
 
-/// Create a centered rectangle
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
-        ])
-        .split(r);
+fn workspace_modal_area(percent_x: u16, percent_y: u16, area: Rect) -> Option<Rect> {
+    if area.width < MIN_WORKSPACE_MODAL_WIDTH || area.height < MIN_WORKSPACE_MODAL_HEIGHT {
+        return None;
+    }
 
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
-        ])
-        .split(popup_layout[1])[1]
+    let width = area
+        .width
+        .saturating_mul(percent_x)
+        .saturating_div(100)
+        .clamp(MIN_WORKSPACE_MODAL_WIDTH, area.width);
+    let height = area
+        .height
+        .saturating_mul(percent_y)
+        .saturating_div(100)
+        .clamp(MIN_WORKSPACE_MODAL_HEIGHT, area.height);
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+
+    Some(Rect::new(x, y, width, height))
 }
 
 /// Render status info for the footer
@@ -807,11 +817,25 @@ mod tests {
     }
 
     #[test]
-    fn test_centered_rect() {
+    fn test_workspace_modal_area_uses_percentage_size_when_it_fits() {
         let area = Rect::new(0, 0, 100, 100);
-        let centered = centered_rect(50, 50, area);
-        assert!(centered.width <= 100);
-        assert!(centered.height <= 100);
+        let centered = workspace_modal_area(50, 50, area).unwrap();
+
+        assert_eq!(centered, Rect::new(25, 25, 50, 50));
+    }
+
+    #[test]
+    fn test_workspace_modal_area_preserves_minimum_size() {
+        let area = Rect::new(6, 4, 40, 12);
+        let centered = workspace_modal_area(50, 30, area).unwrap();
+
+        assert_eq!(centered, Rect::new(11, 6, 30, 8));
+    }
+
+    #[test]
+    fn test_workspace_modal_area_skips_tiny_areas() {
+        assert!(workspace_modal_area(50, 30, Rect::new(0, 0, 29, 12)).is_none());
+        assert!(workspace_modal_area(50, 30, Rect::new(0, 0, 40, 7)).is_none());
     }
 
     #[test]
