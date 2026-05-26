@@ -25,6 +25,7 @@ Commands:
   test           run cargo test
   doc-test       run cargo test --doc
   test-one       run cargo test with a filter
+  test-many      run cargo test once per filter
   run            run RightClick locally
   install-local  install RightClick from this checkout
 
@@ -32,12 +33,14 @@ Examples:
   bash scripts/dev.sh doctor
   bash scripts/dev.sh ci
   bash scripts/dev.sh test-one plugins::gitstatus
+  bash scripts/dev.sh test-many test_plugin_commands test_footer_hints
 
 If you use just:
   just help
   just ci
   just quick
   just test-one plugins::gitstatus
+  just test-many test_plugin_commands test_footer_hints
 EOF
 }
 
@@ -195,6 +198,16 @@ case "$cmd" in
       exit 2
     fi
     run_step cargo test "$@"
+    ;;
+  test-many)
+    shift
+    if [ "$#" -eq 0 ]; then
+      echo "Usage: bash scripts/dev.sh test-many <test-filter>..." >&2
+      exit 2
+    fi
+    for filter in "$@"; do
+      run_step cargo test "$filter"
+    done
     ;;
   run)
     run_step cargo run

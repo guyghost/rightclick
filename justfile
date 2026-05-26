@@ -48,6 +48,9 @@ doc-test:
 test-one filter:
     bash scripts/dev.sh test-one "{{filter}}"
 
+test-many +filters:
+    bash scripts/dev.sh test-many {{filters}}
+
 run:
     bash scripts/dev.sh run
 
