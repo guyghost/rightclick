@@ -534,14 +534,20 @@ fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
         return;
     }
 
-    Paragraph::new(search_footer_hint())
+    Paragraph::new(search_footer_hint(area.width))
         .style(Style::default().fg(muted))
         .alignment(Alignment::Center)
         .render(area, buf);
 }
 
-fn search_footer_hint() -> &'static str {
-    "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close"
+fn search_footer_hint(width: u16) -> &'static str {
+    match width {
+        0..=26 => "Enter Open  Esc",
+        27..=40 => "Enter: Open  |  Esc: Close",
+        41..=60 => "Tab: Scope  |  Enter: Open  |  Esc: Close",
+        61..=78 => "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close",
+        _ => "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close",
+    }
 }
 
 fn result_count_label(count: usize) -> String {
@@ -861,12 +867,29 @@ mod tests {
 
     #[test]
     fn test_search_footer_hint_names_scope_action() {
-        assert!(search_footer_hint().contains("Tab: Scope"));
-        assert!(search_footer_hint().contains("Enter: Open"));
-        assert!(search_footer_hint().contains("Up/Down: Select"));
-        assert!(search_footer_hint().contains("Ctrl+U: Clear"));
-        assert!(search_footer_hint().contains("Esc: Close"));
-        assert!(!search_footer_hint().contains("Tab change scope"));
+        let hint = search_footer_hint(80);
+
+        assert!(hint.contains("Tab: Scope"));
+        assert!(hint.contains("Enter: Open"));
+        assert!(hint.contains("Up/Down: Select"));
+        assert!(hint.contains("Ctrl+U: Clear"));
+        assert!(hint.contains("Esc: Close"));
+        assert!(!hint.contains("Tab change scope"));
+    }
+
+    #[test]
+    fn test_search_footer_hint_compacts_for_narrow_widths() {
+        assert_eq!(search_footer_hint(20), "Enter Open  Esc");
+        assert_eq!(search_footer_hint(32), "Enter: Open  |  Esc: Close");
+        assert_eq!(
+            search_footer_hint(48),
+            "Tab: Scope  |  Enter: Open  |  Esc: Close"
+        );
+        assert_eq!(
+            search_footer_hint(70),
+            "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close"
+        );
+        assert!(!search_footer_hint(70).contains("Ctrl+U: Clear"));
     }
 
     #[test]
