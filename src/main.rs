@@ -498,7 +498,13 @@ impl App {
         // Plugin entry search (synchronous fuzzy match)
         if matches!(scope, SearchScope::All | SearchScope::Items) {
             let plugin_results = self.plugins.iter().flat_map(|plugin| {
-                search_plugin_entries(plugin.id(), &plugin.search_entries(), &query, 20)
+                search_plugin_entries(
+                    plugin.id(),
+                    plugin.name(),
+                    &plugin.search_entries(),
+                    &query,
+                    20,
+                )
             });
             all_results.extend(plugin_results);
         }
@@ -803,6 +809,7 @@ impl App {
 
 fn search_plugin_entries(
     plugin_id: &str,
+    plugin_name: &str,
     entries: &[PluginSearchEntry],
     query: &str,
     max_results: usize,
@@ -829,7 +836,7 @@ fn search_plugin_entries(
                     plugin_id: plugin_id.to_string(),
                     entry_id: entry.id.clone(),
                 },
-                title: entry.title.clone(),
+                title: format!("{}: {}", plugin_name, entry.title),
                 preview: entry.preview.clone(),
                 score,
             })
@@ -991,9 +998,11 @@ mod tests {
             preview: "Mock Adapter | 4 messages".to_string(),
         }];
 
-        let results = search_plugin_entries("conversations", &entries, "render", 10);
+        let results =
+            search_plugin_entries("conversations", "Conversations", &entries, "render", 10);
 
         assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Conversations: Investigate render bug");
         assert!(matches!(
             &results[0].kind,
             rightclick::search::SearchResultKind::PluginEntry { plugin_id, entry_id }

@@ -454,12 +454,7 @@ fn render_results(
         .map(|(i, result)| {
             let is_selected = i == state.selected;
 
-            let icon = match &result.kind {
-                super::types::SearchResultKind::FileContent { .. } => "file",
-                super::types::SearchResultKind::Conversation { .. } => "chat",
-                super::types::SearchResultKind::PluginEntry { .. } => "item",
-                super::types::SearchResultKind::Command { .. } => ">",
-            };
+            let icon = search_result_icon(&result.kind);
 
             let title_style = if is_selected {
                 Style::default()
@@ -491,6 +486,20 @@ fn render_results(
 
     let list = List::new(items);
     list.render(area, buf);
+}
+
+fn search_result_icon(kind: &super::types::SearchResultKind) -> &'static str {
+    match kind {
+        super::types::SearchResultKind::FileContent { .. } => "file",
+        super::types::SearchResultKind::Conversation { .. } => "chat",
+        super::types::SearchResultKind::PluginEntry { plugin_id, .. } => match plugin_id.as_str() {
+            "conversations" => "chat",
+            "workspace" => "tree",
+            "workers" => "task",
+            _ => "item",
+        },
+        super::types::SearchResultKind::Command { .. } => ">",
+    }
 }
 
 fn truncate_str(s: &str, max_len: usize) -> String {
@@ -740,6 +749,31 @@ mod tests {
         assert_eq!(truncate_str("hello", 10), "hello");
         assert_eq!(truncate_str("hello world", 8), "hello...");
         assert_eq!(truncate_str("ab", 2), "ab");
+    }
+
+    #[test]
+    fn test_search_result_icon_for_plugin_entries() {
+        assert_eq!(
+            search_result_icon(&SearchResultKind::PluginEntry {
+                plugin_id: "conversations".to_string(),
+                entry_id: "session-1".to_string(),
+            }),
+            "chat"
+        );
+        assert_eq!(
+            search_result_icon(&SearchResultKind::PluginEntry {
+                plugin_id: "workspace".to_string(),
+                entry_id: "main".to_string(),
+            }),
+            "tree"
+        );
+        assert_eq!(
+            search_result_icon(&SearchResultKind::PluginEntry {
+                plugin_id: "workers".to_string(),
+                entry_id: "intent-1".to_string(),
+            }),
+            "task"
+        );
     }
 
     #[test]
