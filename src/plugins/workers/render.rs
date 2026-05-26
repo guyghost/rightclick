@@ -773,7 +773,10 @@ pub fn render_workers_status<'a>(state: &'a PluginState, theme: &'a Theme) -> Ve
 
     // Intent count
     spans.push(Span::styled(
-        format!("📋 {} intents", state.intents.len()),
+        format!(
+            "📋 {}",
+            workers_render_count_label(state.intents.len(), "intent")
+        ),
         Style::default().fg(theme_fg(theme)),
     ));
 
@@ -796,6 +799,14 @@ pub fn render_workers_status<'a>(state: &'a PluginState, theme: &'a Theme) -> Ve
     }
 
     spans
+}
+
+fn workers_render_count_label(count: usize, label: &str) -> String {
+    if count == 1 {
+        format!("1 {}", label)
+    } else {
+        format!("{} {}s", count, label)
+    }
 }
 
 /// Create a centered rect
@@ -837,6 +848,28 @@ mod tests {
 
         assert_eq!(centered.width, 60);
         assert_eq!(centered.height, 20);
+    }
+
+    #[test]
+    fn test_render_workers_status_uses_singular_intent_count() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let mut state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
+        state.add_intent(Intent::new(
+            "Worker status polish",
+            PathBuf::from("intents/status-polish.md"),
+            "2026-05-26T10:00:00Z",
+        ));
+        let theme = Theme::default();
+
+        let text = render_workers_status(&state, &theme)
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect::<String>();
+
+        assert!(text.contains("1 intent"));
+        assert!(!text.contains("1 intents"));
     }
 
     #[test]
