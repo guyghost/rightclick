@@ -1043,6 +1043,36 @@ impl Default for WorkspacePlugin {
     }
 }
 
+fn workspace_status_line(state: &PluginState) -> String {
+    if state.worktrees.is_empty() {
+        return "No worktrees | n Create | / Search".to_string();
+    }
+
+    let dirty = state
+        .worktrees
+        .iter()
+        .filter(|worktree| worktree.is_dirty)
+        .count();
+    let agents = state
+        .worktrees
+        .iter()
+        .filter(|worktree| worktree.agent_running)
+        .count();
+    let linked = state
+        .worktrees
+        .iter()
+        .filter(|worktree| worktree.linked_task.is_some())
+        .count();
+
+    format!(
+        "{} worktrees | {} dirty | {} agents | {} linked",
+        state.worktrees.len(),
+        dirty,
+        agents,
+        linked
+    )
+}
+
 // ============================================================================
 // Plugin Trait Implementation
 // ============================================================================
@@ -1166,25 +1196,7 @@ impl Plugin for WorkspacePlugin {
     }
 
     fn status_line(&self) -> Option<String> {
-        let dirty = self
-            .state
-            .worktrees
-            .iter()
-            .filter(|worktree| worktree.is_dirty)
-            .count();
-        let agents = self
-            .state
-            .worktrees
-            .iter()
-            .filter(|worktree| worktree.agent_running)
-            .count();
-
-        Some(format!(
-            "{} worktrees | {} dirty | {} agents",
-            self.state.worktrees.len(),
-            dirty,
-            agents
-        ))
+        Some(workspace_status_line(&self.state))
     }
 
     fn search_entries(&self) -> Vec<crate::plugin::PluginSearchEntry> {
@@ -1315,6 +1327,36 @@ mod tests {
         assert_eq!(plugin.state.view_mode, ViewMode::List);
         assert_eq!(plugin.focus_pane, FocusPane::Sidebar);
         assert!(plugin.pending_preview_update);
+    }
+
+    #[test]
+    fn test_status_line_points_to_create_when_empty() {
+        let plugin = WorkspacePlugin::new();
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("No worktrees | n Create | / Search".to_string())
+        );
+    }
+
+    #[test]
+    fn test_status_line_summarizes_workspace_state() {
+        let mut plugin = WorkspacePlugin::new();
+        let mut dirty = Worktree::new("dirty", PathBuf::from("/repo/dirty"), "dirty-branch")
+            .with_agent_running(true)
+            .with_task("TD-42");
+        dirty.is_dirty = true;
+        plugin.state.worktrees.push(dirty);
+        plugin.state.worktrees.push(Worktree::new(
+            "clean",
+            PathBuf::from("/repo/clean"),
+            "clean-branch",
+        ));
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("2 worktrees | 1 dirty | 1 agents | 1 linked".to_string())
+        );
     }
 
     #[test]

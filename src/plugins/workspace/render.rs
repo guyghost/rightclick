@@ -104,7 +104,7 @@ fn render_worktree_list(
     block.render(area, buf);
 
     if state.worktrees.is_empty() {
-        let empty_text = Paragraph::new("No worktrees found\nPress 'n' to create one")
+        let empty_text = Paragraph::new(empty_worktrees_message())
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty_text.render(inner, buf);
@@ -200,7 +200,12 @@ fn render_output_content(state: &PluginState, area: Rect, buf: &mut Buffer, them
     block.render(area, buf);
 
     if state.output_text.is_empty() {
-        let empty = Paragraph::new("No output")
+        let message = if state.worktrees.is_empty() {
+            "No output yet. Create a worktree, then run workspace actions."
+        } else {
+            "No output yet. Run an action to see output here."
+        };
+        let empty = Paragraph::new(message)
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -229,10 +234,12 @@ fn render_diff_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
         None => {
             if let Some(worktree) = state.selected_worktree() {
                 if worktree.is_dirty {
-                    "Select a worktree to view diff".to_string()
+                    "Diff not loaded yet. Refresh or reselect the worktree.".to_string()
                 } else {
                     "Working tree clean".to_string()
                 }
+            } else if state.worktrees.is_empty() {
+                "Create a worktree to inspect diffs".to_string()
             } else {
                 "Select a worktree".to_string()
             }
@@ -276,11 +283,20 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
             empty.render(inner, buf);
         }
     } else {
-        let empty = Paragraph::new("Select a worktree")
+        let message = if state.worktrees.is_empty() {
+            "Create a worktree to link a task"
+        } else {
+            "Select a worktree"
+        };
+        let empty = Paragraph::new(message)
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
     }
+}
+
+fn empty_worktrees_message() -> &'static str {
+    "No worktrees found\n\nn  Create worktree\n/  Search commands and worktrees\n?  Help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
 }
 
 /// Render kanban mode
@@ -757,5 +773,34 @@ mod tests {
 
         let spans = render_workspace_status(&state, &theme);
         assert!(!spans.is_empty());
+    }
+
+    #[test]
+    fn test_empty_worktrees_message_points_to_next_actions() {
+        let message = empty_worktrees_message();
+
+        assert!(message.contains("No worktrees found"));
+        assert!(message.contains("n  Create worktree"));
+        assert!(message.contains("/  Search commands and worktrees"));
+        assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_render_workspace_empty_state_includes_next_actions() {
+        let theme = Theme::default();
+        let state = PluginState::new();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No worktrees found"));
+        assert!(content.contains("Create worktree"));
+        assert!(content.contains("Search commands"));
     }
 }
