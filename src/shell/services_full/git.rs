@@ -343,7 +343,7 @@ impl CliGitService {
         let mut commits = Vec::new();
 
         for line in output.lines() {
-            let parts: Vec<&str> = line.split('|').collect();
+            let parts: Vec<&str> = line.splitn(4, '|').collect();
             if parts.len() >= 4 {
                 let hash = parts[0].to_string();
                 let author = parts[1].to_string();
@@ -1049,6 +1049,17 @@ short hash commit
         assert_eq!(commits[0].hash, "abc");
         assert_eq!(commits[0].short_hash, "abc");
         assert_eq!(commits[0].subject, "short hash commit");
+    }
+
+    #[test]
+    fn test_parse_commits_delimited_preserves_pipe_in_subject() {
+        let service = CliGitService::new();
+        let commits = service
+            .parse_commits_delimited("abcdef123|RightClick|2026-05-27T10:00:00Z|fix: keep a | b");
+
+        assert_eq!(commits.len(), 1);
+        assert_eq!(commits[0].short_hash, "abcdef1");
+        assert_eq!(commits[0].subject, "fix: keep a | b");
     }
 
     #[test]
