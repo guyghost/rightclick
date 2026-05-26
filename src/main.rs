@@ -855,7 +855,7 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         "RightClick is running without an active plugin.".to_string(),
         String::new(),
         "Global shortcuts:".to_string(),
-        "  /        Search files".to_string(),
+        "  /        Search file contents".to_string(),
         "  ?        Toggle this help".to_string(),
         "  q/Ctrl+C Quit".to_string(),
         String::new(),
@@ -910,7 +910,7 @@ fn build_footer_hints(
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?  Help\n/  Search files\nq/Ctrl+C  Quit\n\nRestart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
+    "No plugins loaded\n\n?  Help\n/  Search file contents\nq/Ctrl+C  Quit\n\nRestart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -1114,7 +1114,7 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|line| line.contains("/") && line.contains("Search files"))
+                .any(|line| line.contains("/") && line.contains("Search file contents"))
         );
         assert!(
             lines
@@ -1231,7 +1231,7 @@ mod tests {
 
         assert!(message.contains("No plugins loaded"));
         assert!(message.contains("?  Help"));
-        assert!(message.contains("/  Search files"));
+        assert!(message.contains("/  Search file contents"));
         assert!(message.contains("q/Ctrl+C  Quit"));
         assert!(message.contains("RUST_LOG=debug"));
         assert!(message.contains("check configuration"));
