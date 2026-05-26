@@ -488,6 +488,14 @@ fn count_title(singular: &str, plural: &str, count: usize) -> String {
     }
 }
 
+fn file_count_label(count: usize) -> String {
+    if count == 1 {
+        "1 file".to_string()
+    } else {
+        format!("{} files", count)
+    }
+}
+
 /// Render commit details panel
 fn render_commit_details(
     state: &PluginState,
@@ -574,7 +582,7 @@ fn render_commit_details(
             lines.push(Line::from(vec![
                 Span::styled("Files (", text_style.add_modifier(Modifier::BOLD)),
                 Span::styled(
-                    diff.files.len().to_string(),
+                    file_count_label(diff.files.len()),
                     text_style.add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(") ", text_style.add_modifier(Modifier::BOLD)),
@@ -657,7 +665,7 @@ fn render_commit_details(
         lines.push(Line::from(vec![
             Span::styled("Files (", text_style.add_modifier(Modifier::BOLD)),
             Span::styled(
-                state.commit_files.len().to_string(),
+                file_count_label(state.commit_files.len()),
                 text_style.add_modifier(Modifier::BOLD),
             ),
             Span::styled(") ", text_style.add_modifier(Modifier::BOLD)),
@@ -1444,6 +1452,13 @@ mod tests {
         assert_eq!(count_title("Branch", "Branches", 2), " Branches (2) ");
         assert_eq!(count_title("Stash", "Stashes", 1), " Stash (1) ");
         assert_eq!(count_title("Stash", "Stashes", 2), " Stashes (2) ");
+    }
+
+    #[test]
+    fn test_file_count_label_uses_singular_labels() {
+        assert_eq!(file_count_label(0), "0 files");
+        assert_eq!(file_count_label(1), "1 file");
+        assert_eq!(file_count_label(2), "2 files");
     }
 
     #[test]
