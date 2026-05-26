@@ -1301,7 +1301,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 
     if visible == 0 && state.filter_query.is_some() {
         return format!(
-            "No matching files | {}{} | f Change filter | r Refresh files",
+            "No matching files | {}{} | f Change or clear filter | r Refresh files",
             visible_file_count_label(visible),
             filter
         );
@@ -1338,7 +1338,7 @@ fn visible_file_count_label(count: usize) -> String {
 fn file_tree_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No files match \"{}\"\n\nf  Change or clear filter\nr  Refresh files\nEsc  Close dialogs\n?  Help",
+            "No files match \"{}\"\n\nf  Change or clear filter\nr  Refresh files\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
@@ -1560,7 +1560,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No matching files | 0 visible files | filter: missing | f Change filter | r Refresh files"
+                "No matching files | 0 visible files | filter: missing | f Change or clear filter | r Refresh files"
                     .to_string()
             )
         );
@@ -1626,6 +1626,7 @@ mod tests {
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f  Change or clear filter"));
         assert!(message.contains("r  Refresh files"));
+        assert!(!message.contains("Esc  Close dialogs"));
         assert!(message.contains("?  Help"));
     }
 
