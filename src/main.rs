@@ -888,7 +888,7 @@ fn build_footer_hints(
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?  Help\n/  Search commands\nq  Quit\n\nCheck configuration if this persists."
+    "No plugins loaded\n\n?  Help\n/  Search commands\nq  Quit\n\nRestart with RUST_LOG=debug to inspect plugin startup, or check configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -1060,6 +1060,8 @@ mod tests {
         assert!(message.contains("?  Help"));
         assert!(message.contains("/  Search commands"));
         assert!(message.contains("q  Quit"));
+        assert!(message.contains("RUST_LOG=debug"));
+        assert!(message.contains("check configuration"));
         assert_eq!(no_plugins_footer_status(), "No plugins loaded");
         assert_eq!(
             hints,
