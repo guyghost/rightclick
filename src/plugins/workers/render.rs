@@ -503,25 +503,25 @@ fn empty_intents_message(state: &PluginState) -> String {
 }
 
 fn no_workers_for_intent_message() -> &'static str {
-    "  No workers yet\n  r  Run workers\n  f  Refresh intents"
+    "  No workers yet\n  r  Run workers\n  f  Refresh intents\n  /  Search commands\n  ?  Help"
 }
 
 fn output_empty_message(state: &PluginState) -> &'static str {
     if state.intents.is_empty() {
-        "No output yet\n\nn  New intent\nf  Refresh intents"
+        "No output yet\n\nn  New intent\nf  Refresh intents\n/  Search commands\n?  Help"
     } else if state.selected_intent().is_none() {
-        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent"
+        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent\n/  Search intents\n?  Help"
     } else {
-        "No output yet\n\nr  Run workers\nf  Refresh intents"
+        "No output yet\n\nr  Run workers\nf  Refresh intents\n/  Search commands\n?  Help"
     }
 }
 
 fn select_intent_details_message() -> &'static str {
-    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent"
+    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent\n/  Search intents\n?  Help"
 }
 
 fn select_intent_criteria_message() -> &'static str {
-    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent"
+    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent\n/  Search intents\n?  Help"
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -911,6 +911,8 @@ mod tests {
         assert!(content.contains("No workers yet"));
         assert!(content.contains("r  Run workers"));
         assert!(content.contains("f  Refresh intents"));
+        assert!(content.contains("/  Search commands"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -941,6 +943,8 @@ mod tests {
         assert!(content.contains("Select an intent to view details"));
         assert!(content.contains("j/k  Navigate intents"));
         assert!(content.contains("Enter/o  Open intent"));
+        assert!(content.contains("/  Search intents"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -964,6 +968,8 @@ mod tests {
         assert!(content.contains("No output yet"));
         assert!(content.contains("n  New intent"));
         assert!(content.contains("f  Refresh intents"));
+        assert!(content.contains("/  Search commands"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -994,6 +1000,8 @@ mod tests {
         assert!(content.contains("No output selected"));
         assert!(content.contains("j/k  Navigate intents"));
         assert!(content.contains("Enter/o  Open intent"));
+        assert!(content.contains("/  Search intents"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -1024,6 +1032,8 @@ mod tests {
         assert!(content.contains("No output yet"));
         assert!(content.contains("r  Run workers"));
         assert!(content.contains("f  Refresh intents"));
+        assert!(content.contains("/  Search commands"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
