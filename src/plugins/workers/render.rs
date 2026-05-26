@@ -484,7 +484,7 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
         content.render(area, buf);
     } else {
         let message = if state.intents.is_empty() {
-            "Create an intent to define acceptance criteria"
+            empty_criteria_message()
         } else {
             select_intent_criteria_message()
         };
@@ -522,6 +522,10 @@ fn select_intent_details_message() -> &'static str {
 
 fn select_intent_criteria_message() -> &'static str {
     "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent\n/  Search intents\n?  Help"
+}
+
+fn empty_criteria_message() -> &'static str {
+    "No criteria yet\n\nn  New intent\nf  Refresh intents\n/  Search commands and intents\n?  Help"
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -969,6 +973,31 @@ mod tests {
         assert!(content.contains("n  New intent"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Search commands"));
+        assert!(content.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_render_criteria_without_intents_points_to_creation() {
+        use std::path::PathBuf;
+
+        let mut state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        state.preview_tab = PreviewTab::Criteria;
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No criteria yet"));
+        assert!(content.contains("n  New intent"));
+        assert!(content.contains("f  Refresh intents"));
+        assert!(content.contains("/  Search commands and intents"));
         assert!(content.contains("?  Help"));
     }
 
