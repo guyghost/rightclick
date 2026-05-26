@@ -217,6 +217,10 @@ fn render_preview(
     buf: &mut Buffer,
     theme: &Theme,
 ) {
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+
     let border_style = if focus_pane == FocusPane::Preview && focused {
         Style::default()
             .fg(theme_primary(theme))
@@ -252,12 +256,16 @@ fn render_preview(
     };
     tabs.render(tabs_area, buf);
 
+    if area.height == 1 {
+        return;
+    }
+
     // Content area
     let content_area = Rect {
         x: area.x,
         y: area.y + 1,
         width: area.width,
-        height: area.height - 1,
+        height: area.height.saturating_sub(1),
     };
 
     let block = Block::default()
@@ -965,6 +973,36 @@ mod tests {
         assert!(content.contains(DELETE_INTENT_MODAL_HINT));
         assert!(!content.contains("y: Confirm"));
         assert!(!content.contains("n: Cancel"));
+    }
+
+    #[test]
+    fn test_render_workers_short_area_no_panic() {
+        use std::path::PathBuf;
+
+        let state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 40, 1);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+    }
+
+    #[test]
+    fn test_render_workers_zero_area_no_panic() {
+        use std::path::PathBuf;
+
+        let state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
+        let theme = Theme::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 1, 1));
+
+        render_workers(
+            &state,
+            FocusPane::Preview,
+            true,
+            Rect::new(0, 0, 0, 0),
+            &mut buf,
+            &theme,
+        );
     }
 
     #[test]
