@@ -616,7 +616,7 @@ impl Palette {
 
 fn palette_empty_state_message(input: &str) -> String {
     if input.is_empty() {
-        "No commands available\n\nEsc  Close palette\nTab  Toggle contexts\n?  Help\n\nRegister plugin commands to populate the palette."
+        "No commands available\n\nEsc  Close palette\nTab  Toggle contexts\n?  Help\n\nCommands appear here after plugins finish loading."
             .to_string()
     } else {
         format!(
@@ -849,7 +849,7 @@ mod tests {
         assert!(empty.contains("Esc  Close palette"));
         assert!(empty.contains("Tab  Toggle contexts"));
         assert!(empty.contains("?  Help"));
-        assert!(empty.contains("Register plugin commands"));
+        assert!(empty.contains("Commands appear here after plugins finish loading"));
 
         let no_match = palette_empty_state_message("deploy");
         assert!(no_match.contains("No commands match \"deploy\""));
