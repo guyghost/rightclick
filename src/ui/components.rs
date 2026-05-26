@@ -564,7 +564,7 @@ mod tests {
         let footer = Footer::new("A very long status line").with_hints(vec![
             ("Tab", "Switch"),
             ("1-9", "Go"),
-            ("/", "Search"),
+            ("/", "Global search"),
             ("q", "Quit"),
         ]);
         let area = ratatui::layout::Rect::new(0, 0, 12, 1);

@@ -879,7 +879,7 @@ fn build_footer_hints(
 
     for (key, label) in [
         ("Tab", tab_label),
-        ("/", "Search"),
+        ("/", "Global search"),
         ("?", "Help"),
         ("q/Ctrl+C", "Quit"),
         ("1-9", "Go"),
@@ -920,7 +920,7 @@ fn no_plugins_footer_status() -> &'static str {
 fn no_plugins_footer_hints() -> Vec<(String, String)> {
     vec![
         ("?".to_string(), "Help".to_string()),
-        ("/".to_string(), "Search".to_string()),
+        ("/".to_string(), "Global search".to_string()),
         ("q/Ctrl+C".to_string(), "Quit".to_string()),
     ]
 }
@@ -1180,7 +1180,7 @@ mod tests {
             &hints[..5],
             &[
                 ("Tab".to_string(), "Switch".to_string()),
-                ("/".to_string(), "Search".to_string()),
+                ("/".to_string(), "Global search".to_string()),
                 ("?".to_string(), "Help".to_string()),
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
                 ("1-9".to_string(), "Go".to_string()),
@@ -1239,7 +1239,7 @@ mod tests {
             hints,
             vec![
                 ("?".to_string(), "Help".to_string()),
-                ("/".to_string(), "Search".to_string()),
+                ("/".to_string(), "Global search".to_string()),
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
             ]
         );
