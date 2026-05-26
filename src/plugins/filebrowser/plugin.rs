@@ -1025,10 +1025,10 @@ impl FileBrowserPlugin {
 
             lines
         } else {
-            vec![Line::from(vec![Span::styled(
-                "No file selected",
-                muted_style,
-            )])]
+            file_info_empty_message()
+                .lines()
+                .map(|line| Line::from(vec![Span::styled(line.to_string(), muted_style)]))
+                .collect()
         };
 
         let info_para = Paragraph::new(info_text);
@@ -1350,6 +1350,10 @@ fn file_preview_empty_message(state: &PluginState) -> String {
     }
 }
 
+fn file_info_empty_message() -> &'static str {
+    "No file selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nI  Close info"
+}
+
 // Helper function for muted style
 fn muted_style() -> Style {
     Style::default().fg(ratatui::style::Color::DarkGray)
@@ -1561,6 +1565,32 @@ mod tests {
         assert!(content.contains("j/k  Navigate files"));
         assert!(content.contains("Enter/Space  Expand directory"));
         assert!(content.contains("f  Filter"));
+    }
+
+    #[test]
+    fn test_render_file_info_without_selection_points_to_navigation() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+        plugin.state.tree.entries.clear();
+        plugin.state.selected_path = None;
+        plugin.state.preview = None;
+        plugin.state.show_file_info = true;
+
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+        plugin.render_internal(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No file selected"));
+        assert!(content.contains("j/k  Navigate files"));
+        assert!(content.contains("Enter/Space  Expand directory"));
+        assert!(content.contains("Close info"));
     }
 
     #[test]
