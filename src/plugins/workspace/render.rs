@@ -284,31 +284,31 @@ fn empty_worktrees_message() -> &'static str {
 }
 
 fn no_linked_task_message() -> &'static str {
-    "No linked task\n\nT  Link task\n/  Search commands"
+    "No linked task\n\nT  Link task\n/  Search commands\n?  Help"
 }
 
 fn task_details_missing_message(task_id: &str) -> String {
     format!(
-        "Task: {}\n\nNo details loaded\n\nT  Relink task\nr  Refresh worktrees",
+        "Task: {}\n\nNo details loaded\n\nT  Relink task\nr  Refresh worktrees\n?  Help",
         task_id
     )
 }
 
 fn create_worktree_for_task_message() -> &'static str {
-    "No worktree available\n\nn  Create worktree\nr  Refresh worktrees"
+    "No worktree available\n\nn  Create worktree\nr  Refresh worktrees\n/  Search commands\n?  Help"
 }
 
 fn select_worktree_message() -> &'static str {
-    "No worktree selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar"
+    "No worktree selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar\n/  Search worktrees\n?  Help"
 }
 
 fn output_empty_message(state: &PluginState) -> &'static str {
     if state.worktrees.is_empty() {
-        "No output yet\n\nn  Create worktree\nr  Refresh worktrees"
+        "No output yet\n\nn  Create worktree\nr  Refresh worktrees\n/  Search commands\n?  Help"
     } else if state.selected_worktree().is_none() {
-        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree"
+        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar\n/  Search worktrees\n?  Help"
     } else {
-        "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task"
+        "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task\n?  Help"
     }
 }
 
@@ -326,7 +326,8 @@ fn diff_empty_message(state: &PluginState) -> String {
             )
         }
     } else if state.worktrees.is_empty() {
-        "No diff available\n\nn  Create worktree\nr  Refresh worktrees".to_string()
+        "No diff available\n\nn  Create worktree\nr  Refresh worktrees\n/  Search commands\n?  Help"
+            .to_string()
     } else {
         select_worktree_message().to_string()
     }
@@ -857,6 +858,8 @@ mod tests {
         assert!(content.contains("No output yet"));
         assert!(content.contains("n  Create worktree"));
         assert!(content.contains("r  Refresh worktrees"));
+        assert!(content.contains("/  Search commands"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -883,6 +886,9 @@ mod tests {
         assert!(content.contains("No output selected"));
         assert!(content.contains("j/k  Navigate worktrees"));
         assert!(content.contains("Enter/o  Open worktree"));
+        assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("/  Search worktrees"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -910,6 +916,7 @@ mod tests {
         assert!(content.contains("a  Launch agent"));
         assert!(content.contains("Enter/o  Open interactive shell"));
         assert!(content.contains("T  Link task"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -930,6 +937,8 @@ mod tests {
         assert!(content.contains("No diff available"));
         assert!(content.contains("n  Create worktree"));
         assert!(content.contains("r  Refresh worktrees"));
+        assert!(content.contains("/  Search commands"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -1007,6 +1016,7 @@ mod tests {
         assert!(content.contains("No linked task"));
         assert!(content.contains("T  Link task"));
         assert!(content.contains("/  Search commands"));
+        assert!(content.contains("?  Help"));
         assert!(!content.contains("t  Link task"));
     }
 
@@ -1028,6 +1038,8 @@ mod tests {
         assert!(content.contains("No worktree available"));
         assert!(content.contains("n  Create worktree"));
         assert!(content.contains("r  Refresh worktrees"));
+        assert!(content.contains("/  Search commands"));
+        assert!(content.contains("?  Help"));
     }
 
     #[test]
@@ -1054,6 +1066,7 @@ mod tests {
         assert!(content.contains("No details loaded"));
         assert!(content.contains("T  Relink task"));
         assert!(content.contains("r  Refresh worktrees"));
+        assert!(content.contains("?  Help"));
         assert!(!content.contains("No details available"));
     }
 
@@ -1082,6 +1095,8 @@ mod tests {
         assert!(content.contains("j/k  Navigate worktrees"));
         assert!(content.contains("Enter/o  Open worktree"));
         assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("/  Search worktrees"));
+        assert!(content.contains("?  Help"));
         assert!(!content.contains("Select a worktree"));
     }
 
@@ -1110,6 +1125,8 @@ mod tests {
         assert!(content.contains("j/k  Navigate worktrees"));
         assert!(content.contains("Enter/o  Open worktree"));
         assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("/  Search worktrees"));
+        assert!(content.contains("?  Help"));
         assert!(!content.contains("Select a worktree first"));
     }
 }
