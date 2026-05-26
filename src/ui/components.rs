@@ -482,12 +482,14 @@ fn visible_hints(hints: &[KeyHint], max_width: usize) -> Vec<&KeyHint> {
     let mut visible = Vec::new();
     let mut used = 0;
 
-    for hint in hints {
+    for (idx, hint) in hints.iter().enumerate() {
         let item_width = UnicodeWidthStr::width(hint.key.as_str())
             + 2
             + UnicodeWidthStr::width(hint.description.as_str());
         let separator_width = if visible.is_empty() { 0 } else { 3 };
-        if used + separator_width + item_width > max_width {
+        let hidden_after_this = idx + 1 < hints.len();
+        let overflow_marker_width = if hidden_after_this { 6 } else { 0 };
+        if used + separator_width + item_width + overflow_marker_width > max_width {
             break;
         }
         used += separator_width + item_width;
@@ -577,6 +579,28 @@ mod tests {
         assert_eq!(truncate_display("abcdef", 0), "");
         assert_eq!(truncate_display("abcdef", 2), "..");
         assert_eq!(truncate_display("abcdef", 5), "ab...");
+    }
+
+    #[test]
+    fn test_visible_hints_reserves_overflow_marker_width() {
+        let hints = vec![
+            KeyHint::new("q", "Quit"),
+            KeyHint::new("?", "Help"),
+            KeyHint::new("/", "Global search"),
+        ];
+
+        let visible = visible_hints(&hints, 11);
+
+        assert!(visible.is_empty());
+    }
+
+    #[test]
+    fn test_visible_hints_keeps_final_hint_without_overflow_marker() {
+        let hints = vec![KeyHint::new("q", "Quit")];
+
+        let visible = visible_hints(&hints, 7);
+
+        assert_eq!(visible, vec![&hints[0]]);
     }
 
     #[test]
