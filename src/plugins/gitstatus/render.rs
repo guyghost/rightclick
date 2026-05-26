@@ -17,6 +17,10 @@ use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
 
 use super::state::{FocusPane, PluginState, ViewMode};
 
+const GIT_CONFIRM_MODAL_HINT: &str = "Enter: Confirm  |  Esc: Cancel";
+const GIT_CANCEL_MODAL_HINT: &str = "Esc: Cancel";
+const GIT_ERROR_MODAL_HINT: &str = "Esc: Close";
+
 /// Render the git status plugin
 pub fn render_git_status(
     state: &PluginState,
@@ -1177,7 +1181,7 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
                 ),
                 Line::raw(""),
                 Line::styled(
-                    "Enter=Confirm  Escape=Cancel",
+                    GIT_CONFIRM_MODAL_HINT,
                     style_for_ui_element(theme, UiElement::MutedText),
                 ),
             ]);
@@ -1199,7 +1203,7 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
                 ),
                 Line::raw(""),
                 Line::styled(
-                    "Enter=Confirm  Escape=Cancel",
+                    GIT_CONFIRM_MODAL_HINT,
                     style_for_ui_element(theme, UiElement::MutedText),
                 ),
             ]);
@@ -1221,7 +1225,7 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
                 ),
                 Line::raw(""),
                 Line::styled(
-                    "Escape=Close",
+                    GIT_ERROR_MODAL_HINT,
                     style_for_ui_element(theme, UiElement::MutedText),
                 ),
             ])
@@ -1242,7 +1246,7 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
         Line::styled(body, style_for_ui_element(theme, UiElement::Text)),
         Line::raw(""),
         Line::styled(
-            "Escape=Cancel",
+            GIT_CANCEL_MODAL_HINT,
             style_for_ui_element(theme, UiElement::MutedText),
         ),
     ]);
@@ -1389,6 +1393,22 @@ mod tests {
         let theme = Theme::default();
         let line = build_section_header("Staged", &theme, &theme.colors.added);
         assert!(!line.spans.is_empty());
+    }
+
+    #[test]
+    fn test_git_modal_hints_use_compact_action_case() {
+        let hints = [
+            GIT_CONFIRM_MODAL_HINT,
+            GIT_CANCEL_MODAL_HINT,
+            GIT_ERROR_MODAL_HINT,
+        ];
+
+        assert!(GIT_CONFIRM_MODAL_HINT.contains("Enter: Confirm"));
+        assert!(GIT_CONFIRM_MODAL_HINT.contains("Esc: Cancel"));
+        assert!(GIT_CANCEL_MODAL_HINT.contains("Esc: Cancel"));
+        assert!(GIT_ERROR_MODAL_HINT.contains("Esc: Close"));
+        assert!(!hints.iter().any(|hint| hint.contains("Escape=")));
+        assert!(!hints.iter().any(|hint| hint.contains("Enter=")));
     }
 
     #[test]
