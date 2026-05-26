@@ -14,6 +14,7 @@ use ratatui::widgets::{
     Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
     StatefulWidget, Widget,
 };
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 use crate::keymap::FocusContext;
@@ -636,13 +637,32 @@ fn palette_empty_state_message(input: &str) -> String {
 }
 
 fn truncate_query(input: &str, max_len: usize) -> String {
-    let char_count = input.chars().count();
-    if char_count <= max_len {
+    if input.width() <= max_len {
         input.to_string()
     } else if max_len > 3 {
-        format!("{}...", input.chars().take(max_len - 3).collect::<String>())
+        let mut output = String::new();
+        let mut width = 0;
+        for ch in input.chars() {
+            let ch_width = ch.width().unwrap_or(0);
+            if width + ch_width + 3 > max_len {
+                break;
+            }
+            output.push(ch);
+            width += ch_width;
+        }
+        format!("{}...", output)
     } else {
-        input.chars().take(max_len).collect()
+        let mut output = String::new();
+        let mut width = 0;
+        for ch in input.chars() {
+            let ch_width = ch.width().unwrap_or(0);
+            if width + ch_width > max_len {
+                break;
+            }
+            output.push(ch);
+            width += ch_width;
+        }
+        output
     }
 }
 
@@ -888,6 +908,9 @@ mod tests {
         assert_eq!(truncate_query("deploy", 40), "deploy");
         assert_eq!(truncate_query("ééééé", 4), "é...");
         assert_eq!(truncate_query("abc", 2), "ab");
+        assert_eq!(truncate_query("検索command", 8), "検索c...");
+        assert_eq!(truncate_query("検索", 3), "検");
+        assert_eq!(truncate_query("abc", 0), "");
     }
 
     #[test]
