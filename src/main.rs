@@ -861,7 +861,7 @@ fn build_footer_hints(
         ("Tab", tab_label),
         ("/", "Search"),
         ("?", "Help"),
-        ("q", "Quit"),
+        ("q/Ctrl+C", "Quit"),
         ("1-9", "Go"),
     ] {
         if seen.insert(key.to_string()) {
@@ -897,7 +897,7 @@ fn no_plugins_footer_hints() -> Vec<(String, String)> {
     vec![
         ("?".to_string(), "Help".to_string()),
         ("/".to_string(), "Search".to_string()),
-        ("q".to_string(), "Quit".to_string()),
+        ("q/Ctrl+C".to_string(), "Quit".to_string()),
     ]
 }
 
@@ -1057,7 +1057,7 @@ mod tests {
                 ("Tab".to_string(), "Switch".to_string()),
                 ("/".to_string(), "Search".to_string()),
                 ("?".to_string(), "Help".to_string()),
-                ("q".to_string(), "Quit".to_string()),
+                ("q/Ctrl+C".to_string(), "Quit".to_string()),
                 ("1-9".to_string(), "Go".to_string()),
             ]
         );
@@ -1088,7 +1088,7 @@ mod tests {
             vec![
                 ("?".to_string(), "Help".to_string()),
                 ("/".to_string(), "Search".to_string()),
-                ("q".to_string(), "Quit".to_string()),
+                ("q/Ctrl+C".to_string(), "Quit".to_string()),
             ]
         );
     }
