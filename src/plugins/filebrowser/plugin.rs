@@ -1324,7 +1324,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 fn file_tree_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No files match \"{}\"\n\nf  Change filter\nEsc  Close dialogs\n?  Help",
+            "No files match \"{}\"\n\nf  Change or clear filter\nEsc  Close dialogs\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
@@ -1339,7 +1339,7 @@ fn file_tree_empty_message(state: &PluginState) -> String {
 fn file_preview_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No preview available\n\nNo files match \"{}\"\nf  Change filter\n?  Help",
+            "No preview available\n\nNo files match \"{}\"\nf  Change or clear filter\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
@@ -1545,7 +1545,21 @@ mod tests {
         let message = file_tree_empty_message(&state);
 
         assert!(message.contains("No files match \"missing\""));
-        assert!(message.contains("f  Change filter"));
+        assert!(message.contains("f  Change or clear filter"));
+        assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_file_preview_empty_message_mentions_filter_clear_action() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.set_filter(Some("missing".to_string()));
+
+        let message = file_preview_empty_message(&state);
+
+        assert!(message.contains("No preview available"));
+        assert!(message.contains("No files match \"missing\""));
+        assert!(message.contains("f  Change or clear filter"));
         assert!(message.contains("?  Help"));
     }
 
