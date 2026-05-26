@@ -175,10 +175,12 @@ fn render_sidebar(
 
     if state.files.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled(
-            "  ✓ Working tree clean",
-            style_for_ui_element(theme, UiElement::Success),
-        ));
+        for line in git_changes_empty_message(state).lines() {
+            lines.push(Line::styled(
+                format!("  {}", line),
+                style_for_ui_element(theme, UiElement::Success),
+            ));
+        }
         lines.push(Line::raw(""));
     }
 
@@ -296,7 +298,7 @@ fn render_diff_view(
             .style(style_for_ui_element(theme, UiElement::MutedText));
         no_diff.render(inner, buf);
     } else {
-        let empty = Paragraph::new("Select a file to view diff")
+        let empty = Paragraph::new(git_diff_empty_message(state))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -1217,7 +1219,32 @@ pub fn render_status_info(state: &PluginState) -> String {
         parts.push("clean".to_string());
     }
 
+    if !state.commits.is_empty() {
+        let suffix = if state.commits.len() == 1 {
+            "commit"
+        } else {
+            "commits"
+        };
+        parts.push(format!("{} {}", state.commits.len(), suffix));
+    }
+
     parts.join(" | ")
+}
+
+fn git_changes_empty_message(state: &PluginState) -> &'static str {
+    if state.branch.is_empty() {
+        "No repository data loaded\nr Refresh"
+    } else {
+        "Working tree clean\nB Branches | H History | r Refresh"
+    }
+}
+
+fn git_diff_empty_message(state: &PluginState) -> &'static str {
+    if state.files.is_empty() {
+        "Working tree clean. Use H for history or B for branches."
+    } else {
+        "Select a file to view diff"
+    }
 }
 
 #[cfg(test)]
@@ -1260,5 +1287,54 @@ mod tests {
         let state = PluginState::new();
         let info = render_status_info(&state);
         assert!(info.contains("clean"));
+    }
+
+    #[test]
+    fn test_render_status_info_includes_commit_count() {
+        let mut state = PluginState::new();
+        state.branch = "main".to_string();
+        state.commits.push(crate::core::models::Commit::new(
+            "abc123",
+            "Initial commit",
+            "Test User",
+            chrono::Utc::now(),
+        ));
+
+        let info = render_status_info(&state);
+
+        assert!(info.contains("main"));
+        assert!(info.contains("clean"));
+        assert!(info.contains("1 commit"));
+    }
+
+    #[test]
+    fn test_git_changes_empty_message_points_to_actions() {
+        let mut state = PluginState::new();
+        state.branch = "main".to_string();
+
+        let message = git_changes_empty_message(&state);
+
+        assert!(message.contains("Working tree clean"));
+        assert!(message.contains("B Branches"));
+        assert!(message.contains("H History"));
+        assert!(message.contains("r Refresh"));
+    }
+
+    #[test]
+    fn test_git_changes_empty_message_handles_unloaded_repo() {
+        let state = PluginState::new();
+        let message = git_changes_empty_message(&state);
+
+        assert!(message.contains("No repository data loaded"));
+        assert!(message.contains("r Refresh"));
+    }
+
+    #[test]
+    fn test_git_diff_empty_message_reflects_clean_tree() {
+        let state = PluginState::new();
+        let message = git_diff_empty_message(&state);
+
+        assert!(message.contains("Working tree clean"));
+        assert!(message.contains("history"));
     }
 }
