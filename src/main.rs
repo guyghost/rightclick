@@ -882,7 +882,7 @@ fn build_footer_hints(
         ("/", "Global search"),
         ("?", "Help"),
         ("q/Ctrl+C", "Quit"),
-        ("1-9", "Go"),
+        ("1-9", "Plugin"),
     ] {
         if seen.insert(key.to_string()) {
             hints.push((key.to_string(), label.to_string()));
@@ -1183,7 +1183,7 @@ mod tests {
                 ("/".to_string(), "Global search".to_string()),
                 ("?".to_string(), "Help".to_string()),
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
-                ("1-9".to_string(), "Go".to_string()),
+                ("1-9".to_string(), "Plugin".to_string()),
             ]
         );
         assert!(hints.contains(&("r".to_string(), "Refresh".to_string())));
