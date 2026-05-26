@@ -81,6 +81,27 @@ ensure_test_filter_matches() {
   fi
 }
 
+list_tests_for_filter() {
+  local filter="$1"
+  local output
+  local matches
+
+  printf '\n==> cargo test %s -- --list\n' "$filter" >&2
+  if ! output="$(cargo test "$filter" -- --list 2>&1)"; then
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "$output"
+
+  matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
+  if [ "$matches" -eq 0 ]; then
+    echo "No tests matched filter: $filter" >&2
+    echo "Try a broader filter or run 'bash scripts/dev.sh test-list' to list every test." >&2
+    exit 2
+  fi
+}
+
 rust_version() {
   local version
   version="$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
@@ -218,7 +239,7 @@ case "$cmd" in
       run_step cargo test -- --list
     else
       for filter in "$@"; do
-        run_step cargo test "$filter" -- --list
+        list_tests_for_filter "$filter"
       done
     fi
     ;;
