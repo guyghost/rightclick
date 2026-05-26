@@ -1349,13 +1349,13 @@ fn file_preview_empty_message(state: &PluginState) -> String {
         "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
             .to_string()
     } else {
-        "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter\n/  Search files\n?  Help"
+        "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter\nr  Refresh files\n/  Search files\n?  Help"
             .to_string()
     }
 }
 
 fn file_info_empty_message() -> &'static str {
-    "No file selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nI  Close info\n/  Search files\n?  Help"
+    "No file selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nI  Close info\nr  Refresh files\n/  Search files\n?  Help"
 }
 
 // Helper function for muted style
@@ -1637,6 +1637,7 @@ mod tests {
         assert!(content.contains("j/k  Navigate files"));
         assert!(content.contains("Enter/Space  Expand directory"));
         assert!(content.contains("f  Filter"));
+        assert!(content.contains("r  Refresh files"));
         assert!(content.contains("/  Search files"));
         assert!(content.contains("?  Help"));
     }
@@ -1665,6 +1666,7 @@ mod tests {
         assert!(content.contains("j/k  Navigate files"));
         assert!(content.contains("Enter/Space  Expand directory"));
         assert!(content.contains("Close info"));
+        assert!(content.contains("r  Refresh files"));
         assert!(content.contains("/  Search files"));
         assert!(content.contains("?  Help"));
     }
