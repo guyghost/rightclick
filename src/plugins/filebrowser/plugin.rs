@@ -25,6 +25,12 @@ use super::preview::PreviewWidget;
 use super::state::{FileOperationModal, PluginState};
 use super::tree::FileTreeWidget;
 
+const CREATE_ENTRY_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
+const DELETE_ENTRY_MODAL_HINT: &str = "Enter: Delete  |  Esc: Cancel";
+const RENAME_ENTRY_MODAL_HINT: &str = "Enter: Rename  |  Esc: Cancel";
+const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty: Clear  |  Esc: Cancel";
+const ERROR_MODAL_HINT: &str = "Enter/Esc: Close";
+
 /// Commands for file operations that are executed asynchronously
 #[derive(Debug, Clone, PartialEq)]
 pub enum FileCommand {
@@ -1058,10 +1064,7 @@ impl FileBrowserPlugin {
                         primary_style,
                     )]),
                     Line::from(""),
-                    Line::from(vec![Span::styled(
-                        "Enter: create  |  Esc: cancel",
-                        muted_style(),
-                    )]),
+                    Line::from(vec![Span::styled(CREATE_ENTRY_MODAL_HINT, muted_style())]),
                 ];
                 (" Create File ", primary_style, lines)
             }
@@ -1074,10 +1077,7 @@ impl FileBrowserPlugin {
                         primary_style,
                     )]),
                     Line::from(""),
-                    Line::from(vec![Span::styled(
-                        "Enter: create  |  Esc: cancel",
-                        muted_style(),
-                    )]),
+                    Line::from(vec![Span::styled(CREATE_ENTRY_MODAL_HINT, muted_style())]),
                 ];
                 (" Create Directory ", primary_style, lines)
             }
@@ -1098,10 +1098,7 @@ impl FileBrowserPlugin {
                         muted_style(),
                     )]),
                     Line::from(""),
-                    Line::from(vec![Span::styled(
-                        "Enter: delete  |  Esc: cancel",
-                        muted_style(),
-                    )]),
+                    Line::from(vec![Span::styled(DELETE_ENTRY_MODAL_HINT, muted_style())]),
                 ];
                 (" Confirm Delete ", error_style, lines)
             }
@@ -1121,10 +1118,7 @@ impl FileBrowserPlugin {
                         primary_style,
                     )]),
                     Line::from(""),
-                    Line::from(vec![Span::styled(
-                        "Enter: rename  |  Esc: cancel",
-                        muted_style(),
-                    )]),
+                    Line::from(vec![Span::styled(RENAME_ENTRY_MODAL_HINT, muted_style())]),
                 ];
                 (" Rename ", primary_style, lines)
             }
@@ -1140,10 +1134,7 @@ impl FileBrowserPlugin {
                         primary_style,
                     )]),
                     Line::from(""),
-                    Line::from(vec![Span::styled(
-                        "Enter: apply  |  Empty: clear  |  Esc: cancel",
-                        muted_style(),
-                    )]),
+                    Line::from(vec![Span::styled(FILTER_FILES_MODAL_HINT, muted_style())]),
                 ];
                 (" Filter Files ", primary_style, lines)
             }
@@ -1151,10 +1142,7 @@ impl FileBrowserPlugin {
                 let lines = vec![
                     Line::from(vec![Span::styled(message.as_str(), error_style)]),
                     Line::from(""),
-                    Line::from(vec![Span::styled(
-                        "Press Enter or Esc to close",
-                        muted_style(),
-                    )]),
+                    Line::from(vec![Span::styled(ERROR_MODAL_HINT, muted_style())]),
                 ];
                 (" Error ", error_style, lines)
             }
@@ -1402,6 +1390,22 @@ mod tests {
         assert!(plugin.focused);
         assert_eq!(plugin.name(), "File Browser");
         assert_eq!(plugin.display_name(), "File Browser");
+    }
+
+    #[test]
+    fn test_file_operation_modal_hints_use_action_case() {
+        let hints = [
+            CREATE_ENTRY_MODAL_HINT,
+            DELETE_ENTRY_MODAL_HINT,
+            RENAME_ENTRY_MODAL_HINT,
+            FILTER_FILES_MODAL_HINT,
+            ERROR_MODAL_HINT,
+        ];
+
+        assert!(hints.iter().all(|hint| hint.contains("Enter")));
+        assert!(hints.iter().all(|hint| !hint.contains(": create")));
+        assert!(hints.iter().all(|hint| !hint.contains(": cancel")));
+        assert!(FILTER_FILES_MODAL_HINT.contains("Empty: Clear"));
     }
 
     #[test]
