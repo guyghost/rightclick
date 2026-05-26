@@ -12,6 +12,8 @@ Usage: bash scripts/dev.sh <command>
 
 Commands:
   ci             same checks used by GitHub Actions
+  pre-commit     quick checks to run before a local commit
+  pre-push       full local verification before pushing
   doctor         check required and optional local developer tools
   rust-version   print the required Rust version from Cargo.toml
   check          fmt check, clippy with warnings denied, and tests
@@ -33,6 +35,8 @@ Commands:
 Examples:
   bash scripts/dev.sh doctor
   bash scripts/dev.sh ci
+  bash scripts/dev.sh pre-commit
+  bash scripts/dev.sh pre-push
   bash scripts/dev.sh test-list gitstatus search::overlay
   bash scripts/dev.sh test-one plugins::gitstatus
   bash scripts/dev.sh test-one test_plugin_commands -- --nocapture
@@ -45,6 +49,8 @@ you are unsure which module path or test name to target.
 If you use just:
   just help
   just ci
+  just pre-commit
+  just pre-push
   just quick
   just test-list gitstatus search::overlay
   just test-one plugins::gitstatus
@@ -131,6 +137,12 @@ rust_version() {
 
 case "$cmd" in
   ci)
+    run_checks
+    ;;
+  pre-commit)
+    run_quick_checks
+    ;;
+  pre-push)
     run_checks
     ;;
   rust-version)

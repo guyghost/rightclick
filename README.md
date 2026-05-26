@@ -43,6 +43,8 @@ tools include a short hint explaining what workflow they unlock.
 
 ```bash
 bash scripts/dev.sh ci            # same checks used by GitHub Actions
+bash scripts/dev.sh pre-commit    # quick checks before committing
+bash scripts/dev.sh pre-push      # full local verification before pushing
 bash scripts/dev.sh doctor        # check required and optional local tools
 bash scripts/dev.sh rust-version  # print the required Rust version
 bash scripts/dev.sh check         # fmt check, clippy with warnings denied, and tests

@@ -9,6 +9,12 @@ help:
 ci:
     bash scripts/dev.sh ci
 
+pre-commit:
+    bash scripts/dev.sh pre-commit
+
+pre-push:
+    bash scripts/dev.sh pre-push
+
 check:
     bash scripts/dev.sh check
 
