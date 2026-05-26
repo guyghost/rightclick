@@ -192,23 +192,9 @@ impl NotificationManager {
         let toast_height: u16 = 3;
 
         for (i, notification) in notifications.iter().enumerate() {
-            let x = area.width.saturating_sub(toast_width + 1);
-            let y = area
-                .height
-                .saturating_sub((i as u16 + 1) * (toast_height + 1) + 1);
-
-            if y < area.y || x < area.x {
-                break;
+            if let Some(toast_area) = toast_area(area, i, toast_width, toast_height) {
+                render_toast(toast_area, buf, notification, theme);
             }
-
-            let toast_area = Rect {
-                x: area.x + x,
-                y: area.y + y,
-                width: toast_width.min(area.width - x),
-                height: toast_height,
-            };
-
-            render_toast(toast_area, buf, notification, theme);
         }
     }
 }
@@ -217,6 +203,26 @@ impl Default for NotificationManager {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn toast_area(area: Rect, index: usize, preferred_width: u16, height: u16) -> Option<Rect> {
+    if area.width == 0 || area.height == 0 || height == 0 {
+        return None;
+    }
+
+    let x_offset = area.width.saturating_sub(preferred_width.saturating_add(1));
+    let stack_height = (index as u16)
+        .saturating_add(1)
+        .saturating_mul(height.saturating_add(1))
+        .saturating_add(1);
+    let y_offset = area.height.saturating_sub(stack_height);
+
+    Some(Rect {
+        x: area.x.saturating_add(x_offset),
+        y: area.y.saturating_add(y_offset),
+        width: preferred_width.min(area.width.saturating_sub(x_offset)),
+        height: height.min(area.height),
+    })
 }
 
 /// Render a single toast notification
@@ -428,6 +434,35 @@ mod tests {
         let mut buf = Buffer::empty(Rect::new(0, 0, 10, 5));
         manager.render(Rect::new(0, 0, 10, 5), &mut buf, &theme);
         // Verify no panic with small area
+    }
+
+    #[test]
+    fn render_toasts_inside_offset_area() {
+        let mut manager = NotificationManager::new();
+        manager.info("offset toast");
+
+        let theme = Theme::default();
+        let area = Rect::new(5, 4, 24, 8);
+        let mut buf = Buffer::empty(area);
+        manager.render(area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("offset toast"));
+    }
+
+    #[test]
+    fn toast_area_uses_parent_offset_and_available_width() {
+        let area = Rect::new(5, 4, 24, 8);
+        let toast = toast_area(area, 0, 40, 3).expect("toast area");
+
+        assert_eq!(toast.x, 5);
+        assert_eq!(toast.y, 7);
+        assert_eq!(toast.width, 24);
+        assert_eq!(toast.height, 3);
     }
 
     #[test]
