@@ -104,7 +104,7 @@ impl ListNavigation {
 
     /// Move selection down
     pub fn next(&mut self) {
-        if self.selected + 1 < self.total_items {
+        if self.selected.saturating_add(1) < self.total_items {
             self.selected += 1;
             self.ensure_visible();
         }
@@ -133,7 +133,10 @@ impl ListNavigation {
     /// Page down
     pub fn page_down(&mut self) {
         let page_size = self.viewport_height.saturating_sub(1);
-        self.selected = (self.selected + page_size).min(self.total_items.saturating_sub(1));
+        self.selected = self
+            .selected
+            .saturating_add(page_size)
+            .min(self.total_items.saturating_sub(1));
         self.ensure_visible();
     }
 
@@ -146,19 +149,39 @@ impl ListNavigation {
 
     /// Ensure the selected item is visible in the viewport
     fn ensure_visible(&mut self) {
+        if self.total_items == 0 {
+            self.selected = 0;
+            self.scroll_offset = 0;
+            return;
+        }
+
+        self.selected = self.selected.min(self.total_items - 1);
+
+        if self.viewport_height == 0 {
+            self.scroll_offset = self.selected;
+            return;
+        }
+
         if self.selected < self.scroll_offset {
             self.scroll_offset = self.selected;
-        } else if self.selected >= self.scroll_offset + self.viewport_height {
+        } else if self.selected >= self.scroll_offset.saturating_add(self.viewport_height) {
             self.scroll_offset = self
                 .selected
                 .saturating_sub(self.viewport_height.saturating_sub(1));
         }
+
+        self.scroll_offset = self
+            .scroll_offset
+            .min(self.total_items.saturating_sub(self.viewport_height));
     }
 
     /// Get the visible range (start, end) - end is exclusive
     pub fn visible_range(&self) -> (usize, usize) {
-        let end = (self.scroll_offset + self.viewport_height).min(self.total_items);
-        (self.scroll_offset, end)
+        let start = self.scroll_offset.min(self.total_items);
+        let end = start
+            .saturating_add(self.viewport_height)
+            .min(self.total_items);
+        (start, end)
     }
 
     /// Check if an index is the selected one
@@ -520,6 +543,42 @@ mod tests {
 
         nav.page_up();
         assert_eq!(nav.selected, 9);
+    }
+
+    #[test]
+    fn test_list_navigation_clamps_stale_selection_and_scroll() {
+        let mut nav = ListNavigation::new(5, 2);
+        nav.selected = usize::MAX;
+        nav.scroll_offset = usize::MAX;
+
+        nav.set_total_items(3);
+
+        assert_eq!(nav.selected, 2);
+        assert_eq!(nav.scroll_offset, 1);
+        assert_eq!(nav.visible_range(), (1, 3));
+    }
+
+    #[test]
+    fn test_list_navigation_zero_viewport_has_empty_visible_range() {
+        let mut nav = ListNavigation::new(5, 0);
+        nav.selected = 3;
+
+        nav.set_viewport_height(0);
+
+        assert_eq!(nav.scroll_offset, 3);
+        assert_eq!(nav.visible_range(), (3, 3));
+        assert!(!nav.is_visible(3));
+    }
+
+    #[test]
+    fn test_list_navigation_page_down_saturates_extreme_selection() {
+        let mut nav = ListNavigation::new(10, usize::MAX);
+        nav.selected = usize::MAX - 1;
+
+        nav.page_down();
+
+        assert_eq!(nav.selected, 9);
+        assert_eq!(nav.visible_range(), (0, 10));
     }
 
     #[test]
