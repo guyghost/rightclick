@@ -43,7 +43,7 @@ impl SearchOverlayState {
     /// Create a new search overlay state
     pub fn new() -> Self {
         let mut input = TextInputState::new(InputMode::SingleLine)
-            .with_placeholder("Search files, commands, project...");
+            .with_placeholder("Search files, commands, project items...");
         input.set_active(true);
         Self {
             visible: false,
@@ -622,7 +622,7 @@ mod tests {
         assert_eq!(state.selected, 0);
         assert_eq!(
             state.input.placeholder(),
-            "Search files, commands, project..."
+            "Search files, commands, project items..."
         );
     }
 
@@ -1041,7 +1041,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Global Search"));
-        assert!(content.contains("Search files, commands, project"));
+        assert!(content.contains("Search files, commands, project items"));
         assert!(content.contains("Project"));
     }
 
