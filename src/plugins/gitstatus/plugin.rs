@@ -1158,7 +1158,8 @@ impl Plugin for GitStatusPlugin {
                     "Switch to status view",
                     'S',
                     FocusContext::GitStatus,
-                ),
+                )
+                .with_footer_priority(5),
                 crate::plugin::PluginCommand::with_context_description(
                     "history",
                     "History",
@@ -1175,21 +1176,24 @@ impl Plugin for GitStatusPlugin {
                     "Create a new branch",
                     'n',
                     FocusContext::GitStatus,
-                ),
+                )
+                .with_footer_priority(5),
                 crate::plugin::PluginCommand::with_context_description(
                     "delete-branch",
                     "Delete Branch",
                     "Delete the selected branch",
                     'd',
                     FocusContext::GitStatus,
-                ),
+                )
+                .with_footer_priority(3),
                 crate::plugin::PluginCommand::with_context_description(
                     "status",
                     "Status",
                     "Switch to status view",
                     'S',
                     FocusContext::GitStatus,
-                ),
+                )
+                .with_footer_priority(4),
                 crate::plugin::PluginCommand::with_context_description(
                     "history",
                     "History",
@@ -1206,21 +1210,24 @@ impl Plugin for GitStatusPlugin {
                     "Stash current changes",
                     's',
                     FocusContext::GitStatus,
-                ),
+                )
+                .with_footer_priority(5),
                 crate::plugin::PluginCommand::with_context_description(
                     "drop-stash",
                     "Drop Stash",
                     "Drop the selected stash",
                     'd',
                     FocusContext::GitStatus,
-                ),
+                )
+                .with_footer_priority(3),
                 crate::plugin::PluginCommand::with_context_description(
                     "status",
                     "Status",
                     "Switch to status view",
                     'S',
                     FocusContext::GitStatus,
-                ),
+                )
+                .with_footer_priority(4),
                 crate::plugin::PluginCommand::with_context_description(
                     "history",
                     "History",
@@ -1239,21 +1246,24 @@ impl Plugin for GitStatusPlugin {
                         "Stage the selected file",
                         's',
                         FocusContext::GitStatus,
-                    ),
+                    )
+                    .with_footer_priority(6),
                     crate::plugin::PluginCommand::with_context_description(
                         "unstage",
                         "Unstage",
                         "Unstage the selected file",
                         'u',
                         FocusContext::GitStatus,
-                    ),
+                    )
+                    .with_footer_priority(5),
                     crate::plugin::PluginCommand::with_context_description(
                         "diff",
                         "Diff",
                         "Toggle file diff view",
                         'd',
                         FocusContext::GitStatus,
-                    ),
+                    )
+                    .with_footer_priority(3),
                 ]);
             }
             commands.extend(vec![
@@ -1270,7 +1280,8 @@ impl Plugin for GitStatusPlugin {
                     "Create a commit from staged changes",
                     'c',
                     FocusContext::GitStatus,
-                ),
+                )
+                .with_footer_priority(4),
             ]);
         }
 
@@ -1282,7 +1293,8 @@ impl Plugin for GitStatusPlugin {
                 "Reload git status",
                 'r',
                 FocusContext::GitStatus,
-            ),
+            )
+            .with_footer_priority(1),
             crate::plugin::PluginCommand::with_context_description(
                 "branches",
                 "Branches",
@@ -1303,7 +1315,8 @@ impl Plugin for GitStatusPlugin {
                 "Push the current branch",
                 'P',
                 FocusContext::GitStatus,
-            ),
+            )
+            .with_footer_priority(2),
         ]);
 
         commands
@@ -1461,6 +1474,32 @@ mod tests {
 
         assert!(has_nav);
         assert!(has_refresh);
+    }
+
+    #[test]
+    fn test_status_mode_commands_prioritize_footer_actions() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.files = vec![FileChange::new("src/main.rs", FileStatus::Modified)];
+
+        let commands = plugin.commands();
+
+        let prioritized: Vec<(&str, u8)> = commands
+            .iter()
+            .filter(|command| command.priority > 0)
+            .map(|command| (command.id.as_str(), command.priority))
+            .collect();
+
+        assert_eq!(
+            prioritized,
+            vec![
+                ("stage", 6),
+                ("unstage", 5),
+                ("diff", 3),
+                ("commit", 4),
+                ("refresh", 1),
+                ("push", 2)
+            ]
+        );
     }
 
     #[test]
