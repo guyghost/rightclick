@@ -15,6 +15,9 @@ use crate::core::models::Theme;
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
 
+const CREATE_INTENT_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
+const DELETE_INTENT_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
+
 // Helper functions to get colors from theme
 fn theme_fg(theme: &Theme) -> Color {
     theme.colors.foreground.parse().unwrap_or(Color::White)
@@ -721,7 +724,7 @@ fn render_create_intent_modal(state: &PluginState, area: Rect, buf: &mut Buffer,
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Enter: Confirm | Esc: Cancel",
+            CREATE_INTENT_MODAL_HINT,
             Style::default().fg(theme_comment(theme)),
         )),
     ];
@@ -754,7 +757,7 @@ fn render_delete_confirm_modal(state: &PluginState, area: Rect, buf: &mut Buffer
         Line::from("This action cannot be undone."),
         Line::from(""),
         Line::from(Span::styled(
-            "y: Confirm | n: Cancel",
+            DELETE_INTENT_MODAL_HINT,
             Style::default().fg(theme_comment(theme)),
         )),
     ];
@@ -874,6 +877,45 @@ mod tests {
 
         assert!(text.contains("1 intent"));
         assert!(!text.contains("1 intents"));
+    }
+
+    #[test]
+    fn test_workers_modal_hints_match_handled_keys() {
+        assert_eq!(CREATE_INTENT_MODAL_HINT, "Enter: Create  |  Esc: Cancel");
+        assert_eq!(DELETE_INTENT_MODAL_HINT, "Enter/D: Delete  |  Esc: Cancel");
+        assert!(!DELETE_INTENT_MODAL_HINT.contains("y:"));
+        assert!(!DELETE_INTENT_MODAL_HINT.contains("n:"));
+    }
+
+    #[test]
+    fn test_render_delete_intent_modal_uses_handled_key_hint() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let mut state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
+        state.add_intent(Intent::new(
+            "Remove stale worker intent",
+            PathBuf::from("intents/remove-stale-worker-intent.md"),
+            "2026-05-26T10:00:00Z",
+        ));
+        state.selected_intent = Some(0);
+        state.modal_state = ModalState::DeleteConfirm;
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 100, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Delete 'Remove stale worker intent' ?"));
+        assert!(content.contains(DELETE_INTENT_MODAL_HINT));
+        assert!(!content.contains("y: Confirm"));
+        assert!(!content.contains("n: Cancel"));
     }
 
     #[test]
