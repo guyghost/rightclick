@@ -20,6 +20,11 @@ use ratatui::widgets::{
 };
 use unicode_width::UnicodeWidthStr;
 
+const FILTER_OVERLAY_WIDTH: u16 = 50;
+const FILTER_OVERLAY_HEIGHT: u16 = 3;
+const MIN_FILTER_OVERLAY_WIDTH: u16 = 20;
+const MIN_FILTER_OVERLAY_HEIGHT: u16 = 3;
+
 /// Renderer for the Conversations plugin UI
 #[derive(Clone, Debug, Default)]
 pub struct ConversationsRenderer {
@@ -671,17 +676,8 @@ impl ConversationsRenderer {
         buf: &mut Buffer,
         theme: &Theme,
     ) {
-        let popup_width = 50;
-        let popup_height = 3;
-
-        let popup_x = (area.width.saturating_sub(popup_width)) / 2;
-        let popup_y = (area.height.saturating_sub(popup_height)) / 2;
-
-        let popup_area = Rect {
-            x: area.x + popup_x,
-            y: area.y + popup_y,
-            width: popup_width,
-            height: popup_height,
+        let Some(popup_area) = filter_overlay_area(area) else {
+            return;
         };
 
         // Clear background
@@ -752,6 +748,19 @@ impl ConversationsRenderer {
 
         total_lines
     }
+}
+
+fn filter_overlay_area(area: Rect) -> Option<Rect> {
+    if area.width < MIN_FILTER_OVERLAY_WIDTH || area.height < MIN_FILTER_OVERLAY_HEIGHT {
+        return None;
+    }
+
+    let width = FILTER_OVERLAY_WIDTH.min(area.width);
+    let height = FILTER_OVERLAY_HEIGHT.min(area.height);
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+
+    Some(Rect::new(x, y, width, height))
 }
 
 /// Format a datetime for display
@@ -1162,6 +1171,28 @@ mod tests {
             .collect();
         assert!(content.contains("Sessions (1 result)"));
         assert!(!content.contains("Sessions (1 filtered)"));
+    }
+
+    #[test]
+    fn test_filter_overlay_area_uses_preferred_size_when_it_fits() {
+        let area = Rect::new(10, 4, 100, 20);
+        let popup = filter_overlay_area(area).unwrap();
+
+        assert_eq!(popup, Rect::new(35, 12, 50, 3));
+    }
+
+    #[test]
+    fn test_filter_overlay_area_clamps_to_available_width() {
+        let area = Rect::new(3, 2, 30, 10);
+        let popup = filter_overlay_area(area).unwrap();
+
+        assert_eq!(popup, Rect::new(3, 5, 30, 3));
+    }
+
+    #[test]
+    fn test_filter_overlay_area_skips_tiny_areas() {
+        assert!(filter_overlay_area(Rect::new(0, 0, 19, 10)).is_none());
+        assert!(filter_overlay_area(Rect::new(0, 0, 30, 2)).is_none());
     }
 
     #[test]
