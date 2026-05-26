@@ -498,7 +498,7 @@ fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
 }
 
 fn search_footer_hint() -> &'static str {
-    "Tab change scope | Enter open | Up/Down select | Ctrl+U clear | Esc close"
+    "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close"
 }
 
 fn result_count_label(count: usize) -> String {
@@ -802,10 +802,12 @@ mod tests {
 
     #[test]
     fn test_search_footer_hint_names_scope_action() {
-        assert!(search_footer_hint().contains("Tab change scope"));
-        assert!(search_footer_hint().contains("Enter open"));
-        assert!(search_footer_hint().contains("Ctrl+U clear"));
-        assert!(!search_footer_hint().contains("Tab scope"));
+        assert!(search_footer_hint().contains("Tab: Scope"));
+        assert!(search_footer_hint().contains("Enter: Open"));
+        assert!(search_footer_hint().contains("Up/Down: Select"));
+        assert!(search_footer_hint().contains("Ctrl+U: Clear"));
+        assert!(search_footer_hint().contains("Esc: Close"));
+        assert!(!search_footer_hint().contains("Tab change scope"));
     }
 
     #[test]
