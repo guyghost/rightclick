@@ -11,6 +11,7 @@ use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Widget};
 use std::time::{Duration, Instant};
+use unicode_width::UnicodeWidthStr;
 
 /// Loading spinner with animated frames
 ///
@@ -445,8 +446,8 @@ impl Spinner {
             frame.to_string()
         };
 
-        let text_len = text.len() as u16;
-        let x = area.x + (area.width.saturating_sub(text_len)) / 2;
+        let text_width = text.width().min(u16::MAX as usize) as u16;
+        let x = area.x + (area.width.saturating_sub(text_width)) / 2;
         let y = area.y + area.height / 2;
 
         if x < area.x + area.width && y < area.y + area.height {
@@ -472,7 +473,7 @@ impl Spinner {
             let center_area = Rect {
                 x,
                 y,
-                width: text_len.min(area.width),
+                width: text_width.min(area.width),
                 height: 1,
             };
 
@@ -571,6 +572,21 @@ mod tests {
         let spinner = Spinner::line();
         let text = spinner.display_text();
         assert_eq!(text, "|");
+    }
+
+    #[test]
+    fn test_render_centered_positions_unicode_label_by_display_width() {
+        let spinner = Spinner::line().with_label("検a");
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 13, 3);
+        let mut buf = Buffer::empty(area);
+
+        spinner.render_centered(area, &mut buf, &theme);
+
+        assert_eq!(buf.cell((4, 1)).unwrap().symbol(), "|");
+        assert_eq!(buf.cell((6, 1)).unwrap().symbol(), "検");
+        assert_eq!(buf.cell((8, 1)).unwrap().symbol(), "a");
+        assert_ne!(buf.cell((3, 1)).unwrap().symbol(), "|");
     }
 
     #[test]
