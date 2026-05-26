@@ -18,6 +18,8 @@ use ratatui::{
 };
 use std::str::FromStr;
 
+const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab: Scope";
+
 /// State for the search overlay
 #[derive(Debug, Clone)]
 pub struct SearchOverlayState {
@@ -527,7 +529,7 @@ fn no_results_message(query: &str, scope: SearchScope) -> String {
         SearchScope::Commands => format!("No command matches \"{}\"", query),
     };
 
-    format!("{}\n\nCtrl+U  Clear search\nTab  Change scope", message)
+    format!("{}\n\n{}", message, SEARCH_EMPTY_ACTION_HINT)
 }
 
 fn search_result_icon(kind: &super::types::SearchResultKind) -> &'static str {
@@ -834,8 +836,9 @@ mod tests {
     fn test_no_results_message_includes_scope_and_query() {
         let items = no_results_message("worker", SearchScope::Items);
         assert!(items.contains("No session, worktree, or intent matches \"worker\""));
-        assert!(items.contains("Ctrl+U  Clear search"));
-        assert!(items.contains("Tab  Change scope"));
+        assert!(items.contains(SEARCH_EMPTY_ACTION_HINT));
+        assert!(!items.contains("Ctrl+U  Clear search"));
+        assert!(!items.contains("Tab  Change scope"));
 
         let truncated = no_results_message(
             "abcdefghijklmnopqrstuvwxyz0123456789abcdef",
@@ -844,8 +847,7 @@ mod tests {
         assert!(
             truncated.contains("No results match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
         );
-        assert!(truncated.contains("Ctrl+U  Clear search"));
-        assert!(truncated.contains("Tab  Change scope"));
+        assert!(truncated.contains(SEARCH_EMPTY_ACTION_HINT));
     }
 
     #[test]
