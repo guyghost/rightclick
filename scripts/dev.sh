@@ -62,6 +62,14 @@ case "$cmd" in
   test)
     cargo test
     ;;
+  test-one)
+    shift
+    if [ "$#" -eq 0 ]; then
+      echo "Usage: bash scripts/dev.sh test-one <test-filter> [-- <cargo-test-args>]" >&2
+      exit 2
+    fi
+    cargo test "$@"
+    ;;
   run)
     cargo run
     ;;
@@ -79,6 +87,7 @@ Commands:
   fmt-check      run cargo fmt --check
   clippy         run cargo clippy --all-targets -- -D warnings
   test           run cargo test
+  test-one       run cargo test with a filter
   run            run RightClick locally
   install-local  install RightClick from this checkout
 EOF

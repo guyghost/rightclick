@@ -21,6 +21,9 @@ clippy:
 test:
     bash scripts/dev.sh test
 
+test-one filter:
+    bash scripts/dev.sh test-one "{{filter}}"
+
 run:
     bash scripts/dev.sh run
 
