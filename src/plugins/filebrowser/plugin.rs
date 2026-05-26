@@ -1324,7 +1324,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 fn file_tree_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No files match \"{}\"\n\nf  Change or clear filter\nEsc  Close dialogs\n?  Help",
+            "No files match \"{}\"\n\nf  Change or clear filter\nr  Refresh files\nEsc  Close dialogs\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
@@ -1339,7 +1339,7 @@ fn file_tree_empty_message(state: &PluginState) -> String {
 fn file_preview_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No preview available\n\nNo files match \"{}\"\nf  Change or clear filter\n?  Help",
+            "No preview available\n\nNo files match \"{}\"\nf  Change or clear filter\nr  Refresh files\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
@@ -1546,6 +1546,7 @@ mod tests {
 
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f  Change or clear filter"));
+        assert!(message.contains("r  Refresh files"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1560,6 +1561,7 @@ mod tests {
         assert!(message.contains("No preview available"));
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f  Change or clear filter"));
+        assert!(message.contains("r  Refresh files"));
         assert!(message.contains("?  Help"));
     }
 
