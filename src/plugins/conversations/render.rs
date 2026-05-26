@@ -806,53 +806,62 @@ fn truncate_string(s: &str, max_len: usize) -> String {
 }
 
 /// Wrap text to a maximum width
-fn wrap_text(text: &str, width: usize) -> Vec<&str> {
+fn wrap_text(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
-        return vec![text];
+        return vec![text.to_string()];
     }
 
     let mut lines = Vec::new();
 
     for paragraph in text.split('\n') {
         if paragraph.is_empty() {
-            lines.push("");
+            lines.push(String::new());
             continue;
         }
 
         let mut remaining = paragraph;
         while !remaining.is_empty() {
             if remaining.width() <= width {
-                lines.push(remaining);
+                lines.push(remaining.to_string());
                 break;
             }
 
-            // Find break point
-            let mut break_idx = width;
-            while break_idx > 0 && !remaining.is_char_boundary(break_idx) {
-                break_idx -= 1;
-            }
-
-            // Try to break at word boundary
-            if let Some(space_idx) = remaining[..break_idx].rfind(' ') {
-                break_idx = space_idx;
-            }
-
-            if break_idx == 0 {
-                break_idx = width;
-                while break_idx > 0 && !remaining.is_char_boundary(break_idx) {
-                    break_idx -= 1;
-                }
-                if break_idx == 0 {
-                    break_idx = 1;
-                }
-            }
-
-            lines.push(&remaining[..break_idx]);
+            let break_idx = wrap_break_index(remaining, width);
+            lines.push(remaining[..break_idx].trim_end().to_string());
             remaining = remaining[break_idx..].trim_start();
         }
     }
 
     lines
+}
+
+fn wrap_break_index(text: &str, width: usize) -> usize {
+    let mut current_width = 0;
+    let mut last_fit = 0;
+    let mut last_space = None;
+
+    for (idx, ch) in text.char_indices() {
+        let ch_width = ch.to_string().width();
+        if current_width + ch_width > width {
+            if let Some(space_idx) = last_space {
+                return space_idx;
+            }
+            return if last_fit > 0 {
+                last_fit
+            } else {
+                idx + ch.len_utf8()
+            };
+        }
+
+        current_width += ch_width;
+        last_fit = idx + ch.len_utf8();
+
+        if ch == ' ' {
+            last_space = Some(idx);
+        }
+    }
+
+    text.len()
 }
 
 fn empty_sessions_message(state: &PluginState) -> String {
@@ -953,6 +962,14 @@ mod tests {
         for line in &lines {
             assert!(line.width() <= 10);
         }
+
+        let unicode_text = "検索 query";
+        let lines = wrap_text(unicode_text, 5);
+        assert_eq!(lines[0], "検索");
+        assert_eq!(lines[1], "query");
+
+        let narrow_lines = wrap_text("検索", 1);
+        assert_eq!(narrow_lines, vec!["検".to_string(), "索".to_string()]);
     }
 
     #[test]
