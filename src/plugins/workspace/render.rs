@@ -431,7 +431,7 @@ fn render_interactive_mode(
             worktree.branch
         )
     } else {
-        "Select a worktree first".to_string()
+        select_worktree_message().to_string()
     };
 
     let paragraph = Paragraph::new(text)
@@ -867,5 +867,33 @@ mod tests {
         assert!(content.contains("Enter/o  Open worktree"));
         assert!(content.contains("Tab  Focus sidebar"));
         assert!(!content.contains("Select a worktree"));
+    }
+
+    #[test]
+    fn test_render_interactive_without_selection_points_to_navigation() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.view_mode = ViewMode::Interactive;
+        state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        state.selected = None;
+        let area = Rect::new(0, 0, 80, 12);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No worktree selected"));
+        assert!(content.contains("j/k  Navigate worktrees"));
+        assert!(content.contains("Enter/o  Open worktree"));
+        assert!(content.contains("Tab  Focus sidebar"));
+        assert!(!content.contains("Select a worktree first"));
     }
 }
