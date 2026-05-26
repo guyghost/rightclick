@@ -390,7 +390,7 @@ fn render_commit_list(
     block.render(area, buf);
 
     if state.commits.is_empty() {
-        let empty = Paragraph::new("No commits")
+        let empty = Paragraph::new(git_commits_empty_message())
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -813,7 +813,7 @@ fn render_branch_list(
     block.render(area, buf);
 
     if state.branches.is_empty() {
-        let empty = Paragraph::new("No branches")
+        let empty = Paragraph::new(git_branches_empty_message())
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -951,7 +951,7 @@ fn render_stash_list(
     block.render(area, buf);
 
     if state.stashes.is_empty() {
-        let empty = Paragraph::new("No stashes")
+        let empty = Paragraph::new(git_stashes_empty_message())
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -1247,6 +1247,18 @@ fn git_diff_empty_message(state: &PluginState) -> &'static str {
     }
 }
 
+fn git_commits_empty_message() -> &'static str {
+    "No commits\n\nS Status | B Branches | r Refresh"
+}
+
+fn git_branches_empty_message() -> &'static str {
+    "No branches\n\nS Status | H History | r Refresh"
+}
+
+fn git_stashes_empty_message() -> &'static str {
+    "No stashes\n\nS Status | B Branches | r Refresh"
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1336,5 +1348,26 @@ mod tests {
 
         assert!(message.contains("Working tree clean"));
         assert!(message.contains("history"));
+    }
+
+    #[test]
+    fn test_git_subview_empty_messages_point_to_next_actions() {
+        let commits = git_commits_empty_message();
+        assert!(commits.contains("No commits"));
+        assert!(commits.contains("S Status"));
+        assert!(commits.contains("B Branches"));
+        assert!(commits.contains("r Refresh"));
+
+        let branches = git_branches_empty_message();
+        assert!(branches.contains("No branches"));
+        assert!(branches.contains("S Status"));
+        assert!(branches.contains("H History"));
+        assert!(branches.contains("r Refresh"));
+
+        let stashes = git_stashes_empty_message();
+        assert!(stashes.contains("No stashes"));
+        assert!(stashes.contains("S Status"));
+        assert!(stashes.contains("B Branches"));
+        assert!(stashes.contains("r Refresh"));
     }
 }
