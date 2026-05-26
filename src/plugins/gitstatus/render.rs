@@ -1241,7 +1241,7 @@ fn git_changes_empty_message(state: &PluginState) -> &'static str {
 
 fn git_diff_empty_message(state: &PluginState) -> &'static str {
     if state.files.is_empty() {
-        "Working tree clean. Use H for history or B for branches."
+        "Working tree clean\n\nH History | B Branches | r Refresh"
     } else {
         "Select a file to view diff"
     }
@@ -1347,7 +1347,29 @@ mod tests {
         let message = git_diff_empty_message(&state);
 
         assert!(message.contains("Working tree clean"));
-        assert!(message.contains("history"));
+        assert!(message.contains("H History"));
+        assert!(message.contains("B Branches"));
+        assert!(message.contains("r Refresh"));
+    }
+
+    #[test]
+    fn test_render_git_status_clean_diff_includes_next_actions() {
+        let state = PluginState::new();
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_git_status(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Working tree clean"));
+        assert!(content.contains("B Branches"));
+        assert!(content.contains("H History"));
+        assert!(content.contains("r Refresh"));
     }
 
     #[test]
