@@ -306,9 +306,9 @@ fn output_empty_message(state: &PluginState) -> &'static str {
     if state.worktrees.is_empty() {
         "No output yet\n\nn  Create worktree\nr  Refresh worktrees\n/  Search commands\n?  Help"
     } else if state.selected_worktree().is_none() {
-        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar\n/  Search worktrees\n?  Help"
+        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar\nr  Refresh worktrees\n/  Search worktrees\n?  Help"
     } else {
-        "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task\n/  Search worktrees\n?  Help"
+        "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task\nr  Refresh worktrees\n/  Search worktrees\n?  Help"
     }
 }
 
@@ -887,6 +887,7 @@ mod tests {
         assert!(content.contains("j/k  Navigate worktrees"));
         assert!(content.contains("Enter/o  Open worktree"));
         assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("/  Search worktrees"));
         assert!(content.contains("?  Help"));
     }
@@ -916,6 +917,7 @@ mod tests {
         assert!(content.contains("a  Launch agent"));
         assert!(content.contains("Enter/o  Open interactive shell"));
         assert!(content.contains("T  Link task"));
+        assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("/  Search worktrees"));
         assert!(content.contains("?  Help"));
     }
