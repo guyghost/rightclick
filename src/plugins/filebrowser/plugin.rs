@@ -1301,7 +1301,7 @@ impl Default for FileBrowserPlugin {
 fn file_browser_status_line(state: &PluginState) -> String {
     let visible = state.visible_indices().len();
     if state.tree.entries.is_empty() {
-        return "No files | a New file | A New dir".to_string();
+        return "No files | a New file | A New dir | r Refresh".to_string();
     }
 
     let filter = state
@@ -1481,7 +1481,7 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("No files | a New file | A New dir".to_string())
+            Some("No files | a New file | A New dir | r Refresh".to_string())
         );
     }
 
