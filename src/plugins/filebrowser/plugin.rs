@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
@@ -181,22 +181,7 @@ impl Plugin for FileBrowserPlugin {
     }
 
     fn status_line(&self) -> Option<String> {
-        let selected = self
-            .state
-            .selected_path
-            .as_ref()
-            .map(|path| path.display().to_string())
-            .unwrap_or_else(|| "No file selected".to_string());
-
-        let visible = self.state.visible_indices().len();
-        let filter = self
-            .state
-            .filter_query
-            .as_ref()
-            .map(|query| format!(" | filter: {}", query))
-            .unwrap_or_default();
-
-        Some(format!("{} | {} visible{}", selected, visible, filter))
+        Some(file_browser_status_line(&self.state))
     }
 
     fn reveal_path(&mut self, path: &Path) -> bool {
@@ -678,7 +663,14 @@ impl FileBrowserPlugin {
             let inner = preview_block.inner(content_layout[1]);
             preview_block.render(content_layout[1], buf);
 
-            let no_preview = Paragraph::new("Select a file to preview it").style(text_style);
+            let message = if self.state.visible_indices().is_empty() {
+                "No file to preview. Adjust the filter or create a file."
+            } else {
+                "Select a file to preview it"
+            };
+            let no_preview = Paragraph::new(message)
+                .alignment(Alignment::Center)
+                .style(text_style);
             no_preview.render(inner, buf);
         }
     }
@@ -692,6 +684,15 @@ impl FileBrowserPlugin {
         let primary_style = style_for_ui_element(&self.theme, UiElement::Primary);
 
         let visible_indices = self.state.visible_indices();
+
+        if visible_indices.is_empty() {
+            let empty = Paragraph::new(file_tree_empty_message(&self.state))
+                .alignment(Alignment::Center)
+                .style(muted_style)
+                .wrap(ratatui::widgets::Wrap { trim: true });
+            empty.render(area, buf);
+            return;
+        }
 
         // Calculate visible range based on scroll offset
         let scroll_offset = self.state.tree_scroll.offset;
@@ -783,7 +784,7 @@ impl FileBrowserPlugin {
         let status = if let Some(ref path) = self.state.selected_path {
             format!("{}", path.display())
         } else {
-            "No selection".to_string()
+            file_browser_status_line(&self.state)
         };
 
         let footer = Footer::new(status).with_hints(
@@ -1241,6 +1242,46 @@ impl Default for FileBrowserPlugin {
     }
 }
 
+fn file_browser_status_line(state: &PluginState) -> String {
+    let visible = state.visible_indices().len();
+    if state.tree.entries.is_empty() {
+        return "No files | a New file | A New dir".to_string();
+    }
+
+    let filter = state
+        .filter_query
+        .as_ref()
+        .map(|query| format!(" | filter: {}", query))
+        .unwrap_or_default();
+
+    let selected = state
+        .selected_path
+        .as_ref()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|| {
+            if visible == 0 {
+                "No matching files".to_string()
+            } else {
+                "No file selected".to_string()
+            }
+        });
+
+    format!("{} | {} visible{}", selected, visible, filter)
+}
+
+fn file_tree_empty_message(state: &PluginState) -> String {
+    if let Some(query) = &state.filter_query {
+        format!(
+            "No files match \"{}\"\n\nf  Change filter\nEsc  Close dialogs\n?  Help",
+            query
+        )
+    } else if state.tree.entries.is_empty() {
+        "No files found\n\na  New file\nA  New directory\nr  Refresh".to_string()
+    } else {
+        "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter".to_string()
+    }
+}
+
 // Helper function for muted style
 fn muted_style() -> Style {
     Style::default().fg(ratatui::style::Color::DarkGray)
@@ -1317,6 +1358,61 @@ mod tests {
         let plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
 
         assert_eq!(plugin.focus_context(), FocusContext::FileBrowserTree);
+    }
+
+    #[test]
+    fn test_file_browser_status_line_empty_tree() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.state.tree.entries.clear();
+        plugin.state.selected_path = None;
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("No files | a New file | A New dir".to_string())
+        );
+    }
+
+    #[test]
+    fn test_file_browser_status_line_mentions_filter_miss() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+        plugin.state.selected_path = None;
+        plugin.state.set_filter(Some("missing".to_string()));
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("No matching files | 0 visible | filter: missing".to_string())
+        );
+    }
+
+    #[test]
+    fn test_file_tree_empty_message_points_to_next_actions() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.tree.entries.clear();
+
+        let message = file_tree_empty_message(&state);
+
+        assert!(message.contains("No files found"));
+        assert!(message.contains("a  New file"));
+        assert!(message.contains("A  New directory"));
+        assert!(message.contains("r  Refresh"));
+    }
+
+    #[test]
+    fn test_file_tree_empty_message_mentions_filter() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.set_filter(Some("missing".to_string()));
+
+        let message = file_tree_empty_message(&state);
+
+        assert!(message.contains("No files match \"missing\""));
+        assert!(message.contains("f  Change filter"));
+        assert!(message.contains("?  Help"));
     }
 
     #[test]
