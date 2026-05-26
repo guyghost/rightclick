@@ -1261,8 +1261,10 @@ fn git_modal_area(area: Rect) -> Option<Rect> {
 
     let width = GIT_MODAL_WIDTH.min(area.width);
     let height = GIT_MODAL_HEIGHT.min(area.height);
-    let x = area.x + area.width.saturating_sub(width) / 2;
-    let y = area.y + area.height.saturating_sub(height) / 2;
+    let x = area.x.saturating_add(area.width.saturating_sub(width) / 2);
+    let y = area
+        .y
+        .saturating_add(area.height.saturating_sub(height) / 2);
 
     Some(Rect::new(x, y, width, height))
 }
@@ -1439,6 +1441,14 @@ mod tests {
         let modal = git_modal_area(area).unwrap();
 
         assert_eq!(modal, Rect::new(4, 3, 30, 6));
+    }
+
+    #[test]
+    fn test_git_modal_area_handles_offset_near_u16_max() {
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 20, 80, 20);
+        let modal = git_modal_area(area).unwrap();
+
+        assert_eq!(modal, Rect::new(u16::MAX - 65, u16::MAX - 14, 50, 7));
     }
 
     #[test]

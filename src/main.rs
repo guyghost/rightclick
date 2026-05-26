@@ -721,8 +721,9 @@ impl App {
             .saturating_div(3)
             .clamp(10, 28);
         let popup = Rect::new(
-            area.x + area.width.saturating_sub(width) / 2,
-            area.y + area.height.saturating_sub(height) / 2,
+            area.x.saturating_add(area.width.saturating_sub(width) / 2),
+            area.y
+                .saturating_add(area.height.saturating_sub(height) / 2),
             width,
             height,
         );
@@ -1209,6 +1210,26 @@ mod tests {
             .collect();
         assert!(content.contains("? Help"));
         assert!(content.contains("/ Search"));
+    }
+
+    #[test]
+    fn test_help_overlay_renders_inside_offset_area_near_u16_max() {
+        let app = App::new(
+            Vec::new(),
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+        );
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 40, 80, 40);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+
+        app.render_help_overlay(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Help"));
     }
 
     #[test]

@@ -752,8 +752,10 @@ fn filter_overlay_area(area: Rect) -> Option<Rect> {
 
     let width = FILTER_OVERLAY_WIDTH.min(area.width);
     let height = FILTER_OVERLAY_HEIGHT.min(area.height);
-    let x = area.x + area.width.saturating_sub(width) / 2;
-    let y = area.y + area.height.saturating_sub(height) / 2;
+    let x = area.x.saturating_add(area.width.saturating_sub(width) / 2);
+    let y = area
+        .y
+        .saturating_add(area.height.saturating_sub(height) / 2);
 
     Some(Rect::new(x, y, width, height))
 }
@@ -1229,6 +1231,14 @@ mod tests {
         let popup = filter_overlay_area(area).unwrap();
 
         assert_eq!(popup, Rect::new(3, 5, 30, 3));
+    }
+
+    #[test]
+    fn test_filter_overlay_area_handles_offset_near_u16_max() {
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 20, 80, 20);
+        let popup = filter_overlay_area(area).unwrap();
+
+        assert_eq!(popup, Rect::new(u16::MAX - 65, u16::MAX - 12, 50, 3));
     }
 
     #[test]

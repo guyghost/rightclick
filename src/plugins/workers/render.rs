@@ -875,8 +875,10 @@ fn workers_modal_area(percent_x: u16, percent_y: u16, area: Rect) -> Option<Rect
         .saturating_mul(percent_y)
         .saturating_div(100)
         .clamp(MIN_WORKERS_MODAL_HEIGHT, area.height);
-    let x = area.x + area.width.saturating_sub(width) / 2;
-    let y = area.y + area.height.saturating_sub(height) / 2;
+    let x = area.x.saturating_add(area.width.saturating_sub(width) / 2);
+    let y = area
+        .y
+        .saturating_add(area.height.saturating_sub(height) / 2);
 
     Some(Rect::new(x, y, width, height))
 }
@@ -906,6 +908,14 @@ mod tests {
         let centered = workers_modal_area(60, 20, area).unwrap();
 
         assert_eq!(centered, Rect::new(7, 3, 24, 7));
+    }
+
+    #[test]
+    fn test_workers_modal_area_handles_offset_near_u16_max() {
+        let area = Rect::new(u16::MAX - 100, u16::MAX - 100, 100, 100);
+        let centered = workers_modal_area(60, 20, area).unwrap();
+
+        assert_eq!(centered, Rect::new(u16::MAX - 80, u16::MAX - 60, 60, 20));
     }
 
     #[test]

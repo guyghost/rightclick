@@ -42,8 +42,10 @@ fn centered_overlay_area(area: Rect, preferred_width: u16, preferred_height: u16
 
     let width = preferred_width.min(area.width);
     let height = preferred_height.min(area.height);
-    let x = area.x + area.width.saturating_sub(width) / 2;
-    let y = area.y + area.height.saturating_sub(height) / 2;
+    let x = area.x.saturating_add(area.width.saturating_sub(width) / 2);
+    let y = area
+        .y
+        .saturating_add(area.height.saturating_sub(height) / 2);
 
     Some(Rect::new(x, y, width, height))
 }
@@ -1443,6 +1445,14 @@ mod tests {
         let popup = centered_overlay_area(area, 50, 30).unwrap();
 
         assert_eq!(popup, area);
+    }
+
+    #[test]
+    fn test_centered_overlay_area_handles_offset_near_u16_max() {
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 40, 80, 40);
+        let popup = centered_overlay_area(area, 50, 20).unwrap();
+
+        assert_eq!(popup, Rect::new(u16::MAX - 65, u16::MAX - 30, 50, 20));
     }
 
     #[test]

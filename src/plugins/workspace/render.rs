@@ -724,8 +724,10 @@ fn workspace_modal_area(percent_x: u16, percent_y: u16, area: Rect) -> Option<Re
         .saturating_mul(percent_y)
         .saturating_div(100)
         .clamp(MIN_WORKSPACE_MODAL_HEIGHT, area.height);
-    let x = area.x + area.width.saturating_sub(width) / 2;
-    let y = area.y + area.height.saturating_sub(height) / 2;
+    let x = area.x.saturating_add(area.width.saturating_sub(width) / 2);
+    let y = area
+        .y
+        .saturating_add(area.height.saturating_sub(height) / 2);
 
     Some(Rect::new(x, y, width, height))
 }
@@ -830,6 +832,14 @@ mod tests {
         let centered = workspace_modal_area(50, 30, area).unwrap();
 
         assert_eq!(centered, Rect::new(11, 6, 30, 8));
+    }
+
+    #[test]
+    fn test_workspace_modal_area_handles_offset_near_u16_max() {
+        let area = Rect::new(u16::MAX - 100, u16::MAX - 100, 100, 100);
+        let centered = workspace_modal_area(50, 30, area).unwrap();
+
+        assert_eq!(centered, Rect::new(u16::MAX - 75, u16::MAX - 65, 50, 30));
     }
 
     #[test]
