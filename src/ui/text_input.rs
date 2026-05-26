@@ -244,7 +244,7 @@ impl<'a> TextInputWidget<'a> {
                 break;
             }
 
-            let y = inner_area.y + i as u16;
+            let y = inner_area.y.saturating_add(i as u16);
 
             // Line number
             let line_num = format!("{:>width$} ", i + 1, width = line_num_width);
@@ -258,8 +258,9 @@ impl<'a> TextInputWidget<'a> {
                 .style(Style::default().fg(muted))
                 .render(line_num_area, buf);
 
-            let text_x = inner_area.x + line_num_width as u16 + 1;
-            let text_width = inner_area.width.saturating_sub(line_num_width as u16 + 1);
+            let text_offset = (line_num_width as u16).saturating_add(1);
+            let text_x = inner_area.x.saturating_add(text_offset);
+            let text_width = inner_area.width.saturating_sub(text_offset);
             if text_width == 0 {
                 continue;
             }
@@ -374,6 +375,25 @@ mod tests {
         let widget = TextInputWidget::new(&state, &theme).bordered(true);
         let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
         widget.render(Rect::new(0, 0, 40, 8), &mut buf);
+    }
+
+    #[test]
+    fn render_multi_line_inside_offset_buffer_near_u16_max() {
+        let state =
+            TextInputState::new(InputMode::MultiLine).with_text("line1\nline2\nline3\nline4");
+        let theme = test_theme();
+        let widget = TextInputWidget::new(&state, &theme);
+        let area = Rect::new(u16::MAX - 20, u16::MAX - 2, 20, 4);
+        let mut buf = Buffer::empty(area);
+
+        widget.render(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("line"));
     }
 
     #[test]
