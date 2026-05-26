@@ -426,7 +426,7 @@ impl ConversationsRenderer {
                 loading.render(inner_area, buf);
             } else {
                 let muted_style = style_for_ui_element(theme, UiElement::MutedText);
-                let empty = Paragraph::new("No messages in this session")
+                let empty = Paragraph::new(empty_messages_message())
                     .style(muted_style)
                     .alignment(Alignment::Center);
                 empty.render(inner_area, buf);
@@ -846,6 +846,10 @@ fn empty_sessions_message(state: &PluginState) -> String {
     }
 }
 
+fn empty_messages_message() -> &'static str {
+    "No messages in this session\n\nEsc/h  Back to sessions\nThen r  Refresh or f  Filter"
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -930,5 +934,14 @@ mod tests {
         assert!(message.contains("No sessions match \"render\""));
         assert!(message.contains("Type another query"));
         assert!(message.contains("Esc  clear search"));
+    }
+
+    #[test]
+    fn test_empty_messages_message_points_to_next_actions() {
+        let message = empty_messages_message();
+
+        assert!(message.contains("No messages in this session"));
+        assert!(message.contains("Esc/h  Back to sessions"));
+        assert!(message.contains("Then r  Refresh or f  Filter"));
     }
 }
