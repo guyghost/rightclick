@@ -169,9 +169,9 @@ impl Preview {
         // Build content
         let mut content = format!("Directory: {}\n", path.display());
         content.push_str(&format!(
-            "Files: {} | Directories: {} | Total size: {}\n",
-            file_count,
-            dir_count,
+            "{} | {} | Total size: {}\n",
+            directory_count_label(file_count, "file"),
+            directory_count_label(dir_count, "directory"),
             Self::format_size(total_size)
         ));
         content.push_str("─".repeat(50).as_str());
@@ -273,6 +273,14 @@ impl Preview {
         } else {
             "Text".to_string()
         }
+    }
+}
+
+fn directory_count_label(count: usize, label: &str) -> String {
+    if count == 1 {
+        format!("1 {}", label)
+    } else {
+        format!("{} {}s", count, label)
     }
 }
 
@@ -529,8 +537,9 @@ mod tests {
 
         let preview = Preview::from_directory(temp_dir.path()).unwrap();
         assert!(preview.content.contains("Directory:"));
-        assert!(preview.content.contains("Files:"));
-        assert!(preview.content.contains("Directories:"));
+        assert!(preview.content.contains("2 files"));
+        assert!(preview.content.contains("1 directory"));
+        assert!(!preview.content.contains("1 directories"));
     }
 
     #[test]
