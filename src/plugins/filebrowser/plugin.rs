@@ -1328,7 +1328,8 @@ fn file_tree_empty_message(state: &PluginState) -> String {
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No files found\n\na  New file\nA  New directory\nr  Refresh files".to_string()
+        "No files found\n\na  New file\nA  New directory\nr  Refresh files\n/  Search files\n?  Help"
+            .to_string()
     } else {
         "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
             .to_string()
@@ -1342,7 +1343,8 @@ fn file_preview_empty_message(state: &PluginState) -> String {
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No preview available\n\na  New file\nA  New directory\nr  Refresh files".to_string()
+        "No preview available\n\na  New file\nA  New directory\nr  Refresh files\n/  Search files\n?  Help"
+            .to_string()
     } else if state.visible_indices().is_empty() {
         "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
             .to_string()
@@ -1530,6 +1532,8 @@ mod tests {
         assert!(message.contains("a  New file"));
         assert!(message.contains("A  New directory"));
         assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("/  Search files"));
+        assert!(message.contains("?  Help"));
     }
 
     #[test]
@@ -1578,6 +1582,22 @@ mod tests {
         assert!(message.contains("i  Toggle ignored"));
         assert!(message.contains("f  Filter"));
         assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_file_preview_empty_message_points_to_creation_when_tree_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.tree.entries.clear();
+
+        let message = file_preview_empty_message(&state);
+
+        assert!(message.contains("No preview available"));
+        assert!(message.contains("a  New file"));
+        assert!(message.contains("A  New directory"));
+        assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("/  Search files"));
         assert!(message.contains("?  Help"));
     }
 
