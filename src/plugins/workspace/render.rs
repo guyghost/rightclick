@@ -719,7 +719,7 @@ pub fn render_workspace_status(state: &PluginState, theme: &Theme) -> Vec<Span<'
     let with_agents = state.worktrees.iter().filter(|w| w.agent_running).count();
 
     spans.push(Span::styled(
-        format!("{} worktrees ", total),
+        format!("{} ", workspace_render_count_label(total, "worktree")),
         style_for_ui_element(theme, UiElement::Text),
     ));
 
@@ -732,7 +732,7 @@ pub fn render_workspace_status(state: &PluginState, theme: &Theme) -> Vec<Span<'
 
     if with_agents > 0 {
         spans.push(Span::styled(
-            format!("{} agents ", with_agents),
+            format!("{} ", workspace_render_count_label(with_agents, "agent")),
             style_for_ui_element(theme, UiElement::Info),
         ));
     }
@@ -758,6 +758,14 @@ pub fn render_workspace_status(state: &PluginState, theme: &Theme) -> Vec<Span<'
     }
 
     spans
+}
+
+fn workspace_render_count_label(count: usize, label: &str) -> String {
+    if count == 1 {
+        format!("1 {}", label)
+    } else {
+        format!("{} {}s", count, label)
+    }
 }
 
 #[cfg(test)]
@@ -799,14 +807,22 @@ mod tests {
     fn test_render_workspace_status() {
         let theme = Theme::default();
         let mut state = PluginState::new();
-        state.worktrees.push(Worktree::new(
-            "feature",
-            PathBuf::from("/repo/feature"),
-            "feature-branch",
-        ));
+        state.worktrees.push(
+            Worktree::new("feature", PathBuf::from("/repo/feature"), "feature-branch")
+                .with_agent_running(true),
+        );
 
         let spans = render_workspace_status(&state, &theme);
         assert!(!spans.is_empty());
+        let text = spans
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect::<String>();
+
+        assert!(text.contains("1 worktree"));
+        assert!(text.contains("1 agent"));
+        assert!(!text.contains("1 worktrees"));
+        assert!(!text.contains("1 agents"));
     }
 
     #[test]
