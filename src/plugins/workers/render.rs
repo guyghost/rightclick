@@ -415,15 +415,12 @@ fn render_output_preview(state: &PluginState, area: Rect, buf: &mut Buffer, them
     }
 
     if lines.is_empty() {
-        let message = if state.intents.is_empty() {
-            "No output yet. Create an intent, then run workers."
-        } else {
-            "No output yet. Run workers to see output here."
-        };
-        lines.push(Line::from(Span::styled(
-            message,
-            Style::default().fg(theme_comment(theme)),
-        )));
+        lines.extend(output_empty_message(state).lines().map(|line| {
+            Line::from(Span::styled(
+                line.to_string(),
+                Style::default().fg(theme_comment(theme)),
+            ))
+        }));
     }
 
     let content = Paragraph::new(lines).wrap(Wrap { trim: true });
@@ -507,6 +504,16 @@ fn empty_intents_message(state: &PluginState) -> String {
 
 fn no_workers_for_intent_message() -> &'static str {
     "  No workers yet\n  r  Run workers\n  f  Refresh intents"
+}
+
+fn output_empty_message(state: &PluginState) -> &'static str {
+    if state.intents.is_empty() {
+        "No output yet\n\nn  New intent\nf  Refresh intents"
+    } else if state.selected_intent().is_none() {
+        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent"
+    } else {
+        "No output yet\n\nr  Run workers\nf  Refresh intents"
+    }
 }
 
 fn select_intent_details_message() -> &'static str {
@@ -934,6 +941,89 @@ mod tests {
         assert!(content.contains("Select an intent to view details"));
         assert!(content.contains("j/k  Navigate intents"));
         assert!(content.contains("Enter/o  Open intent"));
+    }
+
+    #[test]
+    fn test_render_output_without_intents_points_to_creation() {
+        use std::path::PathBuf;
+
+        let mut state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        state.preview_tab = PreviewTab::Output;
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No output yet"));
+        assert!(content.contains("n  New intent"));
+        assert!(content.contains("f  Refresh intents"));
+    }
+
+    #[test]
+    fn test_render_output_without_selection_points_to_navigation() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let mut state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        state.add_intent(Intent::new(
+            "Improve output UX",
+            PathBuf::from(".rightclick/intents/output-ux.md"),
+            "2026-02-14T10:00:00Z",
+        ));
+        state.selected_intent = None;
+        state.preview_tab = PreviewTab::Output;
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No output selected"));
+        assert!(content.contains("j/k  Navigate intents"));
+        assert!(content.contains("Enter/o  Open intent"));
+    }
+
+    #[test]
+    fn test_render_output_for_selected_intent_points_to_run_workers() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let mut state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        state.add_intent(Intent::new(
+            "Improve output run state",
+            PathBuf::from(".rightclick/intents/output-run.md"),
+            "2026-02-14T10:00:00Z",
+        ));
+        state.selected_intent = Some(0);
+        state.preview_tab = PreviewTab::Output;
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workers(&state, FocusPane::Preview, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No output yet"));
+        assert!(content.contains("r  Run workers"));
+        assert!(content.contains("f  Refresh intents"));
     }
 
     #[test]
