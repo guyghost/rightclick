@@ -87,6 +87,18 @@ case "$cmd" in
       fi
     }
 
+    optional_td_workspace() {
+      if ! command -v td >/dev/null 2>&1; then
+        return
+      fi
+
+      if td usage -q -w "$repo_root" >/dev/null 2>&1; then
+        printf 'ok   td workspace\n'
+      else
+        printf 'skip td workspace (optional; run td init to enable task tracking)\n'
+      fi
+    }
+
     version_ge() {
       local current="$1"
       local required="$2"
@@ -117,6 +129,7 @@ case "$cmd" in
     require_cmd rg
     optional_cmd tmux
     optional_cmd td
+    optional_td_workspace
     optional_cmd just
 
     if command -v cargo >/dev/null 2>&1; then
