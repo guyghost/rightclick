@@ -1245,68 +1245,68 @@ pub fn render_status_info(state: &PluginState) -> String {
 
 fn git_changes_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
-        "No repository data loaded\n\nr  Refresh"
+        "No repository data loaded\n\nr  Refresh git status"
     } else {
-        "Working tree clean\n\nB  Branches\nH  History\nr  Refresh"
+        "Working tree clean\n\nB  Branches\nH  History\nr  Refresh git status"
     }
 }
 
 fn git_diff_empty_message(state: &PluginState) -> &'static str {
     if state.files.is_empty() {
-        "Working tree clean\n\nH  History\nB  Branches\nr  Refresh"
+        "Working tree clean\n\nH  History\nB  Branches\nr  Refresh git status"
     } else {
-        "No file selected\n\nj/k  Navigate files\nS  Status\nH  History\nB  Branches\nr  Refresh"
+        "No file selected\n\nj/k  Navigate files\nS  Status\nH  History\nB  Branches\nr  Refresh git status"
     }
 }
 
 fn git_file_no_diff_message(file: &FileChange) -> String {
     format!(
-        "No diff available for {}\n\nj/k  Navigate files\ns  Stage\nu  Unstage\nc  Commit\nr  Refresh",
+        "No diff available for {}\n\nj/k  Navigate files\ns  Stage\nu  Unstage\nc  Commit\nr  Refresh git status",
         file.path
     )
 }
 
 fn git_sidebar_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
-        "No repository data loaded\n\nr  Refresh"
+        "No repository data loaded\n\nr  Refresh git status"
     } else {
-        "No changes or commits\n\nB  Branches\nH  History\nr  Refresh"
+        "No changes or commits\n\nB  Branches\nH  History\nr  Refresh git status"
     }
 }
 
 fn git_commits_empty_message() -> &'static str {
-    "No commits\n\nS  Status\nB  Branches\nr  Refresh"
+    "No commits\n\nS  Status\nB  Branches\nr  Refresh git status"
 }
 
 fn git_commit_details_empty_message(state: &PluginState) -> &'static str {
     if state.commits.is_empty() {
         git_commits_empty_message()
     } else {
-        "No commit selected\n\nj/k  Navigate commits\nS  Status\nB  Branches\nr  Refresh"
+        "No commit selected\n\nj/k  Navigate commits\nS  Status\nB  Branches\nr  Refresh git status"
     }
 }
 
 fn git_branches_empty_message() -> &'static str {
-    "No branches\n\nS  Status\nH  History\nr  Refresh"
+    "No branches\n\nS  Status\nH  History\nr  Refresh git status"
 }
 
 fn git_branch_details_empty_message(state: &PluginState) -> &'static str {
     if state.branches.is_empty() {
         git_branches_empty_message()
     } else {
-        "No branch selected\n\nj/k  Navigate branches\nn  New branch\nS  Status\nH  History\nr  Refresh"
+        "No branch selected\n\nj/k  Navigate branches\nn  New branch\nS  Status\nH  History\nr  Refresh git status"
     }
 }
 
 fn git_stashes_empty_message() -> &'static str {
-    "No stashes\n\ns  Save stash\nS  Status\nB  Branches\nr  Refresh"
+    "No stashes\n\ns  Save stash\nS  Status\nB  Branches\nr  Refresh git status"
 }
 
 fn git_stash_details_empty_message(state: &PluginState) -> &'static str {
     if state.stashes.is_empty() {
         git_stashes_empty_message()
     } else {
-        "No stash selected\n\nj/k  Navigate stashes\ns  Save stash\nS  Status\nB  Branches\nr  Refresh"
+        "No stash selected\n\nj/k  Navigate stashes\ns  Save stash\nS  Status\nB  Branches\nr  Refresh git status"
     }
 }
 
@@ -1380,7 +1380,7 @@ mod tests {
         assert!(message.contains("Working tree clean"));
         assert!(message.contains("B  Branches"));
         assert!(message.contains("H  History"));
-        assert!(message.contains("r  Refresh"));
+        assert!(message.contains("r  Refresh git status"));
         assert!(!message.contains(" | "));
     }
 
@@ -1390,7 +1390,7 @@ mod tests {
         let message = git_changes_empty_message(&state);
 
         assert!(message.contains("No repository data loaded"));
-        assert!(message.contains("r  Refresh"));
+        assert!(message.contains("r  Refresh git status"));
     }
 
     #[test]
@@ -1401,7 +1401,7 @@ mod tests {
         assert!(message.contains("Working tree clean"));
         assert!(message.contains("H  History"));
         assert!(message.contains("B  Branches"));
-        assert!(message.contains("r  Refresh"));
+        assert!(message.contains("r  Refresh git status"));
         assert!(!message.contains(" | "));
     }
 
@@ -1419,7 +1419,7 @@ mod tests {
         assert!(message.contains("S  Status"));
         assert!(message.contains("H  History"));
         assert!(message.contains("B  Branches"));
-        assert!(message.contains("r  Refresh"));
+        assert!(message.contains("r  Refresh git status"));
         assert!(!message.contains(" | "));
     }
 
@@ -1447,7 +1447,7 @@ mod tests {
         assert!(content.contains("s  Stage"));
         assert!(content.contains("u  Unstage"));
         assert!(content.contains("c  Commit"));
-        assert!(content.contains("r  Refresh"));
+        assert!(content.contains("r  Refresh git status"));
     }
 
     #[test]
@@ -1455,7 +1455,7 @@ mod tests {
         let state = PluginState::new();
         let unloaded = git_sidebar_empty_message(&state);
         assert!(unloaded.contains("No repository data loaded"));
-        assert!(unloaded.contains("r  Refresh"));
+        assert!(unloaded.contains("r  Refresh git status"));
 
         let mut clean_state = PluginState::new();
         clean_state.branch = "main".to_string();
@@ -1463,7 +1463,7 @@ mod tests {
         assert!(clean.contains("No changes or commits"));
         assert!(clean.contains("B  Branches"));
         assert!(clean.contains("H  History"));
-        assert!(clean.contains("r  Refresh"));
+        assert!(clean.contains("r  Refresh git status"));
         assert!(!clean.contains(" | "));
     }
 
@@ -1484,7 +1484,7 @@ mod tests {
         assert!(content.contains("Working tree clean"));
         assert!(content.contains("B  Branches"));
         assert!(content.contains("H  History"));
-        assert!(content.contains("r  Refresh"));
+        assert!(content.contains("r  Refresh git status"));
     }
 
     #[test]
@@ -1493,20 +1493,20 @@ mod tests {
         assert!(commits.contains("No commits"));
         assert!(commits.contains("S  Status"));
         assert!(commits.contains("B  Branches"));
-        assert!(commits.contains("r  Refresh"));
+        assert!(commits.contains("r  Refresh git status"));
 
         let branches = git_branches_empty_message();
         assert!(branches.contains("No branches"));
         assert!(branches.contains("S  Status"));
         assert!(branches.contains("H  History"));
-        assert!(branches.contains("r  Refresh"));
+        assert!(branches.contains("r  Refresh git status"));
 
         let stashes = git_stashes_empty_message();
         assert!(stashes.contains("No stashes"));
         assert!(stashes.contains("s  Save stash"));
         assert!(stashes.contains("S  Status"));
         assert!(stashes.contains("B  Branches"));
-        assert!(stashes.contains("r  Refresh"));
+        assert!(stashes.contains("r  Refresh git status"));
     }
 
     #[test]
