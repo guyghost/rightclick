@@ -1167,6 +1167,68 @@ impl Plugin for GitStatusPlugin {
                     FocusContext::GitStatus,
                 ),
             ]);
+        } else if self.state.view_mode == ViewMode::Branches {
+            commands.extend(vec![
+                crate::plugin::PluginCommand::with_context_description(
+                    "create-branch",
+                    "New Branch",
+                    "Create a new branch",
+                    'n',
+                    FocusContext::GitStatus,
+                ),
+                crate::plugin::PluginCommand::with_context_description(
+                    "delete-branch",
+                    "Delete Branch",
+                    "Delete the selected branch",
+                    'd',
+                    FocusContext::GitStatus,
+                ),
+                crate::plugin::PluginCommand::with_context_description(
+                    "status",
+                    "Status",
+                    "Switch to status view",
+                    'S',
+                    FocusContext::GitStatus,
+                ),
+                crate::plugin::PluginCommand::with_context_description(
+                    "history",
+                    "History",
+                    "Show commit history",
+                    'H',
+                    FocusContext::GitStatus,
+                ),
+            ]);
+        } else if self.state.view_mode == ViewMode::Stash {
+            commands.extend(vec![
+                crate::plugin::PluginCommand::with_context_description(
+                    "save-stash",
+                    "Save Stash",
+                    "Stash current changes",
+                    's',
+                    FocusContext::GitStatus,
+                ),
+                crate::plugin::PluginCommand::with_context_description(
+                    "drop-stash",
+                    "Drop Stash",
+                    "Drop the selected stash",
+                    'd',
+                    FocusContext::GitStatus,
+                ),
+                crate::plugin::PluginCommand::with_context_description(
+                    "status",
+                    "Status",
+                    "Switch to status view",
+                    'S',
+                    FocusContext::GitStatus,
+                ),
+                crate::plugin::PluginCommand::with_context_description(
+                    "history",
+                    "History",
+                    "Show commit history",
+                    'H',
+                    FocusContext::GitStatus,
+                ),
+            ]);
         } else {
             // Status/Diff mode shortcuts
             if !self.state.files.is_empty() {
@@ -1786,6 +1848,93 @@ mod tests {
         assert!(has_branches);
         assert!(has_stash);
         assert!(has_push);
+    }
+
+    #[test]
+    fn test_branch_mode_commands_include_branch_actions() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Branches;
+
+        let commands = plugin.commands();
+
+        assert!(
+            commands
+                .iter()
+                .any(|c| c.id == "create-branch" && c.name == "New Branch" && c.key == 'n')
+        );
+        assert!(
+            commands
+                .iter()
+                .any(|c| c.id == "delete-branch" && c.name == "Delete Branch" && c.key == 'd')
+        );
+        assert!(
+            commands
+                .iter()
+                .any(|c| c.id == "status" && c.name == "Status" && c.key == 'S')
+        );
+    }
+
+    #[test]
+    fn test_stash_mode_commands_include_stash_actions() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Stash;
+
+        let commands = plugin.commands();
+
+        assert!(
+            commands
+                .iter()
+                .any(|c| c.id == "save-stash" && c.name == "Save Stash" && c.key == 's')
+        );
+        assert!(
+            commands
+                .iter()
+                .any(|c| c.id == "drop-stash" && c.name == "Drop Stash" && c.key == 'd')
+        );
+        assert!(
+            commands
+                .iter()
+                .any(|c| c.id == "status" && c.name == "Status" && c.key == 'S')
+        );
+    }
+
+    #[test]
+    fn test_execute_delete_branch_command_uses_declared_shortcut() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Branches;
+        plugin.state.branches = vec![test_branch("feature", false)];
+        plugin.state.selected_branch = Some(0);
+
+        let execution = plugin
+            .execute_command("delete-branch")
+            .expect("delete branch command should execute");
+
+        assert_eq!(execution.command_name, "Delete Branch");
+        assert!(execution.emitted_commands.is_empty());
+        assert_eq!(plugin.pending_commands.pop_front(), Some(Command::Refresh));
+        assert_eq!(
+            plugin.state.active_modal,
+            Some(GitModal::DeleteBranch {
+                name: "feature".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_execute_save_stash_command_uses_declared_shortcut() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.view_mode = ViewMode::Stash;
+
+        let execution = plugin
+            .execute_command("save-stash")
+            .expect("save stash command should execute");
+
+        assert_eq!(execution.command_name, "Save Stash");
+        assert!(execution.emitted_commands.is_empty());
+        assert_eq!(
+            plugin.pending_commands.pop_front(),
+            Some(Command::StashSave(None))
+        );
     }
 
     #[test]
