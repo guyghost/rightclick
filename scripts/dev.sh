@@ -135,11 +135,11 @@ case "$cmd" in
       fi
     }
 
-    optional_cmd() {
+    optional_cmd_hint() {
       if command -v "$1" >/dev/null 2>&1; then
         printf 'ok   %s\n' "$1"
       else
-        printf 'skip %s (optional)\n' "$1"
+        printf 'skip %s (optional; %s)\n' "$1" "$2"
       fi
     }
 
@@ -183,10 +183,10 @@ case "$cmd" in
     require_cmd cargo-clippy
     require_cmd git
     require_cmd rg
-    optional_cmd tmux
-    optional_cmd td
+    optional_cmd_hint tmux "needed for embedded terminal sessions"
+    optional_cmd_hint td "enables task tracking workflows"
     optional_td_workspace
-    optional_cmd just
+    optional_cmd_hint just "enables shorter justfile commands"
 
     if command -v cargo >/dev/null 2>&1; then
       cargo --version
