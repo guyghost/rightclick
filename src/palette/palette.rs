@@ -398,35 +398,47 @@ impl Palette {
 
     /// Renders the results list.
     fn render_results(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
+
         if self.filtered.is_empty() {
             self.render_empty_state(area, buf, theme);
             return;
         }
 
-        let visible_count = self.max_visible.min(self.filtered.len());
         let item_height = 2u16; // Each item takes 2 rows
+        let visible_capacity = area.height.div_ceil(item_height) as usize;
+        let visible_count = self
+            .max_visible
+            .min(self.filtered.len())
+            .min(visible_capacity);
 
         // Calculate visible range
-        let start_idx = self.scroll_offset;
+        let start_idx = self
+            .scroll_offset
+            .min(self.filtered.len().saturating_sub(1));
         let end_idx = (start_idx + visible_count).min(self.filtered.len());
 
         // Render visible items
         for (i, match_result) in self.filtered[start_idx..end_idx].iter().enumerate() {
             let item_idx = start_idx + i;
             let is_selected = item_idx == self.selected;
+            let y = area.y + (i as u16 * item_height);
+            let remaining_height = area.y.saturating_add(area.height).saturating_sub(y);
 
             let item_area = Rect {
                 x: area.x,
-                y: area.y + (i as u16 * item_height),
+                y,
                 width: area.width,
-                height: item_height,
+                height: item_height.min(remaining_height),
             };
 
             self.render_entry(item_area, buf, theme, match_result, is_selected);
         }
 
         // Render scrollbar if needed
-        if self.filtered.len() > self.max_visible {
+        if self.filtered.len() > visible_count {
             let scrollbar_area = Rect {
                 x: area.x + area.width - 1,
                 y: area.y,
@@ -507,7 +519,7 @@ impl Palette {
         Paragraph::new(Text::from(vec![first_line])).render(first_line_area, buf);
 
         // Render description on second line (if present)
-        if !entry.description.is_empty() {
+        if area.height > 1 && !entry.description.is_empty() {
             let desc_style = style_for_ui_element(theme, UiElement::MutedText);
             let desc_line = Line::from(vec![
                 Span::raw("      "), // Align with name
@@ -874,6 +886,38 @@ mod tests {
         let cursor_color = Color::from_str(&theme.colors.cursor).unwrap_or(Color::White);
         assert_eq!(buf.cell((3, 1)).unwrap().style().bg, Some(cursor_color));
         assert_ne!(buf.cell((4, 1)).unwrap().style().bg, Some(cursor_color));
+    }
+
+    #[test]
+    fn test_render_results_zero_area_no_panic() {
+        let mut palette = test_palette();
+        palette.set_max_visible(1);
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 1, 1);
+        let mut buf = Buffer::empty(area);
+
+        palette.render_results(Rect::new(0, 0, 0, 0), &mut buf, &theme);
+    }
+
+    #[test]
+    fn test_render_results_clips_entry_to_available_height() {
+        let palette = test_palette();
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 40, 2);
+        let mut buf = Buffer::empty(area);
+
+        palette.render_results(Rect::new(0, 0, 40, 1), &mut buf, &theme);
+
+        let first_row: String = (0..40)
+            .map(|x| buf.cell((x, 0)).unwrap().symbol().to_string())
+            .collect();
+        let second_row: String = (0..40)
+            .map(|x| buf.cell((x, 1)).unwrap().symbol().to_string())
+            .collect();
+
+        assert!(first_row.contains("Open File"));
+        assert!(!second_row.contains("Open a file"));
     }
 
     #[test]
