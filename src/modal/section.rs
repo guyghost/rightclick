@@ -232,7 +232,7 @@ impl Section for ButtonSection {
         focus_id: Option<&str>,
         hover_id: Option<&str>,
     ) {
-        if self.buttons.is_empty() {
+        if self.buttons.is_empty() || area.width == 0 || area.height == 0 {
             return;
         }
 
@@ -250,8 +250,13 @@ impl Section for ButtonSection {
 
         let mut x = area.x;
         let y = area.y;
+        let row_end = area.x.saturating_add(area.width);
 
         for button in &self.buttons {
+            if x >= row_end {
+                break;
+            }
+
             let is_focused = focus_id == Some(button.id.as_str());
             let is_hovered = hover_id == Some(button.id.as_str());
 
@@ -290,12 +295,16 @@ impl Section for ButtonSection {
             };
 
             // Render button with padding
+            let available_width = row_end.saturating_sub(x);
             let button_area = Rect {
                 x,
                 y,
-                width: button_width.min(area.x + area.width - x),
+                width: button_width.min(available_width),
                 height: 1,
             };
+            if button_area.width == 0 {
+                break;
+            }
 
             let label = format!("  {}  ", button.label);
             let span = Span::styled(label, style);
@@ -303,10 +312,7 @@ impl Section for ButtonSection {
             let paragraph = Paragraph::new(line);
             paragraph.render(button_area, buf);
 
-            x += button_width + spacing;
-            if x >= area.x + area.width {
-                break;
-            }
+            x = x.saturating_add(button_width).saturating_add(spacing);
         }
     }
 
@@ -795,6 +801,38 @@ mod tests {
         assert_eq!(ids.len(), 2);
         assert!(ids.contains(&"ok".to_string()));
         assert!(ids.contains(&"cancel".to_string()));
+    }
+
+    #[test]
+    fn button_section_render_clips_overflowing_buttons() {
+        let section = ButtonSection::new(vec![
+            Button::primary("primary", "VeryLongPrimaryAction"),
+            Button::secondary("secondary", "VeryLongSecondaryAction"),
+        ]);
+        let theme = crate::core::models::Theme::default();
+        let area = Rect::new(0, 0, 8, 1);
+        let mut buf = Buffer::empty(area);
+
+        section.render(area, &mut buf, &theme, Some("primary"), None);
+
+        let rendered = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        assert!(!rendered.trim().is_empty());
+    }
+
+    #[test]
+    fn button_section_render_ignores_empty_area() {
+        let section = ButtonSection::new(vec![Button::primary("ok", "OK")]);
+        let theme = crate::core::models::Theme::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 1, 1));
+
+        section.render(Rect::new(0, 0, 0, 1), &mut buf, &theme, Some("ok"), None);
+        section.render(Rect::new(0, 0, 1, 0), &mut buf, &theme, Some("ok"), None);
+
+        assert_eq!(buf.content()[0].symbol(), " ");
     }
 
     #[test]
