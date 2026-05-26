@@ -293,7 +293,7 @@ impl CliGitService {
                     if let Ok(date) = chrono::DateTime::parse_from_rfc3339(&current_date) {
                         commits.push(Commit {
                             hash: current_hash.clone(),
-                            short_hash: current_hash[..7].to_string(),
+                            short_hash: short_hash(&current_hash),
                             subject: current_subject.clone(),
                             author: current_author.clone(),
                             author_email: None,
@@ -321,7 +321,7 @@ impl CliGitService {
             if let Ok(date) = chrono::DateTime::parse_from_rfc3339(&current_date) {
                 commits.push(Commit {
                     hash: current_hash.clone(),
-                    short_hash: current_hash[..7].to_string(),
+                    short_hash: short_hash(&current_hash),
                     subject: current_subject.clone(),
                     author: current_author.clone(),
                     author_email: None,
@@ -364,7 +364,7 @@ impl CliGitService {
 
                 commits.push(Commit {
                     hash: hash.clone(),
-                    short_hash: hash.chars().take(7).collect(),
+                    short_hash: short_hash(&hash),
                     subject,
                     author,
                     author_email: None,
@@ -965,6 +965,10 @@ fn parse_range(range: &str) -> (usize, usize) {
     (start, lines)
 }
 
+fn short_hash(hash: &str) -> String {
+    hash.chars().take(7).collect()
+}
+
 fn parse_branch_status(line: &str) -> (String, usize, usize) {
     let name = line
         .split_once("...")
@@ -1027,6 +1031,24 @@ mod tests {
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].path, "src/main.rs");
         assert!(matches!(files[0].status, FileStatus::Modified));
+    }
+
+    #[test]
+    fn test_parse_log_output_handles_short_hash() {
+        let service = CliGitService::new();
+        let output = "\
+commit abc
+Author: RightClick
+Date: 2026-05-27T10:00:00Z
+short hash commit
+";
+
+        let commits = service.parse_log_output(output);
+
+        assert_eq!(commits.len(), 1);
+        assert_eq!(commits[0].hash, "abc");
+        assert_eq!(commits[0].short_hash, "abc");
+        assert_eq!(commits[0].subject, "short hash commit");
     }
 
     #[test]
