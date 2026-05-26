@@ -39,6 +39,9 @@ Examples:
   bash scripts/dev.sh test-many test_plugin_commands test_key_hints
   bash scripts/dev.sh test-many test_plugin_commands test_key_hints -- --nocapture
 
+Test filters are passed to Cargo as substring filters. Use test-list first when
+you are unsure which module path or test name to target.
+
 If you use just:
   just help
   just ci
