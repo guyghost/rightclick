@@ -546,13 +546,19 @@ fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
 }
 
 fn search_footer_hint(width: u16) -> &'static str {
-    match width {
-        0..=26 => "Enter: Open  Esc: Close",
-        27..=40 => "Enter: Open  |  Esc: Close",
-        41..=60 => "Tab: Scope  |  Enter: Open  |  Esc: Close",
-        61..=78 => "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close",
-        _ => "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close",
-    }
+    let width = width as usize;
+    [
+        "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close",
+        "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close",
+        "Tab: Scope  |  Enter: Open  |  Esc: Close",
+        "Enter: Open  |  Esc: Close",
+        "Enter: Open  Esc: Close",
+        "Enter Esc",
+        "Esc",
+    ]
+    .into_iter()
+    .find(|hint| hint.width() <= width)
+    .unwrap_or("")
 }
 
 fn result_count_label(count: usize) -> String {
@@ -910,17 +916,30 @@ mod tests {
 
     #[test]
     fn test_search_footer_hint_compacts_for_narrow_widths() {
-        assert_eq!(search_footer_hint(20), "Enter: Open  Esc: Close");
-        assert_eq!(search_footer_hint(32), "Enter: Open  |  Esc: Close");
+        assert_eq!(search_footer_hint(2), "");
+        assert_eq!(search_footer_hint(3), "Esc");
+        assert_eq!(search_footer_hint(20), "Enter Esc");
+        assert_eq!(search_footer_hint(26), "Enter: Open  |  Esc: Close");
         assert_eq!(
             search_footer_hint(48),
             "Tab: Scope  |  Enter: Open  |  Esc: Close"
         );
         assert_eq!(
-            search_footer_hint(70),
+            search_footer_hint(61),
             "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close"
         );
-        assert!(!search_footer_hint(70).contains("Ctrl+U: Clear"));
+        assert!(!search_footer_hint(61).contains("Ctrl+U: Clear"));
+    }
+
+    #[test]
+    fn test_search_footer_hint_never_exceeds_width() {
+        for width in 0..=100 {
+            assert!(
+                search_footer_hint(width).width() <= width as usize,
+                "hint for width {width:?} was {:?}",
+                search_footer_hint(width)
+            );
+        }
     }
 
     #[test]
