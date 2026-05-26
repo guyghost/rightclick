@@ -34,11 +34,15 @@ If you use just:
 EOF
 }
 
+run_checks() {
+  cargo fmt --check
+  cargo clippy --all-targets -- -D warnings
+  cargo test
+}
+
 case "$cmd" in
   ci)
-    cargo fmt --check
-    cargo clippy --all-targets -- -D warnings
-    cargo test
+    run_checks
     ;;
   doctor)
     missing_required=0
@@ -114,9 +118,7 @@ case "$cmd" in
     fi
     ;;
   check)
-    cargo fmt --check
-    cargo clippy --all-targets -- -D warnings
-    cargo test
+    run_checks
     ;;
   fmt-check)
     cargo fmt --check
