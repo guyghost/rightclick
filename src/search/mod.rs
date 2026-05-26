@@ -71,7 +71,7 @@ fn parse_rg_output(output: &str, max_results: usize) -> Vec<SearchResult> {
                     line: line_number,
                     column,
                 },
-                title: file_path,
+                title: format_file_result_title(&file_path, line_number),
                 preview: content,
                 score: 100,
             });
@@ -79,6 +79,10 @@ fn parse_rg_output(output: &str, max_results: usize) -> Vec<SearchResult> {
     }
 
     results
+}
+
+fn format_file_result_title(path: &str, line: usize) -> String {
+    format!("{}:{}", path, line)
 }
 
 #[cfg(test)]
@@ -91,7 +95,7 @@ mod tests {
         let results = parse_rg_output(output, 10);
         assert_eq!(results.len(), 2);
 
-        assert_eq!(results[0].title, "src/main.rs");
+        assert_eq!(results[0].title, "src/main.rs:10");
         assert!(matches!(
             &results[0].kind,
             SearchResultKind::FileContent {
@@ -102,7 +106,15 @@ mod tests {
         ));
         assert_eq!(results[0].preview, "fn main() {");
 
-        assert_eq!(results[1].title, "src/lib.rs");
+        assert_eq!(results[1].title, "src/lib.rs:20");
+    }
+
+    #[test]
+    fn test_format_file_result_title_includes_line_number() {
+        assert_eq!(
+            format_file_result_title("src/main.rs", 42),
+            "src/main.rs:42"
+        );
     }
 
     #[test]
