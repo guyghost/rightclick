@@ -177,6 +177,25 @@ impl Plugin for FileBrowserPlugin {
         ]
     }
 
+    fn status_line(&self) -> Option<String> {
+        let selected = self
+            .state
+            .selected_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "No file selected".to_string());
+
+        let visible = self.state.visible_indices().len();
+        let filter = self
+            .state
+            .filter_query
+            .as_ref()
+            .map(|query| format!(" | filter: {}", query))
+            .unwrap_or_default();
+
+        Some(format!("{} | {} visible{}", selected, visible, filter))
+    }
+
     fn focus_context(&self) -> FocusContext {
         FocusContext::FileBrowserTree
     }
@@ -640,7 +659,7 @@ impl FileBrowserPlugin {
             let inner = preview_block.inner(content_layout[1]);
             preview_block.render(content_layout[1], buf);
 
-            let no_preview = Paragraph::new("No preview available").style(text_style);
+            let no_preview = Paragraph::new("Select a file to preview it").style(text_style);
             no_preview.render(inner, buf);
         }
     }

@@ -124,7 +124,7 @@ fn render_sidebar(
     block.render(area, buf);
 
     if state.intents.is_empty() {
-        let text = Paragraph::new("No intents yet.\n\nPress 'n' to create one.")
+        let text = Paragraph::new("No intents yet\nPress n to create one")
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme_comment(theme)));
         text.render(inner, buf);
@@ -324,7 +324,7 @@ fn render_spec_preview(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
         let workers = state.get_intent_workers(&intent.id);
         if workers.is_empty() {
             lines.push(Line::from(Span::styled(
-                "  No workers yet. Press 'r' to run.",
+                "  No workers yet. Press r to run.",
                 Style::default().fg(theme_comment(theme)),
             )));
         } else {

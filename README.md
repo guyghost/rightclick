@@ -30,6 +30,20 @@ cargo install --path .
 rightclick
 ```
 
+## Developer Commands
+
+RightClick keeps the common local checks in `scripts/dev.sh`, with optional
+`justfile` shortcuts if you use `just`:
+
+```bash
+bash scripts/dev.sh check         # fmt check, clippy with warnings denied, and tests
+bash scripts/dev.sh fmt-check
+bash scripts/dev.sh clippy
+bash scripts/dev.sh test
+bash scripts/dev.sh run
+bash scripts/dev.sh install-local
+```
+
 ## Keyboard Shortcuts
 
 | Key | Action |

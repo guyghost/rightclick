@@ -754,6 +754,14 @@ pub trait Plugin: Send + Sync + std::fmt::Debug {
     /// by the user.
     fn commands(&self) -> Vec<PluginCommand>;
 
+    /// Get a compact status line for the global footer.
+    ///
+    /// Plugins can override this to expose the most useful current state
+    /// without forcing the shell to know plugin-specific internals.
+    fn status_line(&self) -> Option<String> {
+        None
+    }
+
     /// Execute a command exposed by this plugin by command identifier.
     ///
     /// The default implementation keeps command activation centralized by

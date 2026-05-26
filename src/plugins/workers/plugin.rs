@@ -1086,6 +1086,15 @@ impl Plugin for WorkersPlugin {
         ]
     }
 
+    fn status_line(&self) -> Option<String> {
+        Some(format!(
+            "{} intents | {} workers | {} running",
+            self.state.intents.len(),
+            self.state.workers.len(),
+            self.state.running_workers_count()
+        ))
+    }
+
     fn focus_context(&self) -> crate::keymap::FocusContext {
         crate::keymap::FocusContext::Workspace
     }

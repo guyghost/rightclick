@@ -1156,6 +1156,28 @@ impl Plugin for WorkspacePlugin {
         ]
     }
 
+    fn status_line(&self) -> Option<String> {
+        let dirty = self
+            .state
+            .worktrees
+            .iter()
+            .filter(|worktree| worktree.is_dirty)
+            .count();
+        let agents = self
+            .state
+            .worktrees
+            .iter()
+            .filter(|worktree| worktree.agent_running)
+            .count();
+
+        Some(format!(
+            "{} worktrees | {} dirty | {} agents",
+            self.state.worktrees.len(),
+            dirty,
+            agents
+        ))
+    }
+
     fn focus_context(&self) -> crate::keymap::FocusContext {
         crate::keymap::FocusContext::Workspace
     }

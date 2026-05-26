@@ -13,9 +13,8 @@ use crossterm::{
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    widgets::{Block, Borders, Paragraph, Tabs},
+    layout::{Constraint, Direction, Layout, Rect},
+    widgets::Paragraph,
 };
 use tracing::{info, warn};
 
@@ -32,7 +31,7 @@ use rightclick::{
     },
     state,
     theme::{self, resolve_theme},
-    ui::NotificationManager,
+    ui::{Footer, Header, NotificationManager},
 };
 
 #[derive(Debug)]
@@ -602,7 +601,7 @@ impl App {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(2), // Header
+                    Constraint::Length(3), // Header
                     Constraint::Min(0),    // Content
                     Constraint::Length(1), // Footer
                 ])
@@ -615,7 +614,7 @@ impl App {
             if let Some(plugin) = self.plugins.get(self.active_plugin) {
                 plugin.render(chunks[1], f.buffer_mut(), &self.theme);
             } else {
-                let msg = Paragraph::new("No plugins loaded.").alignment(Alignment::Center);
+                let msg = Paragraph::new("No plugins loaded.");
                 f.render_widget(msg, chunks[1]);
             }
 
@@ -640,92 +639,67 @@ impl App {
         let tab_titles: Vec<String> = self
             .plugins
             .iter()
-            .map(|p| format!(" [{}] {} ", p.icon(), p.name()))
+            .enumerate()
+            .map(|(idx, p)| format!(" {} {} {} ", idx + 1, p.icon(), p.name()))
             .collect();
 
-        let tabs = Tabs::new(tab_titles)
-            .block(Block::default().borders(Borders::BOTTOM))
-            .select(self.active_plugin)
-            .highlight_style(Style::default().bg(Color::Blue).fg(Color::White));
-        f.render_widget(tabs, area);
+        let subtitle = self.work_dir.display().to_string();
+        let header = Header::new("RightClick")
+            .with_subtitle(subtitle)
+            .with_tabs(tab_titles, self.active_plugin);
+        header.render(area, f.buffer_mut(), &self.theme);
     }
 
     fn render_footer(&self, f: &mut ratatui::Frame, area: Rect) {
-        use ratatui::text::{Line, Span};
-
         if let Some(plugin) = self.plugins.get(self.active_plugin) {
-            let commands = plugin.commands();
-
-            // Group commands by category
-            let nav_keys = ['j', 'k', 'h', 'l', 'g', 'G'];
-
-            let mut nav_cmds: Vec<String> = Vec::new();
-            let mut action_cmds: Vec<String> = Vec::new();
-
-            for cmd in &commands {
-                let hint = format!("{}:{}", cmd.key, cmd.name);
-                let key = cmd.key;
-
-                if nav_keys.contains(&key) {
-                    if !nav_cmds.contains(&hint) {
-                        nav_cmds.push(hint);
-                    }
-                } else if !action_cmds.contains(&hint) {
-                    action_cmds.push(hint);
-                }
-            }
-
-            // Build footer spans
-            let mut spans: Vec<Span> = Vec::new();
-
-            // Navigation section in blue
-            if !nav_cmds.is_empty() {
-                spans.push(Span::styled("⟨", Style::default().fg(Color::Blue)));
-                spans.push(Span::styled(
-                    nav_cmds.join(" "),
-                    Style::default().fg(Color::Cyan),
-                ));
-                spans.push(Span::styled("⟩", Style::default().fg(Color::Blue)));
-                spans.push(Span::raw(" "));
-            }
-
-            // Actions section in green/yellow
-            if !action_cmds.is_empty() {
-                spans.push(Span::styled("[", Style::default().fg(Color::Green)));
-                spans.push(Span::styled(
-                    action_cmds.join(" "),
-                    Style::default().fg(Color::Yellow),
-                ));
-                spans.push(Span::styled("]", Style::default().fg(Color::Green)));
-                spans.push(Span::raw(" "));
-            }
-
-            // Global shortcuts
-            spans.push(Span::styled("q:", Style::default().fg(Color::Red)));
-            spans.push(Span::styled("quit ", Style::default().fg(Color::Gray)));
-
-            // Tab behavior depends on plugin
-            if plugin.id() == "git-status" {
-                spans.push(Span::styled("Tab:", Style::default().fg(Color::Magenta)));
-                spans.push(Span::styled("pane ", Style::default().fg(Color::Gray)));
-            } else {
-                spans.push(Span::styled("Tab:", Style::default().fg(Color::Magenta)));
-                spans.push(Span::styled("switch ", Style::default().fg(Color::Gray)));
-            }
-            spans.push(Span::styled("1-9:", Style::default().fg(Color::Magenta)));
-            spans.push(Span::styled("goto ", Style::default().fg(Color::Gray)));
-            spans.push(Span::styled("/:", Style::default().fg(Color::Magenta)));
-            spans.push(Span::styled("search", Style::default().fg(Color::Gray)));
-
-            let line = Line::from(spans);
-            let footer = Paragraph::new(line).alignment(Alignment::Center);
-            f.render_widget(footer, area);
+            let status = plugin
+                .status_line()
+                .unwrap_or_else(|| format!("{} ready", plugin.name()));
+            let footer = Footer::new(status).with_hints(self.footer_hints(plugin.as_ref()));
+            footer.render(area, f.buffer_mut(), &self.theme);
         } else {
-            let footer = Paragraph::new(" q:quit | Tab:switch | 1-9:goto | /:search ")
-                .style(Style::default().fg(Color::Gray))
-                .alignment(Alignment::Center);
-            f.render_widget(footer, area);
+            let footer = Footer::new("No plugin loaded").with_hints(vec![
+                ("q".to_string(), "Quit".to_string()),
+                ("/".to_string(), "Search".to_string()),
+            ]);
+            footer.render(area, f.buffer_mut(), &self.theme);
         }
+    }
+
+    fn footer_hints(&self, plugin: &dyn Plugin) -> Vec<(String, String)> {
+        let mut hints: Vec<(String, String)> = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+
+        for command in plugin.commands() {
+            let key = command.key.to_string();
+            if matches!(key.as_str(), "j" | "k") {
+                continue;
+            }
+            if seen.insert(key.clone()) {
+                hints.push((key, command.name));
+            }
+            if hints.len() >= 4 {
+                break;
+            }
+        }
+
+        let tab_label = if plugin.id() == "git-status" {
+            "Pane"
+        } else {
+            "Switch"
+        };
+        for (key, label) in [
+            ("Tab", tab_label),
+            ("1-9", "Go"),
+            ("/", "Search"),
+            ("q", "Quit"),
+        ] {
+            if seen.insert(key.to_string()) {
+                hints.push((key.to_string(), label.to_string()));
+            }
+        }
+
+        hints
     }
 }
 

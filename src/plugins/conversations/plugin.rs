@@ -896,6 +896,22 @@ impl Plugin for ConversationsPlugin {
         ]
     }
 
+    fn status_line(&self) -> Option<String> {
+        if self.state.is_loading {
+            return Some("Loading conversations".to_string());
+        }
+
+        if let Some(error) = &self.state.error {
+            return Some(format!("Conversations error: {}", error));
+        }
+
+        Some(format!(
+            "{} sessions | {} messages",
+            self.state.filtered_sessions().len(),
+            self.state.total_message_count()
+        ))
+    }
+
     fn focus_context(&self) -> crate::keymap::FocusContext {
         crate::keymap::FocusContext::Conversations
     }

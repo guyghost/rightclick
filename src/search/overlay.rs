@@ -88,6 +88,9 @@ impl SearchOverlayState {
     pub fn select_next(&mut self) {
         if !self.results.is_empty() && self.selected < self.results.len() - 1 {
             self.selected += 1;
+            if self.selected >= self.scroll_offset + 10 {
+                self.scroll_offset = self.selected.saturating_sub(9);
+            }
         }
     }
 
@@ -262,13 +265,19 @@ pub fn render_search_overlay(
     let border_color = Color::from_str(&theme.colors.border).unwrap_or(Color::Gray);
     let bg = Color::from_str(&theme.colors.background).unwrap_or(Color::Black);
 
+    let title = if state.results.is_empty() {
+        " Search ".to_string()
+    } else {
+        format!(" Search - {} results ", state.results.len())
+    };
+
     // Outer block
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(primary))
         .style(Style::default().bg(bg).fg(fg))
         .title(Span::styled(
-            " Search ",
+            title,
             Style::default().fg(primary).add_modifier(Modifier::BOLD),
         ));
     let inner = block.inner(overlay_area);
@@ -293,7 +302,7 @@ pub fn render_search_overlay(
     render_input_line(&state.input, chunks[0], buf, fg, primary);
 
     // Render scope tabs
-    render_scope_tabs(state.scope, chunks[1], buf, primary, muted);
+    render_scope_tabs(state, chunks[1], buf, primary, muted);
 
     // Separator
     let sep = "─".repeat(chunks[2].width as usize);
@@ -366,7 +375,7 @@ fn render_input_line(
 }
 
 fn render_scope_tabs(
-    scope: SearchScope,
+    state: &SearchOverlayState,
     area: Rect,
     buf: &mut Buffer,
     primary: Color,
@@ -384,7 +393,7 @@ fn render_scope_tabs(
         if i > 0 {
             spans.push(Span::styled(" | ", Style::default().fg(muted)));
         }
-        if *s == scope {
+        if *s == state.scope {
             spans.push(Span::styled(
                 s.label(),
                 Style::default()
@@ -396,7 +405,11 @@ fn render_scope_tabs(
         }
     }
     spans.push(Span::styled(
-        "  (Tab to switch)",
+        format!(
+            "  {} result{}  Tab scope | Enter open | Esc close",
+            state.results.len(),
+            if state.results.len() == 1 { "" } else { "s" }
+        ),
         Style::default().fg(muted),
     ));
 
@@ -418,9 +431,9 @@ fn render_results(
 
     if state.results.is_empty() {
         let msg = if state.query().is_empty() {
-            "Type to search..."
+            "Type to search files, commands, and conversations"
         } else {
-            "No results found"
+            "No results. Try another scope or query"
         };
         Paragraph::new(msg)
             .style(Style::default().fg(muted))
@@ -442,8 +455,8 @@ fn render_results(
             let is_selected = i == state.selected;
 
             let icon = match &result.kind {
-                super::types::SearchResultKind::FileContent { .. } => "",
-                super::types::SearchResultKind::Conversation { .. } => "",
+                super::types::SearchResultKind::FileContent { .. } => "file",
+                super::types::SearchResultKind::Conversation { .. } => "chat",
                 super::types::SearchResultKind::Command { .. } => ">",
             };
 
@@ -462,7 +475,7 @@ fn render_results(
             };
 
             let line = Line::from(vec![
-                Span::styled(format!("{} ", icon), preview_style),
+                Span::styled(format!("{:<4} ", icon), preview_style),
                 Span::styled(result.title.as_str(), title_style),
                 Span::styled("  ", preview_style),
                 Span::styled(
@@ -480,12 +493,13 @@ fn render_results(
 }
 
 fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
+    let char_count = s.chars().count();
+    if char_count <= max_len {
         s.to_string()
     } else if max_len > 3 {
-        format!("{}...", &s[..max_len - 3])
+        format!("{}...", s.chars().take(max_len - 3).collect::<String>())
     } else {
-        s[..max_len].to_string()
+        s.chars().take(max_len).collect()
     }
 }
 
@@ -565,6 +579,36 @@ mod tests {
         assert_eq!(state.selected, 0);
         state.select_prev();
         assert_eq!(state.selected, 0); // Can't go before 0
+    }
+
+    #[test]
+    fn test_overlay_selection_advances_scroll() {
+        let mut state = SearchOverlayState::new();
+        state.set_results(
+            (0..12)
+                .map(|idx| SearchResult {
+                    kind: SearchResultKind::Command {
+                        id: format!("cmd-{}", idx),
+                    },
+                    title: format!("Command {}", idx),
+                    preview: String::new(),
+                    score: 100 - idx,
+                })
+                .collect(),
+        );
+
+        for _ in 0..10 {
+            state.select_next();
+        }
+
+        assert_eq!(state.selected, 10);
+        assert_eq!(state.scroll_offset, 1);
+    }
+
+    #[test]
+    fn test_truncate_str_handles_unicode_boundaries() {
+        assert_eq!(truncate_str("éclair", 4), "é...");
+        assert_eq!(truncate_str("abc", 2), "ab");
     }
 
     #[test]

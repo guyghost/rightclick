@@ -1208,6 +1208,10 @@ impl Plugin for GitStatusPlugin {
         commands
     }
 
+    fn status_line(&self) -> Option<String> {
+        Some(self.status_info())
+    }
+
     fn focus_context(&self) -> FocusContext {
         self.focus_context()
     }

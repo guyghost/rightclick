@@ -10,6 +10,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Tabs, Widget};
+use unicode_width::UnicodeWidthStr;
 
 /// A key hint displayed in the footer
 #[derive(Clone, Debug, PartialEq)]
@@ -384,28 +385,10 @@ impl Footer {
             }
         }
 
-        // Build the hints string
-        let hints_text: Vec<String> = self
-            .hints
-            .iter()
-            .map(|h| format!("{}: {}", h.key, h.description))
-            .collect();
-        let hints_str = hints_text.join(" | ");
-
-        // Calculate widths
-        let status_width = self.status.len() as u16;
-        let hints_width = hints_str.len() as u16;
-        let available_width = area.width.saturating_sub(4); // Padding
-
-        // Render status (left-aligned, truncated if needed)
-        let display_status = if status_width > available_width / 2 {
-            format!(
-                "{}...",
-                &self.status[..(available_width as usize / 2 - 3).min(self.status.len())]
-            )
-        } else {
-            self.status.clone()
-        };
+        let status_width = area.width / 2;
+        let hints_width = area.width.saturating_sub(status_width).saturating_sub(1);
+        let display_status =
+            truncate_display(&self.status, status_width.saturating_sub(1) as usize);
 
         let status_span = Span::styled(display_status, text_style);
         let status_line = Line::from(vec![status_span]);
@@ -414,26 +397,17 @@ impl Footer {
         let status_area = Rect {
             x: area.x + 1,
             y: area.y,
-            width: area.width / 2,
+            width: status_width.saturating_sub(1),
             height: 1,
         };
         status_para.render(status_area, buf);
 
         // Render hints (right-aligned)
-        if !hints_str.is_empty() {
-            if hints_width > available_width / 2 {
-                let mut truncated = hints_str
-                    [..(available_width as usize / 2 - 3).min(hints_str.len())]
-                    .to_string();
-                truncated.push_str("...");
-                truncated
-            } else {
-                hints_str
-            };
-
+        if !self.hints.is_empty() && hints_width > 0 {
             // Parse hints to style the keys differently
             let mut hint_spans: Vec<Span> = Vec::new();
-            for (i, hint) in self.hints.iter().enumerate() {
+            let visible_hints = visible_hints(&self.hints, hints_width as usize);
+            for (i, hint) in visible_hints.iter().enumerate() {
                 if i > 0 {
                     hint_spans.push(Span::styled(" | ", text_style));
                 }
@@ -443,14 +417,20 @@ impl Footer {
                 ));
                 hint_spans.push(Span::styled(format!(": {}", hint.description), text_style));
             }
+            if visible_hints.len() < self.hints.len() && hints_width >= 3 {
+                if !hint_spans.is_empty() {
+                    hint_spans.push(Span::styled(" | ", text_style));
+                }
+                hint_spans.push(Span::styled("...", text_style));
+            }
 
             let hints_line = Line::from(hint_spans);
             let hints_para = Paragraph::new(hints_line).alignment(Alignment::Right);
 
             let hints_area = Rect {
-                x: area.x + area.width / 2,
+                x: area.x + status_width,
                 y: area.y,
-                width: area.width / 2 - 1,
+                width: hints_width,
                 height: 1,
             };
             hints_para.render(hints_area, buf);
@@ -469,6 +449,52 @@ impl Default for Footer {
     fn default() -> Self {
         Self::new("Ready")
     }
+}
+
+fn truncate_display(value: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+
+    if UnicodeWidthStr::width(value) <= max_width {
+        return value.to_string();
+    }
+
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in value.chars() {
+        let ch_width = UnicodeWidthStr::width(ch.to_string().as_str());
+        if width + ch_width + 3 > max_width {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output.push_str("...");
+    output
+}
+
+fn visible_hints(hints: &[KeyHint], max_width: usize) -> Vec<&KeyHint> {
+    let mut visible = Vec::new();
+    let mut used = 0;
+
+    for hint in hints {
+        let item_width = UnicodeWidthStr::width(hint.key.as_str())
+            + 2
+            + UnicodeWidthStr::width(hint.description.as_str());
+        let separator_width = if visible.is_empty() { 0 } else { 3 };
+        if used + separator_width + item_width > max_width {
+            break;
+        }
+        used += separator_width + item_width;
+        visible.push(hint);
+    }
+
+    visible
 }
 
 #[cfg(test)]
@@ -531,6 +557,26 @@ mod tests {
     fn test_footer_with_hints() {
         let footer = Footer::new("Ready").with_hints(vec![("q", "Quit"), ("h", "Help")]);
         assert_eq!(footer.hints.len(), 2);
+    }
+
+    #[test]
+    fn test_footer_render_small_width_no_panic() {
+        let footer = Footer::new("A very long status line").with_hints(vec![
+            ("Tab", "Switch"),
+            ("1-9", "Go"),
+            ("/", "Search"),
+            ("q", "Quit"),
+        ]);
+        let area = ratatui::layout::Rect::new(0, 0, 12, 1);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+        footer.render(area, &mut buf, &Theme::default());
+    }
+
+    #[test]
+    fn test_truncate_display_handles_tiny_widths() {
+        assert_eq!(truncate_display("abcdef", 0), "");
+        assert_eq!(truncate_display("abcdef", 2), "..");
+        assert_eq!(truncate_display("abcdef", 5), "ab...");
     }
 
     #[test]
