@@ -296,7 +296,7 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
 }
 
 fn empty_worktrees_message() -> &'static str {
-    "No worktrees found\n\nn  Create worktree\n/  Search commands and worktrees\n?  Help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
+    "No worktrees found\n\nn  Create worktree\nr  Refresh worktrees\n/  Search commands and worktrees\n?  Help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
 }
 
 /// Render kanban mode
@@ -781,6 +781,7 @@ mod tests {
 
         assert!(message.contains("No worktrees found"));
         assert!(message.contains("n  Create worktree"));
+        assert!(message.contains("r  Refresh worktrees"));
         assert!(message.contains("/  Search commands and worktrees"));
         assert!(message.contains("?  Help"));
     }
@@ -801,6 +802,7 @@ mod tests {
             .collect();
         assert!(content.contains("No worktrees found"));
         assert!(content.contains("Create worktree"));
+        assert!(content.contains("Refresh worktrees"));
         assert!(content.contains("Search commands"));
     }
 
