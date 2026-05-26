@@ -620,7 +620,7 @@ fn palette_empty_state_message(input: &str) -> String {
             .to_string()
     } else {
         format!(
-            "No commands match \"{}\"\n\nBackspace  Edit search\nEsc  Close palette\nTab  Toggle contexts\n?  Help",
+            "No commands match \"{}\"\n\nBackspace  Edit search\nCtrl+U  Clear search\nEsc  Close palette\nTab  Toggle contexts\n?  Help",
             input
         )
     }
@@ -854,6 +854,7 @@ mod tests {
         let no_match = palette_empty_state_message("deploy");
         assert!(no_match.contains("No commands match \"deploy\""));
         assert!(no_match.contains("Backspace  Edit search"));
+        assert!(no_match.contains("Ctrl+U  Clear search"));
         assert!(no_match.contains("Esc  Close palette"));
         assert!(no_match.contains("Tab  Toggle contexts"));
         assert!(no_match.contains("?  Help"));
