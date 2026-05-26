@@ -619,10 +619,22 @@ fn palette_empty_state_message(input: &str) -> String {
         "No commands available\n\nEsc  Close palette\nTab  Toggle contexts\n?  Help\n\nCommands appear here after plugins finish loading."
             .to_string()
     } else {
+        let input = truncate_query(input, 40);
         format!(
             "No commands match \"{}\"\n\nBackspace  Edit search\nCtrl+U  Clear search\nEsc  Close palette\nTab  Toggle contexts\n?  Help",
             input
         )
+    }
+}
+
+fn truncate_query(input: &str, max_len: usize) -> String {
+    let char_count = input.chars().count();
+    if char_count <= max_len {
+        input.to_string()
+    } else if max_len > 3 {
+        format!("{}...", input.chars().take(max_len - 3).collect::<String>())
+    } else {
+        input.chars().take(max_len).collect()
     }
 }
 
@@ -858,6 +870,18 @@ mod tests {
         assert!(no_match.contains("Esc  Close palette"));
         assert!(no_match.contains("Tab  Toggle contexts"));
         assert!(no_match.contains("?  Help"));
+
+        let truncated = palette_empty_state_message("abcdefghijklmnopqrstuvwxyz0123456789abcdef");
+        assert!(
+            truncated.contains("No commands match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
+        );
+    }
+
+    #[test]
+    fn test_truncate_query_handles_unicode_boundaries() {
+        assert_eq!(truncate_query("deploy", 40), "deploy");
+        assert_eq!(truncate_query("ééééé", 4), "é...");
+        assert_eq!(truncate_query("abc", 2), "ab");
     }
 
     #[test]
