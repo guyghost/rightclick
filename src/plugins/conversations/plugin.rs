@@ -533,9 +533,7 @@ impl ConversationsPlugin {
                 ("Space", "Expand"),
                 ("e/c", "Expand/Collapse All"),
             ],
-            ConversationView::Search => {
-                vec![("Esc", "Clear"), ("Enter", "Search"), ("Type", "Filter")]
-            }
+            ConversationView::Search => vec![("Esc", "Clear filter"), ("Type", "Filter")],
         }
     }
 
@@ -559,7 +557,7 @@ impl ConversationsPlugin {
                     "Conversation".to_string()
                 }
             }
-            ConversationView::Search => "Search Sessions".to_string(),
+            ConversationView::Search => "Filter Sessions".to_string(),
         }
     }
 
@@ -1032,7 +1030,7 @@ fn conversations_status_line(state: &PluginState) -> String {
             status.push_str(&format!(" | adapter: {}", adapter_type.display_name()));
         }
         if state.search_query.is_some() {
-            status.push_str(" | Esc: Clear");
+            status.push_str(" | Esc: Clear filter");
         }
         status
     } else {
@@ -1093,7 +1091,7 @@ mod tests {
     #[test]
     fn test_key_hints() {
         let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
-        let plugin = ConversationsPlugin::new(registry);
+        let mut plugin = ConversationsPlugin::new(registry);
 
         let hints = plugin.key_hints();
         assert!(!hints.is_empty());
@@ -1103,6 +1101,12 @@ mod tests {
                 .iter()
                 .any(|(key, label)| *key == "/" && *label == "Search")
         );
+
+        plugin.state_mut().view = ConversationView::Search;
+        let hints = plugin.key_hints();
+        assert!(hints.contains(&("Esc", "Clear filter")));
+        assert!(hints.contains(&("Type", "Filter")));
+        assert!(!hints.iter().any(|(_, label)| *label == "Search"));
     }
 
     #[test]
@@ -1221,6 +1225,9 @@ mod tests {
 
         let title = plugin.view_title();
         assert_eq!(title, "Sessions (1 session)");
+
+        plugin.state_mut().view = ConversationView::Search;
+        assert_eq!(plugin.view_title(), "Filter Sessions");
     }
 
     #[test]
@@ -1339,7 +1346,9 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("1 session visible | 2 sessions total | 8 messages | Esc: Clear".to_string())
+            Some(
+                "1 session visible | 2 sessions total | 8 messages | Esc: Clear filter".to_string()
+            )
         );
     }
 
