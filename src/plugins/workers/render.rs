@@ -575,7 +575,11 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
             Style::default().fg(theme_border(theme))
         };
 
-        let header = format!(" {} ({}) ", title, worker_ids.len());
+        let header = format!(
+            " {} ({}) ",
+            title,
+            workers_render_count_label(worker_ids.len(), "worker")
+        );
         let block = Block::default()
             .title(header)
             .title_style(Style::default().fg(*color).add_modifier(Modifier::BOLD))
@@ -1249,10 +1253,11 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        // Should render counts in headers
-        assert!(content.contains("Pending"));
-        assert!(content.contains("Running"));
-        assert!(content.contains("Completed"));
+        // Should render count labels in headers
+        assert!(content.contains("Pending (1 worker)"));
+        assert!(content.contains("Running (1 worker)"));
+        assert!(content.contains("Completed (1 worker)"));
+        assert!(!content.contains("Pending (1)"));
         // Should contain worker type names
         assert!(content.contains("Investigator"));
         assert!(content.contains("Implementer"));
