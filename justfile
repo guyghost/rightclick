@@ -45,6 +45,9 @@ test:
 doc-test:
     bash scripts/dev.sh doc-test
 
+test-list *filters:
+    bash scripts/dev.sh test-list {{filters}}
+
 test-one filter:
     bash scripts/dev.sh test-one "{{filter}}"
 

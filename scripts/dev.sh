@@ -24,6 +24,7 @@ Commands:
   build-release  run cargo build --release
   test           run cargo test
   doc-test       run cargo test --doc
+  test-list      list available tests, optionally filtered
   test-one       run cargo test with a filter
   test-many      run cargo test once per filter
   run            run RightClick locally
@@ -32,6 +33,7 @@ Commands:
 Examples:
   bash scripts/dev.sh doctor
   bash scripts/dev.sh ci
+  bash scripts/dev.sh test-list gitstatus
   bash scripts/dev.sh test-one plugins::gitstatus
   bash scripts/dev.sh test-many test_plugin_commands test_footer_hints
 
@@ -39,6 +41,7 @@ If you use just:
   just help
   just ci
   just quick
+  just test-list gitstatus
   just test-one plugins::gitstatus
   just test-many test_plugin_commands test_footer_hints
 EOF
@@ -73,7 +76,7 @@ ensure_test_filter_matches() {
   matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
   if [ "$matches" -eq 0 ]; then
     echo "No tests matched filter: $filter" >&2
-    echo "Use 'cargo test -- --list' to inspect available test names." >&2
+    echo "Use 'bash scripts/dev.sh test-list [filter]' to inspect available test names." >&2
     exit 2
   fi
 }
@@ -208,6 +211,16 @@ case "$cmd" in
     ;;
   doc-test)
     run_step cargo test --doc
+    ;;
+  test-list)
+    shift
+    if [ "$#" -eq 0 ]; then
+      run_step cargo test -- --list
+    else
+      for filter in "$@"; do
+        run_step cargo test "$filter" -- --list
+      done
+    fi
     ;;
   test-one)
     shift
