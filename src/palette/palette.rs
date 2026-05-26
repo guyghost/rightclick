@@ -517,11 +517,7 @@ impl Palette {
     /// Renders the empty state when no results are found.
     fn render_empty_state(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
         let text_style = style_for_ui_element(theme, UiElement::MutedText);
-        let message = if self.input.is_empty() {
-            "No commands available"
-        } else {
-            "No matching commands"
-        };
+        let message = palette_empty_state_message(&self.input);
 
         let text = Paragraph::new(message)
             .style(text_style)
@@ -615,6 +611,18 @@ impl Palette {
     /// Sets whether the palette is active.
     pub fn set_active(&mut self, active: bool) {
         self.active = active;
+    }
+}
+
+fn palette_empty_state_message(input: &str) -> String {
+    if input.is_empty() {
+        "No commands available\n\nEsc  Close palette\nTab  Toggle contexts\n\nRegister plugin commands to populate the palette."
+            .to_string()
+    } else {
+        format!(
+            "No commands match \"{}\"\n\nBackspace  Edit search\nEsc  Close palette\nTab  Toggle contexts",
+            input
+        )
     }
 }
 
@@ -832,6 +840,40 @@ mod tests {
 
         assert_eq!(palette.result_count(), 3);
         assert!(palette.has_results());
+    }
+
+    #[test]
+    fn test_palette_empty_state_message_points_to_next_actions() {
+        let empty = palette_empty_state_message("");
+        assert!(empty.contains("No commands available"));
+        assert!(empty.contains("Esc  Close palette"));
+        assert!(empty.contains("Tab  Toggle contexts"));
+        assert!(empty.contains("Register plugin commands"));
+
+        let no_match = palette_empty_state_message("deploy");
+        assert!(no_match.contains("No commands match \"deploy\""));
+        assert!(no_match.contains("Backspace  Edit search"));
+        assert!(no_match.contains("Esc  Close palette"));
+        assert!(no_match.contains("Tab  Toggle contexts"));
+    }
+
+    #[test]
+    fn test_palette_empty_state_render_includes_action_hints() {
+        let palette = Palette::new();
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        palette.render(area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No commands available"));
+        assert!(content.contains("Esc  Close palette"));
+        assert!(content.contains("Tab  Toggle contexts"));
     }
 
     #[test]
