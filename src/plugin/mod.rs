@@ -597,6 +597,15 @@ impl PluginCommand {
             priority: 0,
         }
     }
+
+    /// Set the footer display priority for this command.
+    ///
+    /// Higher priority commands are shown earlier in the footer when there is
+    /// limited space for plugin-specific hints.
+    pub fn with_footer_priority(mut self, priority: u8) -> Self {
+        self.priority = priority;
+        self
+    }
 }
 
 /// A command exposed by a plugin for the command palette.
@@ -1008,6 +1017,21 @@ mod tests {
         );
         assert_eq!(cmd.id, "stage");
         assert_eq!(cmd.name, "Stage");
+    }
+
+    #[test]
+    fn test_plugin_command_with_footer_priority() {
+        let cmd = PluginCommand::with_context_description(
+            "run",
+            "Run Workers",
+            "Run workers for the selected intent",
+            'r',
+            FocusContext::Workspace,
+        )
+        .with_footer_priority(2);
+
+        assert_eq!(cmd.id, "run");
+        assert_eq!(cmd.priority, 2);
     }
 
     #[test]

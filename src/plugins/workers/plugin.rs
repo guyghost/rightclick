@@ -1096,7 +1096,8 @@ impl Plugin for WorkersPlugin {
                 "Create a new implementation intent",
                 'n',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(1),
             crate::plugin::PluginCommand::with_context_description(
                 "delete",
                 "Delete",
@@ -1110,21 +1111,24 @@ impl Plugin for WorkersPlugin {
                 "Run workers for the selected intent",
                 'r',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(4),
             crate::plugin::PluginCommand::with_context_description(
                 "stop",
                 "Stop Workers",
                 "Stop running workers",
                 's',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(2),
             crate::plugin::PluginCommand::with_context_description(
                 "open",
                 "Open Intent",
                 "Open the selected intent",
                 'o',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(3),
             crate::plugin::PluginCommand::with_context_description(
                 "switch-view",
                 "Switch View",
@@ -1265,6 +1269,17 @@ mod tests {
             .expect("workers next tab command");
         assert_eq!(next_tab_command.name, "Next Tab");
         assert_eq!(next_tab_command.key, ']');
+
+        let trait_commands = <WorkersPlugin as crate::plugin::Plugin>::commands(&plugin);
+        let prioritized: Vec<(&str, u8)> = trait_commands
+            .iter()
+            .filter(|command| command.priority > 0)
+            .map(|command| (command.id.as_str(), command.priority))
+            .collect();
+        assert_eq!(
+            prioritized,
+            vec![("create", 1), ("run", 4), ("stop", 2), ("open", 3)]
+        );
     }
 
     #[test]
