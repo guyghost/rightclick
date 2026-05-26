@@ -383,7 +383,9 @@ impl Palette {
 
         // Draw cursor if active
         if self.active && !self.input.is_empty() {
-            let cursor_x = text_area.x + self.cursor_pos as u16;
+            let cursor_x = text_area
+                .x
+                .saturating_add(cursor_display_width(&self.input, self.cursor_pos) as u16);
             if cursor_x < text_area.x + text_area.width {
                 if let Some(cell) = buf.cell_mut((cursor_x, text_area.y)) {
                     let cursor_style = style_for_ui_element(theme, UiElement::Text)
@@ -693,6 +695,14 @@ fn char_index_to_byte_index(text: &str, char_index: usize) -> Option<usize> {
     text.char_indices().nth(char_index).map(|(idx, _)| idx)
 }
 
+fn cursor_display_width(input: &str, cursor_pos: usize) -> usize {
+    let mut byte_pos = cursor_pos.min(input.len());
+    while byte_pos > 0 && !input.is_char_boundary(byte_pos) {
+        byte_pos -= 1;
+    }
+    input[..byte_pos].width()
+}
+
 impl Widget for &Palette {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // Use default theme if none provided
@@ -838,6 +848,32 @@ mod tests {
 
         assert_eq!(palette.input, "hi");
         assert_eq!(palette.cursor_pos, 2);
+    }
+
+    #[test]
+    fn test_cursor_display_width_handles_unicode_input() {
+        assert_eq!(cursor_display_width("éa", "éa".len()), 2);
+        assert_eq!(cursor_display_width("検索a", "検".len()), 2);
+        assert_eq!(cursor_display_width("検索a", "検索a".len()), 5);
+        assert_eq!(cursor_display_width("éa", 1), 0);
+    }
+
+    #[test]
+    fn test_render_input_positions_cursor_by_display_width() {
+        let mut palette = Palette::new();
+        palette.input = "éa".to_string();
+        palette.cursor_pos = palette.input.len();
+        palette.active = true;
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 20, 3);
+        let mut buf = Buffer::empty(area);
+
+        palette.render_input(area, &mut buf, &theme);
+
+        let cursor_color = Color::from_str(&theme.colors.cursor).unwrap_or(Color::White);
+        assert_eq!(buf.cell((3, 1)).unwrap().style().bg, Some(cursor_color));
+        assert_ne!(buf.cell((4, 1)).unwrap().style().bg, Some(cursor_color));
     }
 
     #[test]
