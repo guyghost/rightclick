@@ -1113,7 +1113,7 @@ impl Plugin for WorkersPlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "stop",
-                "Stop",
+                "Stop Workers",
                 "Stop running workers",
                 's',
                 crate::keymap::FocusContext::Workspace,
@@ -1299,7 +1299,7 @@ mod tests {
             .execute_command("stop")
             .expect("stop command should execute");
 
-        assert_eq!(execution.command_name, "Stop");
+        assert_eq!(execution.command_name, "Stop Workers");
         assert_eq!(
             plugin.pending_commands.pop_front(),
             Some(Command::StopWorkers)
