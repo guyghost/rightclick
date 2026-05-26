@@ -794,12 +794,14 @@ impl WorkspacePlugin {
         vec![
             PluginCommand::new("create", "Create Worktree", 'n'),
             PluginCommand::new("delete", "Delete Worktree", 'D'),
-            PluginCommand::new("link-task", "Link Task", 'T'),
-            PluginCommand::new("launch-agent", "Launch Agent", 'a'),
+            PluginCommand::new("link", "Link Task", 'T'),
+            PluginCommand::new("agent", "Launch Agent", 'a'),
             PluginCommand::new("interactive", "Interactive Mode", 'o'),
             PluginCommand::new("merge", "Merge", 'm'),
             PluginCommand::new("refresh", "Refresh", 'r'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
+            PluginCommand::new("prev-tab", "Previous Tab", '['),
+            PluginCommand::new("next-tab", "Next Tab", ']'),
         ]
     }
 
@@ -1297,9 +1299,25 @@ mod tests {
         let plugin = WorkspacePlugin::new();
         let commands = plugin.commands();
         assert!(!commands.is_empty());
-        assert!(commands.iter().any(|c| c.id == "create"));
-        assert!(commands.iter().any(|c| c.id == "delete"));
-        assert!(commands.iter().any(|c| c.id == "link-task" && c.key == 'T'));
+        for (id, key, name) in [
+            ("create", 'n', "Create Worktree"),
+            ("delete", 'D', "Delete Worktree"),
+            ("link", 'T', "Link Task"),
+            ("agent", 'a', "Launch Agent"),
+            ("interactive", 'o', "Interactive Mode"),
+            ("merge", 'm', "Merge"),
+            ("refresh", 'r', "Refresh"),
+            ("switch-view", 'v', "Switch View"),
+            ("prev-tab", '[', "Previous Tab"),
+            ("next-tab", ']', "Next Tab"),
+        ] {
+            assert!(
+                commands
+                    .iter()
+                    .any(|command| command.id == id && command.key == key && command.name == name),
+                "missing workspace command {id}"
+            );
+        }
     }
 
     #[test]
