@@ -42,7 +42,8 @@ pub struct SearchOverlayState {
 impl SearchOverlayState {
     /// Create a new search overlay state
     pub fn new() -> Self {
-        let mut input = TextInputState::new(InputMode::SingleLine).with_placeholder("Search...");
+        let mut input = TextInputState::new(InputMode::SingleLine)
+            .with_placeholder("Search files, commands, sessions...");
         input.set_active(true);
         Self {
             visible: false,
@@ -619,6 +620,10 @@ mod tests {
         assert_eq!(state.scope, SearchScope::All);
         assert!(state.results.is_empty());
         assert_eq!(state.selected, 0);
+        assert_eq!(
+            state.input.placeholder(),
+            "Search files, commands, sessions..."
+        );
     }
 
     #[test]
@@ -1036,6 +1041,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Global Search"));
+        assert!(content.contains("Search files, commands, sessions"));
     }
 
     #[test]
