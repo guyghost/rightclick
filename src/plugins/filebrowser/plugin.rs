@@ -719,14 +719,10 @@ impl FileBrowserPlugin {
             let inner = preview_block.inner(content_layout[1]);
             preview_block.render(content_layout[1], buf);
 
-            let message = if self.state.visible_indices().is_empty() {
-                "No file to preview. Adjust the filter or create a file."
-            } else {
-                "Select a file to preview it"
-            };
-            let no_preview = Paragraph::new(message)
+            let no_preview = Paragraph::new(file_preview_empty_message(&self.state))
                 .alignment(Alignment::Center)
-                .style(text_style);
+                .style(text_style)
+                .wrap(ratatui::widgets::Wrap { trim: true });
             no_preview.render(inner, buf);
         }
     }
@@ -1338,6 +1334,22 @@ fn file_tree_empty_message(state: &PluginState) -> String {
     }
 }
 
+fn file_preview_empty_message(state: &PluginState) -> String {
+    if let Some(query) = &state.filter_query {
+        format!(
+            "No preview available\n\nNo files match \"{}\"\nf  Change filter\n?  Help",
+            query
+        )
+    } else if state.tree.entries.is_empty() {
+        "No preview available\n\na  New file\nA  New directory\nr  Refresh".to_string()
+    } else if state.visible_indices().is_empty() {
+        "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter".to_string()
+    } else {
+        "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter"
+            .to_string()
+    }
+}
+
 // Helper function for muted style
 fn muted_style() -> Style {
     Style::default().fg(ratatui::style::Color::DarkGray)
@@ -1525,6 +1537,30 @@ mod tests {
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f  Change filter"));
         assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_render_empty_preview_points_to_navigation_actions() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+        plugin.state.selected_path = None;
+        plugin.state.preview = None;
+
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+        plugin.render_internal(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No preview selected"));
+        assert!(content.contains("j/k  Navigate files"));
+        assert!(content.contains("Enter/Space  Expand directory"));
+        assert!(content.contains("f  Filter"));
     }
 
     #[test]
