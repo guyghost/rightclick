@@ -330,6 +330,13 @@ fn render_diff_content(diff: &Diff, area: Rect, buf: &mut Buffer, theme: &Theme)
             continue;
         }
 
+        if file_diff.hunks.is_empty() {
+            lines.push(Line::from(vec![Span::styled(
+                "No diff content available",
+                style_for_ui_element(theme, UiElement::MutedText),
+            )]));
+        }
+
         // Hunks
         for hunk in &file_diff.hunks {
             // Hunk header
@@ -1458,6 +1465,35 @@ mod tests {
         assert!(content.contains("r  Refresh git status"));
         assert!(content.contains("/  Search commands"));
         assert!(content.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_render_diff_with_empty_file_content_mentions_missing_content() {
+        let mut state = PluginState::new();
+        state
+            .files
+            .push(FileChange::new("src/main.rs", FileStatus::Modified));
+        state.selected_file = Some(0);
+        state.diff = Some(crate::core::models::Diff {
+            files: vec![crate::core::models::FileDiff::new("src/main.rs")],
+            files_changed: 1,
+            total_additions: 0,
+            total_deletions: 0,
+        });
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_git_status(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("File:"));
+        assert!(content.contains("src/main.rs"));
+        assert!(content.contains("No diff content available"));
     }
 
     #[test]
