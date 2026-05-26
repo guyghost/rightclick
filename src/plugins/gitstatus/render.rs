@@ -294,7 +294,7 @@ fn render_diff_view(
     if let Some(diff) = &state.diff {
         render_diff_content(diff, inner, buf, theme);
     } else if let Some(file) = state.selected_file() {
-        let no_diff = Paragraph::new(format!("No diff available for {}", file.path))
+        let no_diff = Paragraph::new(git_file_no_diff_message(file))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         no_diff.render(inner, buf);
@@ -1259,6 +1259,13 @@ fn git_diff_empty_message(state: &PluginState) -> &'static str {
     }
 }
 
+fn git_file_no_diff_message(file: &FileChange) -> String {
+    format!(
+        "No diff available for {}\n\nj/k Navigate files\ns Stage | u Unstage | c Commit | r Refresh",
+        file.path
+    )
+}
+
 fn git_sidebar_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
         "No repository data loaded\n\nr Refresh"
@@ -1411,6 +1418,33 @@ mod tests {
         assert!(message.contains("H History"));
         assert!(message.contains("B Branches"));
         assert!(message.contains("r Refresh"));
+    }
+
+    #[test]
+    fn test_render_selected_file_without_diff_points_to_file_actions() {
+        let mut state = PluginState::new();
+        state
+            .files
+            .push(FileChange::new("src/main.rs", FileStatus::Modified));
+        state.selected_file = Some(0);
+        state.diff = None;
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_git_status(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No diff available for src/main.rs"));
+        assert!(content.contains("j/k Navigate files"));
+        assert!(content.contains("s Stage"));
+        assert!(content.contains("u Unstage"));
+        assert!(content.contains("c Commit"));
+        assert!(content.contains("r Refresh"));
     }
 
     #[test]
