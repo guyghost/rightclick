@@ -33,6 +33,8 @@ pub async fn search_files(query: &str, directory: &Path, max_results: usize) -> 
             "1M",
             "--color",
             "never",
+            "--field-match-separator",
+            "\t",
             query,
         ])
         .current_dir(directory)
@@ -57,13 +59,8 @@ fn parse_rg_output(output: &str, max_results: usize) -> Vec<SearchResult> {
             break;
         }
 
-        // rg format: file:line:column:content
-        let parts: Vec<&str> = line.splitn(4, ':').collect();
-        if parts.len() >= 4 {
-            let file_path = parts[0].to_string();
-            let line_number = parts[1].parse::<usize>().unwrap_or(0);
-            let column = parts[2].parse::<usize>().unwrap_or(0);
-            let content = parts[3].trim().to_string();
+        if let Some((file_path, line_number, column, content)) = parse_rg_line(line) {
+            let file_path = file_path.to_string();
 
             results.push(SearchResult {
                 kind: SearchResultKind::FileContent {
@@ -72,13 +69,31 @@ fn parse_rg_output(output: &str, max_results: usize) -> Vec<SearchResult> {
                     column,
                 },
                 title: format_file_result_title(&file_path, line_number),
-                preview: content,
+                preview: content.to_string(),
                 score: 100,
             });
         }
     }
 
     results
+}
+
+fn parse_rg_line(line: &str) -> Option<(&str, usize, usize, &str)> {
+    parse_rg_line_with_separator(line, '\t').or_else(|| parse_rg_line_with_separator(line, ':'))
+}
+
+fn parse_rg_line_with_separator(line: &str, separator: char) -> Option<(&str, usize, usize, &str)> {
+    let parts: Vec<&str> = line.splitn(4, separator).collect();
+    if parts.len() < 4 {
+        return None;
+    }
+
+    Some((
+        parts[0],
+        parts[1].parse::<usize>().unwrap_or(0),
+        parts[2].parse::<usize>().unwrap_or(0),
+        parts[3].trim(),
+    ))
 }
 
 fn format_file_result_title(path: &str, line: usize) -> String {
@@ -115,6 +130,23 @@ mod tests {
             format_file_result_title("src/main.rs", 42),
             "src/main.rs:42"
         );
+    }
+
+    #[test]
+    fn test_parse_rg_output_preserves_colon_in_path_with_tab_separator() {
+        let output = "src/path:with-colon.rs\t10\t5\tfn main() {}\n";
+        let results = parse_rg_output(output, 10);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "src/path:with-colon.rs:10");
+        assert!(matches!(
+            &results[0].kind,
+            SearchResultKind::FileContent {
+                path,
+                line: 10,
+                column: 5,
+            } if path == "src/path:with-colon.rs"
+        ));
     }
 
     #[test]
