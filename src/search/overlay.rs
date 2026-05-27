@@ -277,14 +277,7 @@ pub fn render_search_overlay(
     let border_color = Color::from_str(&theme.colors.border).unwrap_or(Color::Gray);
     let bg = Color::from_str(&theme.colors.background).unwrap_or(Color::Black);
 
-    let title = if state.results.is_empty() {
-        " Global Search ".to_string()
-    } else {
-        format!(
-            " Global Search - {} ",
-            result_count_label(state.results.len())
-        )
-    };
+    let title = search_overlay_title(state.scope, state.results.len());
 
     // Outer block
     let block = Block::default()
@@ -315,7 +308,7 @@ pub fn render_search_overlay(
         .split(inner);
 
     // Render search input line
-    render_input_line(&state.input, chunks[0], buf, fg, primary);
+    render_input_line(&state.input, state.scope, chunks[0], buf, fg, primary);
 
     // Render scope tabs
     render_scope_tabs(state, chunks[1], buf, primary, muted);
@@ -360,6 +353,7 @@ fn search_overlay_area(area: Rect) -> Option<Rect> {
 
 fn render_input_line(
     input: &TextInputState,
+    scope: SearchScope,
     area: Rect,
     buf: &mut Buffer,
     fg: Color,
@@ -374,12 +368,12 @@ fn render_input_line(
 
     // Prompt
     let prompt = Span::styled(
-        "/ ",
+        search_input_prompt(scope),
         Style::default().fg(primary).add_modifier(Modifier::BOLD),
     );
 
     if text.is_empty() {
-        let placeholder = input.placeholder();
+        let placeholder = search_input_placeholder(scope);
         let line = Line::from(vec![
             prompt,
             Span::styled(" ", Style::default().bg(Color::White).fg(Color::Black)),
@@ -589,6 +583,37 @@ fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
         .style(Style::default().fg(muted))
         .alignment(Alignment::Center)
         .render(area, buf);
+}
+
+fn search_overlay_title(scope: SearchScope, result_count: usize) -> String {
+    let title = match scope {
+        SearchScope::All => "Global Search",
+        SearchScope::Files => "File Search",
+        SearchScope::Items => "Project Item Search",
+        SearchScope::Commands => "Command Search",
+    };
+
+    if result_count == 0 {
+        format!(" {title} ")
+    } else {
+        format!(" {title} - {} ", result_count_label(result_count))
+    }
+}
+
+fn search_input_prompt(scope: SearchScope) -> &'static str {
+    match scope {
+        SearchScope::Commands => ": ",
+        _ => "/ ",
+    }
+}
+
+fn search_input_placeholder(scope: SearchScope) -> &'static str {
+    match scope {
+        SearchScope::All => "Search files, commands, project items...",
+        SearchScope::Files => "Search file contents...",
+        SearchScope::Items => "Search sessions, worktrees, and intents...",
+        SearchScope::Commands => "Search commands...",
+    }
 }
 
 fn search_footer_hint(width: u16) -> &'static str {
@@ -1028,6 +1053,48 @@ mod tests {
     }
 
     #[test]
+    fn test_search_overlay_title_is_scope_specific() {
+        assert_eq!(search_overlay_title(SearchScope::All, 0), " Global Search ");
+        assert_eq!(
+            search_overlay_title(SearchScope::Files, 2),
+            " File Search - 2 results "
+        );
+        assert_eq!(
+            search_overlay_title(SearchScope::Items, 1),
+            " Project Item Search - 1 result "
+        );
+        assert_eq!(
+            search_overlay_title(SearchScope::Commands, 0),
+            " Command Search "
+        );
+    }
+
+    #[test]
+    fn test_search_input_copy_is_scope_specific() {
+        assert_eq!(search_input_prompt(SearchScope::All), "/ ");
+        assert_eq!(search_input_prompt(SearchScope::Files), "/ ");
+        assert_eq!(search_input_prompt(SearchScope::Items), "/ ");
+        assert_eq!(search_input_prompt(SearchScope::Commands), ": ");
+
+        assert_eq!(
+            search_input_placeholder(SearchScope::All),
+            "Search files, commands, project items..."
+        );
+        assert_eq!(
+            search_input_placeholder(SearchScope::Files),
+            "Search file contents..."
+        );
+        assert_eq!(
+            search_input_placeholder(SearchScope::Items),
+            "Search sessions, worktrees, and intents..."
+        );
+        assert_eq!(
+            search_input_placeholder(SearchScope::Commands),
+            "Search commands..."
+        );
+    }
+
+    #[test]
     fn test_search_footer_hint_names_scope_action() {
         let hint = search_footer_hint(80);
 
@@ -1260,6 +1327,27 @@ mod tests {
         assert!(content.contains("Global Search"));
         assert!(content.contains("Search files, commands, project items"));
         assert!(content.contains("Project"));
+    }
+
+    #[test]
+    fn test_render_search_overlay_command_scope_uses_command_copy() {
+        let mut state = SearchOverlayState::new();
+        state.open_with_scope(SearchScope::Commands);
+
+        let area = Rect::new(0, 0, 100, 30);
+        let mut buf = Buffer::empty(area);
+        let theme = Theme::default();
+        render_search_overlay(&state, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Command Search"));
+        assert!(content.contains(":"));
+        assert!(content.contains("Search commands"));
+        assert!(!content.contains("Search files, commands, project items"));
     }
 
     #[test]
