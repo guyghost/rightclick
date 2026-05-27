@@ -53,9 +53,30 @@ pub fn compact_global_hint_lines(width: u16) -> Vec<String> {
     compact_prefixed_global_hint_lines(width, "", false)
 }
 
+/// Append global search and help hint lines that fit within `width`.
+pub fn append_global_hint_lines(lines: &mut Vec<String>, width: u16) {
+    lines.extend(compact_global_hint_lines(width));
+}
+
+/// Build a newline-delimited message with global search and help hint lines.
+pub fn global_hint_message(mut lines: Vec<String>, width: u16) -> String {
+    append_global_hint_lines(&mut lines, width);
+    lines.join("\n")
+}
+
 /// Return prefixed global search and help hint lines, allowing stacked search.
 pub fn compact_prefixed_stacked_global_hint_lines(width: u16, prefix: &str) -> Vec<String> {
     compact_prefixed_global_hint_lines(width, prefix, true)
+}
+
+/// Build a newline-delimited message with prefixed stacked global hint lines.
+pub fn prefixed_stacked_global_hint_message(
+    mut lines: Vec<String>,
+    width: u16,
+    prefix: &str,
+) -> String {
+    lines.extend(compact_prefixed_stacked_global_hint_lines(width, prefix));
+    lines.join("\n")
 }
 
 fn compact_prefixed_global_hint_lines(
@@ -165,6 +186,14 @@ mod tests {
     }
 
     #[test]
+    fn global_hint_message_appends_search_and_help() {
+        assert_eq!(
+            global_hint_message(vec!["No items".to_string(), String::new()], 80),
+            format!("No items\n\n{GLOBAL_SEARCH_HINT}\n{HELP_HINT}")
+        );
+    }
+
+    #[test]
     fn compact_prefixed_stacked_global_hint_lines_preserve_prefix_and_width() {
         let lines = compact_prefixed_stacked_global_hint_lines(22, "  ");
 
@@ -180,6 +209,14 @@ mod tests {
             lines
                 .iter()
                 .all(|line| line.width() <= 22 && line.starts_with("  "))
+        );
+    }
+
+    #[test]
+    fn prefixed_stacked_global_hint_message_appends_prefixed_hints() {
+        assert_eq!(
+            prefixed_stacked_global_hint_message(vec!["No items".to_string()], 22, "  "),
+            "No items\n  /: Global search\n  : Command search\n  ?: Toggle help"
         );
     }
 }

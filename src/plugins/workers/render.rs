@@ -15,7 +15,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::core::models::Theme;
 use crate::ui::{
     compact_global_search_hint_with_stacked, compact_help_hint,
-    compact_prefixed_stacked_global_hint_lines, truncate_display_with_suffix,
+    prefixed_stacked_global_hint_message, truncate_display_with_suffix,
 };
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
@@ -793,12 +793,8 @@ fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> 
     }
 }
 
-fn workers_empty_message(mut lines: Vec<String>, width: u16, hint_prefix: &str) -> String {
-    lines.extend(compact_prefixed_stacked_global_hint_lines(
-        width,
-        hint_prefix,
-    ));
-    lines.join("\n")
+fn workers_empty_message(lines: Vec<String>, width: u16, hint_prefix: &str) -> String {
+    prefixed_stacked_global_hint_message(lines, width, hint_prefix)
 }
 
 fn workers_search_hint(width: u16) -> Option<&'static str> {

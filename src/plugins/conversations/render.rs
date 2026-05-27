@@ -9,7 +9,9 @@ use crate::plugins::conversations::state::SessionInfo;
 use crate::plugins::conversations::state::{ConversationView, PluginState};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
-use crate::ui::{GLOBAL_SEARCH_HINT, compact_global_hint_lines, truncate_display};
+use crate::ui::{
+    GLOBAL_SEARCH_HINT, append_global_hint_lines, global_hint_message, truncate_display,
+};
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -859,15 +861,16 @@ fn empty_sessions_message(state: &PluginState, width: u16) -> String {
     {
         Some(query) => {
             let query = truncate_string(query, 40);
-            let mut lines = vec![
-                format!("No sessions match \"{query}\""),
-                String::new(),
-                "Backspace: Edit filter".to_string(),
-                "Esc: Clear filter".to_string(),
-                "r: Refresh sessions".to_string(),
-            ];
-            lines.extend(compact_global_hint_lines(width));
-            lines.join("\n")
+            global_hint_message(
+                vec![
+                    format!("No sessions match \"{query}\""),
+                    String::new(),
+                    "Backspace: Edit filter".to_string(),
+                    "Esc: Clear filter".to_string(),
+                    "r: Refresh sessions".to_string(),
+                ],
+                width,
+            )
         }
         None => {
             let mut lines = vec![
@@ -876,7 +879,7 @@ fn empty_sessions_message(state: &PluginState, width: u16) -> String {
                 "r: Refresh sessions".to_string(),
                 "f: Filter sessions".to_string(),
             ];
-            lines.extend(compact_global_hint_lines(width));
+            append_global_hint_lines(&mut lines, width);
             lines.extend([
                 String::new(),
                 "Sessions appear after supported adapters are detected.".to_string(),
@@ -887,32 +890,29 @@ fn empty_sessions_message(state: &PluginState, width: u16) -> String {
 }
 
 fn empty_messages_message(width: u16) -> String {
-    let mut lines = vec![
-        "No messages in this session".to_string(),
-        String::new(),
-        "r: Refresh messages".to_string(),
-        "f: Filter sessions".to_string(),
-        "Esc/h: Back to sessions".to_string(),
-    ];
-    lines.extend(compact_global_hint_lines(width));
-    lines.join("\n")
+    global_hint_message(
+        vec![
+            "No messages in this session".to_string(),
+            String::new(),
+            "r: Refresh messages".to_string(),
+            "f: Filter sessions".to_string(),
+            "Esc/h: Back to sessions".to_string(),
+        ],
+        width,
+    )
 }
 
 fn loading_messages_message(width: u16) -> String {
-    let mut lines = vec![
-        "Loading messages".to_string(),
-        String::new(),
-        "r: Refresh messages".to_string(),
-        "f: Filter sessions".to_string(),
-        "Esc/h: Back to sessions".to_string(),
-    ];
-    lines.extend(compact_global_hint_lines(width));
-    lines.join("\n")
-}
-
-#[cfg(test)]
-fn conversation_search_hint(width: u16) -> Option<&'static str> {
-    crate::ui::compact_global_search_hint(width)
+    global_hint_message(
+        vec![
+            "Loading messages".to_string(),
+            String::new(),
+            "r: Refresh messages".to_string(),
+            "f: Filter sessions".to_string(),
+            "Esc/h: Back to sessions".to_string(),
+        ],
+        width,
+    )
 }
 
 fn compact_message_count(count: usize) -> String {
@@ -1114,19 +1114,6 @@ mod tests {
         assert!(!message.contains("/: Global search\n: Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(!message.contains("r: Refresh sessions"));
-    }
-
-    #[test]
-    fn test_conversation_search_hint_compacts_for_narrow_widths() {
-        assert_eq!(conversation_search_hint(1), None);
-        assert_eq!(conversation_search_hint(2), Some("/:"));
-        assert_eq!(conversation_search_hint(9), Some("/: Search"));
-        assert_eq!(conversation_search_hint(20), Some("/: Search  |  : Cmds"));
-        assert_eq!(
-            conversation_search_hint(24),
-            Some("/: Search  |  : Commands")
-        );
-        assert_eq!(conversation_search_hint(80), Some(SEARCH_HINT));
     }
 
     #[test]

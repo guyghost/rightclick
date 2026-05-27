@@ -14,7 +14,7 @@ use ratatui::{
 use crate::core::models::Theme;
 use crate::core::models::{ChangeType, Diff, FileChange, FileDiff, FileStatus};
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::{compact_global_hint_lines, truncate_display};
+use crate::ui::{global_hint_message, truncate_display};
 
 use super::state::{FocusPane, PluginState, ViewMode};
 
@@ -1529,14 +1529,8 @@ fn git_stash_details_empty_message(state: &PluginState, width: u16) -> String {
     }
 }
 
-fn git_empty_message(mut lines: Vec<String>, width: u16) -> String {
-    lines.extend(compact_global_hint_lines(width));
-    lines.join("\n")
-}
-
-#[cfg(test)]
-fn git_search_hint(width: u16) -> Option<&'static str> {
-    crate::ui::compact_global_search_hint(width)
+fn git_empty_message(lines: Vec<String>, width: u16) -> String {
+    global_hint_message(lines, width)
 }
 
 #[cfg(test)]
@@ -1805,16 +1799,6 @@ mod tests {
         assert_hint(&git_branch_details_empty_message(&clean, 80));
         assert_hint(&git_stashes_empty_message(80));
         assert_hint(&git_stash_details_empty_message(&clean, 80));
-    }
-
-    #[test]
-    fn test_git_search_hint_compacts_for_narrow_widths() {
-        assert_eq!(git_search_hint(1), None);
-        assert_eq!(git_search_hint(2), Some("/:"));
-        assert_eq!(git_search_hint(9), Some("/: Search"));
-        assert_eq!(git_search_hint(20), Some("/: Search  |  : Cmds"));
-        assert_eq!(git_search_hint(24), Some("/: Search  |  : Commands"));
-        assert_eq!(git_search_hint(80), Some(crate::ui::GLOBAL_SEARCH_HINT));
     }
 
     #[test]

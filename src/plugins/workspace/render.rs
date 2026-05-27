@@ -13,7 +13,7 @@ use ratatui::{
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::{compact_global_hint_lines, truncate_display};
+use crate::ui::{global_hint_message, truncate_display};
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 
@@ -574,14 +574,8 @@ fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> 
     }
 }
 
-fn workspace_empty_message(mut lines: Vec<String>, width: u16) -> String {
-    lines.extend(compact_global_hint_lines(width));
-    lines.join("\n")
-}
-
-#[cfg(test)]
-fn workspace_search_hint(width: u16) -> Option<&'static str> {
-    crate::ui::compact_global_search_hint(width)
+fn workspace_empty_message(lines: Vec<String>, width: u16) -> String {
+    global_hint_message(lines, width)
 }
 
 /// Render interactive mode
@@ -1113,19 +1107,6 @@ mod tests {
         dirty_state.worktrees.push(dirty);
         dirty_state.selected = Some(0);
         assert_hint(&diff_empty_message(&dirty_state, 80));
-    }
-
-    #[test]
-    fn test_workspace_search_hint_compacts_for_narrow_widths() {
-        assert_eq!(workspace_search_hint(1), None);
-        assert_eq!(workspace_search_hint(2), Some("/:"));
-        assert_eq!(workspace_search_hint(9), Some("/: Search"));
-        assert_eq!(workspace_search_hint(20), Some("/: Search  |  : Cmds"));
-        assert_eq!(workspace_search_hint(24), Some("/: Search  |  : Commands"));
-        assert_eq!(
-            workspace_search_hint(80),
-            Some(crate::ui::GLOBAL_SEARCH_HINT)
-        );
     }
 
     #[test]

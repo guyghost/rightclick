@@ -19,7 +19,7 @@ use crate::event::Event;
 use crate::keymap::{Action, FocusContext};
 use crate::plugin::{Command, Plugin, PluginCommand, PluginContext};
 use crate::theme::{UiElement, style_for_ui_element};
-use crate::ui::{Footer, HELP_HINT, Header, KeyHint, compact_global_hint_lines, truncate_display};
+use crate::ui::{Footer, HELP_HINT, Header, KeyHint, global_hint_message, truncate_display};
 
 use super::preview::PreviewWidget;
 use super::state::{FileOperationModal, PluginState};
@@ -1472,14 +1472,8 @@ fn file_info_empty_message(width: u16) -> String {
     )
 }
 
-fn file_browser_empty_message(mut lines: Vec<String>, width: u16) -> String {
-    lines.extend(compact_global_hint_lines(width));
-    lines.join("\n")
-}
-
-#[cfg(test)]
-fn file_browser_search_hint(width: u16) -> Option<&'static str> {
-    crate::ui::compact_global_search_hint(width)
+fn file_browser_empty_message(lines: Vec<String>, width: u16) -> String {
+    global_hint_message(lines, width)
 }
 
 // Helper function for muted style
@@ -1864,22 +1858,6 @@ mod tests {
         unselected_state.refresh();
         unselected_state.selected_path = None;
         assert_hint(&file_preview_empty_message(&unselected_state, 80));
-    }
-
-    #[test]
-    fn test_file_browser_search_hint_compacts_for_narrow_widths() {
-        assert_eq!(file_browser_search_hint(1), None);
-        assert_eq!(file_browser_search_hint(2), Some("/:"));
-        assert_eq!(file_browser_search_hint(9), Some("/: Search"));
-        assert_eq!(file_browser_search_hint(20), Some("/: Search  |  : Cmds"));
-        assert_eq!(
-            file_browser_search_hint(24),
-            Some("/: Search  |  : Commands")
-        );
-        assert_eq!(
-            file_browser_search_hint(80),
-            Some(crate::ui::GLOBAL_SEARCH_HINT)
-        );
     }
 
     #[test]
