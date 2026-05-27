@@ -19,7 +19,7 @@ use crate::core::models::intent::{
 use crate::event::Event;
 use crate::keymap::registry::KeyBindingRegistry;
 use crate::keymap::{Action, FocusContext};
-use crate::ui::{count_label, nonzero_count_label};
+use crate::ui::{count_label, nonzero_count_label, truncate_display};
 
 use super::render::{render_workers, render_workers_status};
 use super::runner::{WorkerOutput, WorkerRunner};
@@ -992,7 +992,7 @@ fn workers_status_line(state: &PluginState) -> String {
     if state.intents.is_empty() {
         return format!(
             "No intents yet | n: New intent | f: Reload intents | specs: {}",
-            state.intents_dir.display()
+            workers_specs_status_path(state)
         );
     }
 
@@ -1018,6 +1018,10 @@ fn workers_status_line(state: &PluginState) -> String {
     parts.extend(nonzero_count_label(completed, "completed", "completed"));
 
     parts.join(" | ")
+}
+
+fn workers_specs_status_path(state: &PluginState) -> String {
+    truncate_display(&state.intents_dir.display().to_string(), 40)
 }
 
 // ============================================================================
@@ -1489,6 +1493,23 @@ mod tests {
                 "No intents yet | n: New intent | f: Reload intents | specs: .rightclick/intents"
                     .to_string()
             )
+        );
+    }
+
+    #[test]
+    fn test_status_line_truncates_long_specs_path_when_empty() {
+        let state = PluginState::new(
+            PathBuf::from(".rightclick/intents/very-long-directory-name-for-agent-specs"),
+            PathBuf::from("logs"),
+        );
+
+        assert_eq!(
+            workers_specs_status_path(&state),
+            ".rightclick/intents/very-long-directo..."
+        );
+        assert_eq!(
+            workers_status_line(&state),
+            "No intents yet | n: New intent | f: Reload intents | specs: .rightclick/intents/very-long-directo..."
         );
     }
 
