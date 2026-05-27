@@ -90,6 +90,12 @@ fn developer_commands_explain_quick_warning_policy() {
         ),
         "README quick command should explain that clippy still denies warnings"
     );
+    assert!(
+        README.contains(
+            "bash scripts/dev.sh pre-commit    # quick checks before committing, without tests"
+        ),
+        "README pre-commit command should explain that it skips tests"
+    );
 }
 
 #[test]

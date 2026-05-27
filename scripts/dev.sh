@@ -12,7 +12,7 @@ Usage: bash scripts/dev.sh <command>
 
 Commands:
   ci             same checks used by GitHub Actions
-  pre-commit     quick checks to run before a local commit
+  pre-commit     quick checks to run before a local commit, without tests
   pre-push       full local verification before pushing
   doctor         check required and optional local developer tools
   rust-version   print the required Rust version from Cargo.toml

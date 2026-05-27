@@ -171,6 +171,10 @@ fn dev_script_help_explains_test_many() {
         "dev script help should explain that quick still denies warnings but skips tests"
     );
     assert!(
+        stdout.contains("pre-commit     quick checks to run before a local commit, without tests"),
+        "dev script help should explain that pre-commit skips tests"
+    );
+    assert!(
         stdout.contains("cargo test\nitself accepts only one substring filter per invocation"),
         "dev script help should explain why test-many runs filters separately"
     );
