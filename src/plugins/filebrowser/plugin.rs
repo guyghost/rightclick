@@ -13,6 +13,7 @@ use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 use crate::event::Event;
@@ -32,6 +33,7 @@ const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty input: Clear  |  E
 const ERROR_MODAL_HINT: &str = "Enter/Esc: Close";
 const HELP_OVERLAY_HINT: &str = "?: Toggle help";
 const FILE_INFO_OVERLAY_HINT: &str = "I: Close";
+const FILE_BROWSER_SEARCH_HINT: &str = "/: Global search  |  : Command search";
 const MIN_OVERLAY_WIDTH: u16 = 24;
 const MIN_OVERLAY_HEIGHT: u16 = 5;
 
@@ -752,7 +754,7 @@ impl FileBrowserPlugin {
             let inner = preview_block.inner(content_layout[1]);
             preview_block.render(content_layout[1], buf);
 
-            let no_preview = Paragraph::new(file_preview_empty_message(&self.state))
+            let no_preview = Paragraph::new(file_preview_empty_message(&self.state, inner.width))
                 .alignment(Alignment::Center)
                 .style(text_style)
                 .wrap(ratatui::widgets::Wrap { trim: true });
@@ -771,7 +773,7 @@ impl FileBrowserPlugin {
         let visible_indices = self.state.visible_indices();
 
         if visible_indices.is_empty() {
-            let empty = Paragraph::new(file_tree_empty_message(&self.state))
+            let empty = Paragraph::new(file_tree_empty_message(&self.state, area.width))
                 .alignment(Alignment::Center)
                 .style(muted_style)
                 .wrap(ratatui::widgets::Wrap { trim: true });
@@ -1067,7 +1069,7 @@ impl FileBrowserPlugin {
 
             lines
         } else {
-            file_info_empty_message()
+            file_info_empty_message(inner.width)
                 .lines()
                 .map(|line| Line::from(vec![Span::styled(line.to_string(), muted_style)]))
                 .collect()
@@ -1372,41 +1374,153 @@ fn visible_file_count_label(count: usize) -> String {
     }
 }
 
-fn file_tree_empty_message(state: &PluginState) -> String {
+fn file_tree_empty_message(state: &PluginState, width: u16) -> String {
     if let Some(query) = &state.filter_query {
-        format!(
-            "No files match \"{}\"\n\nf: Change or clear filter\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help",
-            query
+        file_browser_empty_message(
+            vec![
+                format!("No files match \"{}\"", truncate_display(query, 40)),
+                String::new(),
+                "f: Change or clear filter".to_string(),
+                "r: Refresh files".to_string(),
+            ],
+            width,
         )
     } else if state.tree.entries.is_empty() {
-        "No files yet\n\na: New file\nA: New directory\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
-            .to_string()
+        file_browser_empty_message(
+            vec![
+                "No files yet".to_string(),
+                String::new(),
+                "a: New file".to_string(),
+                "A: New directory".to_string(),
+                "r: Refresh files".to_string(),
+            ],
+            width,
+        )
     } else {
-        "No visible files\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
-            .to_string()
+        file_browser_empty_message(
+            vec![
+                "No visible files".to_string(),
+                String::new(),
+                "H: Toggle hidden".to_string(),
+                "i: Toggle ignored".to_string(),
+                "f: Filter files".to_string(),
+                "r: Refresh files".to_string(),
+            ],
+            width,
+        )
     }
 }
 
-fn file_preview_empty_message(state: &PluginState) -> String {
+fn file_preview_empty_message(state: &PluginState, width: u16) -> String {
     if let Some(query) = &state.filter_query {
-        format!(
-            "No matching file to preview\n\nNo files match \"{}\"\nf: Change or clear filter\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help",
-            query
+        file_browser_empty_message(
+            vec![
+                "No matching file to preview".to_string(),
+                String::new(),
+                format!("No files match \"{}\"", truncate_display(query, 40)),
+                "f: Change or clear filter".to_string(),
+                "r: Refresh files".to_string(),
+            ],
+            width,
         )
     } else if state.tree.entries.is_empty() {
-        "No file to preview yet\n\na: New file\nA: New directory\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
-            .to_string()
+        file_browser_empty_message(
+            vec![
+                "No file to preview yet".to_string(),
+                String::new(),
+                "a: New file".to_string(),
+                "A: New directory".to_string(),
+                "r: Refresh files".to_string(),
+            ],
+            width,
+        )
     } else if state.visible_indices().is_empty() {
-        "No visible file to preview\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
-            .to_string()
+        file_browser_empty_message(
+            vec![
+                "No visible file to preview".to_string(),
+                String::new(),
+                "H: Toggle hidden".to_string(),
+                "i: Toggle ignored".to_string(),
+                "f: Filter files".to_string(),
+                "r: Refresh files".to_string(),
+            ],
+            width,
+        )
     } else {
-        "No file selected\n\nj/k: Navigate files\nEnter/Space: Toggle directory\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
-            .to_string()
+        file_browser_empty_message(
+            vec![
+                "No file selected".to_string(),
+                String::new(),
+                "j/k: Navigate files".to_string(),
+                "Enter/Space: Toggle directory".to_string(),
+                "f: Filter files".to_string(),
+                "r: Refresh files".to_string(),
+            ],
+            width,
+        )
     }
 }
 
-fn file_info_empty_message() -> &'static str {
-    "No file selected\n\nj/k: Navigate files\nEnter/Space: Toggle directory\nI: Close info\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
+fn file_info_empty_message(width: u16) -> String {
+    file_browser_empty_message(
+        vec![
+            "No file selected".to_string(),
+            String::new(),
+            "j/k: Navigate files".to_string(),
+            "Enter/Space: Toggle directory".to_string(),
+            "I: Close info".to_string(),
+            "r: Refresh files".to_string(),
+        ],
+        width,
+    )
+}
+
+fn file_browser_empty_message(mut lines: Vec<String>, width: u16) -> String {
+    if let Some(hint) = file_browser_search_hint(width) {
+        lines.push(hint.to_string());
+    }
+    lines.push("?: Toggle help".to_string());
+    lines.join("\n")
+}
+
+fn file_browser_search_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [
+        FILE_BROWSER_SEARCH_HINT,
+        "/: Search  |  : Commands",
+        "/: Search  |  : Cmds",
+        "/: Search",
+        "/:",
+    ]
+    .into_iter()
+    .find(|hint| hint.width() <= width)
+}
+
+fn truncate_display(text: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+
+    if text.width() <= max_width {
+        return text.to_string();
+    }
+
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in text.chars() {
+        let ch_width = ch.width().unwrap_or(0);
+        if width + ch_width + 3 > max_width {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output.push_str("...");
+    output
 }
 
 // Helper function for muted style
@@ -1749,7 +1863,7 @@ mod tests {
         let mut state = PluginState::new(temp_dir.path().to_path_buf());
         state.tree.entries.clear();
 
-        let message = file_tree_empty_message(&state);
+        let message = file_tree_empty_message(&state, 80);
 
         assert!(message.contains("No files yet"));
         assert!(message.contains("a: New file"));
@@ -1772,28 +1886,68 @@ mod tests {
             assert!(message.contains(": Command search"), "{message}");
         };
 
-        assert_hint(&file_tree_empty_message(&empty_state));
-        assert_hint(&file_preview_empty_message(&empty_state));
-        assert_hint(file_info_empty_message());
+        assert_hint(&file_tree_empty_message(&empty_state, 80));
+        assert_hint(&file_preview_empty_message(&empty_state, 80));
+        assert_hint(&file_info_empty_message(80));
 
         let mut filtered_state = PluginState::new(temp_dir.path().to_path_buf());
         filtered_state.set_filter(Some("missing".to_string()));
-        assert_hint(&file_tree_empty_message(&filtered_state));
-        assert_hint(&file_preview_empty_message(&filtered_state));
+        assert_hint(&file_tree_empty_message(&filtered_state, 80));
+        assert_hint(&file_preview_empty_message(&filtered_state, 80));
 
         let hidden_path = temp_dir.path().join(".hidden");
         fs::write(&hidden_path, "hidden").unwrap();
         let mut hidden_state = PluginState::new(temp_dir.path().to_path_buf());
         hidden_state.refresh();
         hidden_state.show_hidden = false;
-        assert_hint(&file_tree_empty_message(&hidden_state));
-        assert_hint(&file_preview_empty_message(&hidden_state));
+        assert_hint(&file_tree_empty_message(&hidden_state, 80));
+        assert_hint(&file_preview_empty_message(&hidden_state, 80));
 
         fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
         let mut unselected_state = PluginState::new(temp_dir.path().to_path_buf());
         unselected_state.refresh();
         unselected_state.selected_path = None;
-        assert_hint(&file_preview_empty_message(&unselected_state));
+        assert_hint(&file_preview_empty_message(&unselected_state, 80));
+    }
+
+    #[test]
+    fn test_file_browser_search_hint_compacts_for_narrow_widths() {
+        assert_eq!(file_browser_search_hint(1), None);
+        assert_eq!(file_browser_search_hint(2), Some("/:"));
+        assert_eq!(file_browser_search_hint(9), Some("/: Search"));
+        assert_eq!(file_browser_search_hint(20), Some("/: Search  |  : Cmds"));
+        assert_eq!(
+            file_browser_search_hint(24),
+            Some("/: Search  |  : Commands")
+        );
+        assert_eq!(file_browser_search_hint(80), Some(FILE_BROWSER_SEARCH_HINT));
+    }
+
+    #[test]
+    fn test_file_browser_empty_messages_truncate_long_filter_query() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.set_filter(Some(
+            "abcdefghijklmnopqrstuvwxyz0123456789abcdef".to_string(),
+        ));
+
+        let tree = file_tree_empty_message(&state, 80);
+        let preview = file_preview_empty_message(&state, 80);
+
+        assert!(tree.contains("No files match \"abcdefghijklmnopqrstuvwxyz0123456789a...\""));
+        assert!(preview.contains("No files match \"abcdefghijklmnopqrstuvwxyz0123456789a...\""));
+        assert!(!tree.contains("abcdef\""));
+        assert!(!preview.contains("abcdef\""));
+    }
+
+    #[test]
+    fn test_file_info_empty_message_omits_search_hint_when_too_narrow() {
+        let message = file_info_empty_message(1);
+
+        assert!(message.contains("No file selected"));
+        assert!(!message.contains("Global search"));
+        assert!(!message.contains("/:"));
+        assert!(message.contains("?: Toggle help"));
     }
 
     #[test]
@@ -1802,7 +1956,7 @@ mod tests {
         let mut state = PluginState::new(temp_dir.path().to_path_buf());
         state.set_filter(Some("missing".to_string()));
 
-        let message = file_tree_empty_message(&state);
+        let message = file_tree_empty_message(&state, 80);
 
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f: Change or clear filter"));
@@ -1819,7 +1973,7 @@ mod tests {
         let mut state = PluginState::new(temp_dir.path().to_path_buf());
         state.set_filter(Some("missing".to_string()));
 
-        let message = file_preview_empty_message(&state);
+        let message = file_preview_empty_message(&state, 80);
 
         assert!(message.contains("No matching file to preview"));
         assert!(message.contains("No files match \"missing\""));
@@ -1839,7 +1993,7 @@ mod tests {
         state.refresh();
         state.show_hidden = false;
 
-        let message = file_tree_empty_message(&state);
+        let message = file_tree_empty_message(&state, 80);
 
         assert!(message.contains("No visible files"));
         assert!(message.contains("H: Toggle hidden"));
@@ -1859,7 +2013,7 @@ mod tests {
         state.refresh();
         state.show_hidden = false;
 
-        let message = file_preview_empty_message(&state);
+        let message = file_preview_empty_message(&state, 80);
 
         assert!(message.contains("No visible file to preview"));
         assert!(message.contains("H: Toggle hidden"));
@@ -1878,7 +2032,7 @@ mod tests {
         let mut state = PluginState::new(temp_dir.path().to_path_buf());
         state.tree.entries.clear();
 
-        let message = file_preview_empty_message(&state);
+        let message = file_preview_empty_message(&state, 80);
 
         assert!(message.contains("No file to preview yet"));
         assert!(message.contains("a: New file"));
