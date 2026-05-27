@@ -372,6 +372,10 @@ impl ConversationsRenderer {
             "  g/G: First/Last session",
             muted_style,
         )]));
+        text_lines.push(Line::from(vec![Span::styled(
+            format!("  {}", SEARCH_HINT),
+            muted_style,
+        )]));
 
         let paragraph = Paragraph::new(Text::from(text_lines))
             .style(text_style)
@@ -1216,6 +1220,7 @@ mod tests {
         assert!(content.contains("f: Filter sessions"));
         assert!(content.contains("r: Refresh sessions"));
         assert!(content.contains("g/G: First/Last session"));
+        assert!(content.contains(SEARCH_HINT));
         assert!(!content.contains("Enter or l"));
         assert!(!content.contains("Enter/l/o     Open session"));
     }
