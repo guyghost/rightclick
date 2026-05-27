@@ -1,6 +1,6 @@
-//! Command palette system for RightClick.
+//! Command search palette system for RightClick.
 //!
-//! This module provides a fuzzy-searchable command palette for quickly
+//! This module provides a fuzzy-searchable command search UI for quickly
 //! accessing commands and navigating the application. It uses nucleo
 //! for fast fuzzy matching and integrates with the theme system for
 //! consistent styling.
@@ -133,8 +133,8 @@ pub fn standard_entries() -> Vec<PaletteEntry> {
         PaletteEntry::minimal("view.toggle_panel", "Toggle Bottom Panel", Category::View)
             .with_description("Show or hide the bottom panel")
             .with_key("ctrl+j"),
-        PaletteEntry::minimal("view.command_palette", "Command Palette", Category::View)
-            .with_description("Open the command palette")
+        PaletteEntry::minimal("view.command_palette", "Command Search", Category::View)
+            .with_description("Search available commands")
             .with_key("ctrl+shift+p"),
         // Git
         PaletteEntry::minimal("git.commit", "Git Commit", Category::Git)
@@ -170,6 +170,18 @@ mod tests {
     fn test_standard_entries_not_empty() {
         let entries = standard_entries();
         assert!(!entries.is_empty());
+    }
+
+    #[test]
+    fn test_standard_entries_name_command_search_consistently() {
+        let entries = standard_entries();
+        let command_search = entries
+            .iter()
+            .find(|entry| entry.command_id == "view.command_palette")
+            .expect("standard entries should include command search");
+
+        assert_eq!(command_search.name, "Command Search");
+        assert_eq!(command_search.description, "Search available commands");
     }
 
     #[test]

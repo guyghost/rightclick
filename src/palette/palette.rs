@@ -1,7 +1,7 @@
 //! Command palette widget for RightClick.
 //!
 //! This module provides a TUI component for displaying and interacting
-//! with a searchable command palette using fuzzy matching.
+//! with searchable command results using fuzzy matching.
 
 use std::str::FromStr;
 
@@ -40,7 +40,7 @@ pub enum PaletteAction {
     ToggleContextMode,
 }
 
-/// The command palette widget.
+/// The command search widget.
 #[derive(Debug, Clone)]
 pub struct Palette {
     /// Current input text
@@ -370,7 +370,7 @@ impl Palette {
 
         Line::from(vec![
             Span::styled(
-                "Command Palette",
+                "Command Search",
                 style_for_ui_element(theme, UiElement::Primary).add_modifier(Modifier::BOLD),
             ),
             Span::styled(
@@ -718,7 +718,7 @@ fn palette_title_context_and_hint(
     width: u16,
 ) -> (&'static str, &'static str) {
     let width = width as usize;
-    let base = "Command Palette";
+    let base = "Command Search";
 
     if show_all_contexts {
         [
@@ -1144,7 +1144,7 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("Command Palette"));
+        assert!(content.contains("Command Search"));
     }
 
     #[test]
@@ -1180,7 +1180,7 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("Command Palette"));
+        assert!(content.contains("Command Search"));
         assert!(!content.contains("(Tab: contexts)"));
     }
 

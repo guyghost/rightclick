@@ -1,4 +1,4 @@
-//! Fuzzy matching for the command palette.
+//! Fuzzy matching for command search.
 //!
 //! Uses nucleo for fast, high-quality fuzzy matching with scoring
 //! and match range extraction.

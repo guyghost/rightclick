@@ -1,4 +1,4 @@
-//! Palette entry types for the command palette system.
+//! Palette entry types for the command search system.
 //!
 //! This module defines the data structures for palette entries, including
 //! categories, context associations, and entry metadata.
@@ -71,7 +71,7 @@ impl std::fmt::Display for Category {
     }
 }
 
-/// A single entry in the command palette.
+/// A single entry in command search.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PaletteEntry {
     /// Unique key for this entry (used for keybinding display like "ctrl+s")
