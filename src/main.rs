@@ -996,7 +996,7 @@ fn plugin_uses_tab_for_panes(plugin_id: &str) -> bool {
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?: Toggle help\n/: Global search\n: Command search\nq/Ctrl+C: Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug bash scripts/dev.sh run\nCheck configuration if this persists."
+    "No plugins loaded\n\n?: Toggle help\n/: Global search  |  : Command search\nq/Ctrl+C: Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug bash scripts/dev.sh run\nCheck configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -1727,8 +1727,8 @@ mod tests {
 
         assert!(message.contains("No plugins loaded"));
         assert!(message.contains("?: Toggle help"));
-        assert!(message.contains("/: Global search"));
-        assert!(message.contains(": Command search"));
+        assert!(message.contains("/: Global search  |  : Command search"));
+        assert!(!message.contains("/: Global search\n: Command search"));
         assert!(message.contains("q/Ctrl+C: Quit"));
         assert!(message.contains("Diagnostics:"));
         assert!(message.contains("bash scripts/dev.sh doctor"));
