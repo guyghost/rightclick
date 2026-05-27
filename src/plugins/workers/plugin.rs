@@ -917,7 +917,7 @@ impl WorkersPlugin {
             PluginCommand::new("run", "Run Workers", 'r'),
             PluginCommand::new("stop", "Stop Workers", 's'),
             PluginCommand::new("open", "Open Intent", 'o'),
-            PluginCommand::new("refresh", "Refresh", 'f'),
+            PluginCommand::new("refresh", "Refresh intents", 'f'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
             PluginCommand::new("prev-tab", "Previous Tab", '['),
             PluginCommand::new("next-tab", "Next Tab", ']'),
@@ -1152,7 +1152,7 @@ impl Plugin for WorkersPlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
-                "Refresh",
+                "Refresh intents",
                 "Reload worker state",
                 'f',
                 crate::keymap::FocusContext::Workspace,
@@ -1329,7 +1329,7 @@ mod tests {
             .execute_command("refresh")
             .expect("refresh command should execute");
 
-        assert_eq!(execution.command_name, "Refresh");
+        assert_eq!(execution.command_name, "Refresh intents");
         assert_eq!(plugin.pending_commands.pop_front(), Some(Command::Refresh));
     }
 
