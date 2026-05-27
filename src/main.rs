@@ -605,25 +605,33 @@ impl App {
         let mut results = Vec::new();
         for plugin in &self.plugins {
             for command in plugin.commands() {
+                let full_id = format!("{}:{}", plugin.id(), command.id);
                 let name_score = fuzzy_match_simple(&command.name, query).unwrap_or(0);
                 let desc_score = fuzzy_match_simple(&command.description, query).unwrap_or(0);
                 let id_score = fuzzy_match_simple(&command.id, query).unwrap_or(0);
+                let full_id_score = fuzzy_match_simple(&full_id, query).unwrap_or(0);
                 let key_score = fuzzy_match_simple(&command.key.to_string(), query).unwrap_or(0);
+                let plugin_id_score = fuzzy_match_simple(plugin.id(), query).unwrap_or(0);
+                let plugin_name_score = fuzzy_match_simple(plugin.name(), query).unwrap_or(0);
+                let category_score =
+                    fuzzy_match_simple(command.category.display_name(), query).unwrap_or(0);
                 let title = format!("{}: {}", plugin.name(), command.name);
                 let title_score = fuzzy_match_simple(&title, query).unwrap_or(0);
                 let score = name_score
                     .max(desc_score)
                     .max(id_score)
+                    .max(full_id_score)
                     .max(key_score)
+                    .max(plugin_id_score)
+                    .max(plugin_name_score)
+                    .max(category_score)
                     .max(title_score);
                 if score == 0 {
                     continue;
                 }
 
                 results.push(SearchResult {
-                    kind: SearchResultKind::Command {
-                        id: format!("{}:{}", plugin.id(), command.id),
-                    },
+                    kind: SearchResultKind::Command { id: full_id },
                     title,
                     preview: format_command_search_preview(&command),
                     score,
@@ -1832,6 +1840,61 @@ mod tests {
             results[0].preview,
             "Shortcut: z | ID: rebuild | Compile workspace"
         );
+    }
+
+    #[test]
+    fn test_search_plugin_commands_matches_category() {
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let commands = vec![rightclick::plugin::PluginCommand::new(
+            "sync",
+            "Sync Changes",
+            "Fetch remote updates",
+            rightclick::plugin::Category::Git,
+            's',
+            rightclick::keymap::FocusContext::Global,
+            0,
+        )];
+        let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![Box::new(RecordingPlugin {
+            id: "repository",
+            name: "Repository",
+            commands,
+            events,
+            focused: false,
+        })];
+        let app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+
+        let results = app.search_plugin_commands("git", 10);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Repository: Sync Changes");
+    }
+
+    #[test]
+    fn test_search_plugin_commands_matches_full_command_id() {
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let commands = vec![rightclick::plugin::PluginCommand::with_context_description(
+            "open-pr",
+            "Open Pull Request",
+            "Open review in browser",
+            'o',
+            rightclick::keymap::FocusContext::Global,
+        )];
+        let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![Box::new(RecordingPlugin {
+            id: "repo_tools",
+            name: "Review Tools",
+            commands,
+            events,
+            focused: false,
+        })];
+        let app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+
+        let results = app.search_plugin_commands("repo_tools:open-pr", 10);
+
+        assert_eq!(results.len(), 1);
+        assert!(matches!(
+            &results[0].kind,
+            rightclick::search::SearchResultKind::Command { id } if id == "repo_tools:open-pr"
+        ));
     }
 
     #[test]
