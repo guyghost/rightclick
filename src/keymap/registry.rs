@@ -521,8 +521,8 @@ impl Registry {
                 .with_description("Refresh the current view"),
         );
         self.register_command(
-            Command::new("app.palette", "Command Palette", || Action::OpenPalette)
-                .with_description("Open the command palette"),
+            Command::new("app.palette", "Command search", || Action::OpenPalette)
+                .with_description("Search available commands"),
         );
         self.register_command(
             Command::new("app.help", "Toggle help", || Action::OpenHelp)
@@ -871,6 +871,14 @@ mod tests {
         assert_eq!(
             refresh.description.as_deref(),
             Some("Refresh the current view")
+        );
+        let palette = registry
+            .get_command("app.palette")
+            .expect("command search command");
+        assert_eq!(palette.name, "Command search");
+        assert_eq!(
+            palette.description.as_deref(),
+            Some("Search available commands")
         );
         let search = registry
             .get_command("app.search")

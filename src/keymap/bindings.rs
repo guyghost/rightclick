@@ -24,7 +24,7 @@ pub enum Action {
     /// Switch to a different plugin/view.
     SwitchPlugin(String),
 
-    /// Open the command palette.
+    /// Open command search.
     OpenPalette,
 
     /// Toggle the help overlay.
@@ -159,7 +159,7 @@ impl Action {
             Self::Quit => "Quit",
             Self::Refresh => "Refresh",
             Self::SwitchPlugin(_) => "Switch Plugin",
-            Self::OpenPalette => "Open Command Palette",
+            Self::OpenPalette => "Command search",
             Self::OpenHelp => "Toggle help",
             Self::NavigateUp => "Navigate Up",
             Self::NavigateDown => "Navigate Down",
@@ -312,7 +312,7 @@ mod tests {
     fn action_description() {
         assert_eq!(Action::Quit.description(), "Quit");
         assert_eq!(Action::Refresh.description(), "Refresh");
-        assert_eq!(Action::OpenPalette.description(), "Open Command Palette");
+        assert_eq!(Action::OpenPalette.description(), "Command search");
         assert_eq!(Action::OpenHelp.description(), "Toggle help");
         assert_eq!(Action::Search.description(), "Global search");
     }

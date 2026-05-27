@@ -68,6 +68,12 @@ impl SearchOverlayState {
         self.scope = SearchScope::All;
     }
 
+    /// Open the search overlay with a specific scope selected
+    pub fn open_with_scope(&mut self, scope: SearchScope) {
+        self.open();
+        self.scope = scope;
+    }
+
     /// Close the search overlay
     pub fn close(&mut self) {
         self.visible = false;
@@ -714,6 +720,18 @@ mod tests {
         state.close();
         assert!(!state.visible);
         assert!(!state.input.is_active());
+    }
+
+    #[test]
+    fn test_overlay_open_with_scope() {
+        let mut state = SearchOverlayState::new();
+        state.open_with_scope(SearchScope::Commands);
+
+        assert!(state.visible);
+        assert!(state.input.is_active());
+        assert_eq!(state.scope, SearchScope::Commands);
+        assert_eq!(state.query(), "");
+        assert!(state.results.is_empty());
     }
 
     #[test]

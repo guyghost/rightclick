@@ -90,6 +90,7 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 | `tab` / `shift+tab` | Navigate plugins |
 | `1-9` | Focus plugin by number |
 | `/` | Search files, commands, sessions, worktrees, and intents |
+| `:` | Search commands |
 | `j/k`, `↓/↑` | Navigate items |
 | `enter` | Select |
 | `esc` | Back/close |
@@ -98,7 +99,8 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 
 ## Search
 
-Press `/` to open global search. Use `tab` inside the overlay to switch scope:
+Press `/` to open global search, or `:` to open it directly on commands. Use
+`tab` inside the overlay to switch scope:
 
 - **All**: search files, commands, sessions, worktrees, and intents together
 - **Files**: search file contents with `rg`

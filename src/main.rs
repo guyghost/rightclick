@@ -350,6 +350,10 @@ impl App {
                             self.search.open();
                             return Ok(());
                         }
+                        KeyCode::Char(':') => {
+                            self.search.open_with_scope(SearchScope::Commands);
+                            return Ok(());
+                        }
                         KeyCode::Char('?') => {
                             self.show_help = !self.show_help;
                             return Ok(());
@@ -846,6 +850,7 @@ fn build_help_lines(
         String::new(),
         "Global shortcuts:".to_string(),
         "  /        Global search".to_string(),
+        "  :        Command search".to_string(),
         "  ?        Help".to_string(),
         "  Tab      Switch plugin/pane".to_string(),
         "  Shift+Tab  Previous plugin/pane".to_string(),
@@ -888,6 +893,7 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         String::new(),
         "Global shortcuts:".to_string(),
         "  /        Global search".to_string(),
+        "  :        Command search".to_string(),
         "  ?        Help".to_string(),
         "  q/Ctrl+C  Quit".to_string(),
         String::new(),
@@ -913,6 +919,7 @@ fn build_footer_hints(
     for (key, label) in [
         ("Tab", tab_label),
         ("/", "Global search"),
+        (":", "Command search"),
         ("?", "Help"),
         ("q/Ctrl+C", "Quit"),
         ("1-9", "Plugin"),
@@ -943,7 +950,7 @@ fn build_footer_hints(
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?  Help\n/  Global search\nq/Ctrl+C  Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug rightclick\nCheck configuration if this persists."
+    "No plugins loaded\n\n?  Help\n/  Global search\n:  Command search\nq/Ctrl+C  Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug rightclick\nCheck configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -954,6 +961,7 @@ fn no_plugins_footer_hints() -> Vec<(String, String)> {
     vec![
         ("?".to_string(), "Help".to_string()),
         ("/".to_string(), "Global search".to_string()),
+        (":".to_string(), "Command search".to_string()),
         ("q/Ctrl+C".to_string(), "Quit".to_string()),
     ]
 }
@@ -1093,6 +1101,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("/") && line.contains("Global search"))
         );
+        assert!(lines.contains(&"  :        Command search".to_string()));
         assert!(lines.iter().any(|line| line == "  ?        Help"));
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
         assert!(lines.contains(&"  Tab      Switch plugin/pane".to_string()));
@@ -1246,6 +1255,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("/") && line.contains("Global search"))
         );
+        assert!(lines.contains(&"  :        Command search".to_string()));
         assert!(
             lines
                 .iter()
@@ -1319,11 +1329,12 @@ mod tests {
             &[
                 ("Tab".to_string(), "Switch".to_string()),
                 ("/".to_string(), "Global search".to_string()),
+                (":".to_string(), "Command search".to_string()),
                 ("?".to_string(), "Help".to_string()),
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
-                ("1-9".to_string(), "Plugin".to_string()),
             ]
         );
+        assert!(hints.contains(&("1-9".to_string(), "Plugin".to_string())));
         assert!(hints.contains(&("r".to_string(), "Refresh".to_string())));
         assert!(!hints.iter().any(|(key, _)| key == "j"));
     }
@@ -1350,7 +1361,7 @@ mod tests {
 
         let hints = build_footer_hints("workspace", &commands);
 
-        let plugin_hints = &hints[5..];
+        let plugin_hints = &hints[6..];
         assert_eq!(plugin_hints[0], ("p".to_string(), "Primary".to_string()));
         assert_eq!(plugin_hints[1], ("s".to_string(), "Secondary".to_string()));
     }
@@ -1369,6 +1380,7 @@ mod tests {
         assert!(message.contains("No plugins loaded"));
         assert!(message.contains("?  Help"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(message.contains("q/Ctrl+C  Quit"));
         assert!(message.contains("Diagnostics:"));
         assert!(message.contains("bash scripts/dev.sh doctor"));
@@ -1380,6 +1392,7 @@ mod tests {
             vec![
                 ("?".to_string(), "Help".to_string()),
                 ("/".to_string(), "Global search".to_string()),
+                (":".to_string(), "Command search".to_string()),
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
             ]
         );
