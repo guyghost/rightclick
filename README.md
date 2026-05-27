@@ -91,7 +91,7 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 | Key | Action |
 |-----|--------|
 | `q`, `Ctrl+C` | Quit |
-| `Tab` / `Shift+Tab` | Navigate plugins |
+| `Tab` / `Shift+Tab` | Navigate plugins or panes |
 | `1-9` | Focus plugin by number |
 | `/` | Search files, commands, sessions, worktrees, and intents |
 | `:` | Command search |
@@ -100,6 +100,10 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 | `Esc` | Back/close |
 | `r` | Refresh current view |
 | `?` | Toggle help |
+
+In pane-based views such as Git Status, Workspace, and Workers, `Tab` and
+`Shift+Tab` move between panes. Use `Ctrl+Tab` or `Ctrl+Shift+Tab` there when
+you want to move between plugins instead.
 
 ## Search
 

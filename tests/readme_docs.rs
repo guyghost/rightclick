@@ -28,7 +28,7 @@ fn keyboard_shortcuts_include_command_search() {
 fn keyboard_shortcuts_use_display_key_casing() {
     for row in [
         "| `q`, `Ctrl+C` | Quit |",
-        "| `Tab` / `Shift+Tab` | Navigate plugins |",
+        "| `Tab` / `Shift+Tab` | Navigate plugins or panes |",
         "| `Enter` | Select |",
         "| `Esc` | Back/close |",
     ] {
@@ -41,6 +41,10 @@ fn keyboard_shortcuts_use_display_key_casing() {
     assert!(
         README.contains("Use\n`Tab` or `Shift+Tab` inside the overlay to switch scope:"),
         "README search docs should match UI key casing for Tab and Shift+Tab"
+    );
+    assert!(
+        README.contains("Use `Ctrl+Tab` or `Ctrl+Shift+Tab` there when"),
+        "README should document plugin navigation from pane-based views"
     );
 }
 
