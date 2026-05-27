@@ -227,7 +227,7 @@ pub fn default_key_bindings() -> Vec<(String, String)> {
         ("↑/↓ or j/k".to_string(), "Navigate".to_string()),
         ("Enter/l/o".to_string(), "Open session".to_string()),
         ("Esc/h".to_string(), "Go back".to_string()),
-        ("f".to_string(), "Filter".to_string()),
+        ("f".to_string(), "Filter sessions".to_string()),
         ("r".to_string(), "Refresh current view".to_string()),
         ("g/G".to_string(), "First/Last".to_string()),
         ("PgUp/PgDn".to_string(), "Page up/down".to_string()),
@@ -354,7 +354,11 @@ mod tests {
         );
         assert!(bindings.iter().any(|(k, v)| k == "Esc/h" && v == "Go back"));
         assert!(!bindings.iter().any(|(k, _)| k == "Esc or h"));
-        assert!(bindings.iter().any(|(k, v)| k == "f" && v == "Filter"));
+        assert!(
+            bindings
+                .iter()
+                .any(|(k, v)| k == "f" && v == "Filter sessions")
+        );
         assert!(
             bindings
                 .iter()
