@@ -170,7 +170,15 @@ print_command() {
 }
 
 run_step() {
+  local target_dir_prefix=""
+  if [ "${1:-}" = "cargo" ] && [ -n "${CARGO_TARGET_DIR:-}" ]; then
+    local quoted_target_dir
+    printf -v quoted_target_dir '%q' "$CARGO_TARGET_DIR"
+    target_dir_prefix="CARGO_TARGET_DIR=$quoted_target_dir "
+  fi
+
   printf '\n==> ' >&2
+  printf '%s' "$target_dir_prefix" >&2
   print_command "$@" >&2
   printf '\n' >&2
   "$@"

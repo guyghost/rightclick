@@ -1,6 +1,13 @@
 use std::process::Command;
 
 fn run_dev_script_with_fake_cargo(args: &[&str]) -> std::process::Output {
+    run_dev_script_with_fake_cargo_and_env(args, &[])
+}
+
+fn run_dev_script_with_fake_cargo_and_env(
+    args: &[&str],
+    envs: &[(&str, &str)],
+) -> std::process::Output {
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
 
@@ -54,12 +61,17 @@ fi
         temp_dir.path().display(),
         std::env::var("PATH").expect("PATH should be set")
     );
-    Command::new("bash")
+    let mut command = Command::new("bash");
+    command
         .arg("scripts/dev.sh")
         .args(args)
         .env("PATH", path)
-        .output()
-        .expect("dev script should run")
+        .env_remove("CARGO_TARGET_DIR");
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+
+    command.output().expect("dev script should run")
 }
 
 #[test]
@@ -680,5 +692,27 @@ fn dev_script_run_step_shell_quotes_spaced_args() {
     assert!(
         stderr.contains("==> cargo test dev_script_help_explains_test_many -- --skip no\\ matching\\ skipped\\ test"),
         "dev script should quote spaced args in progress output: {stderr}"
+    );
+}
+
+#[test]
+fn dev_script_run_step_prints_cargo_target_dir_for_cargo_steps() {
+    let output = run_dev_script_with_fake_cargo_and_env(
+        &["test-one", "dev_script_help_explains_test_many"],
+        &[("CARGO_TARGET_DIR", "/tmp/rightclick target verify")],
+    );
+
+    assert!(
+        output.status.success(),
+        "test-one should pass for a known filter: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(
+            "==> CARGO_TARGET_DIR=/tmp/rightclick\\ target\\ verify cargo test dev_script_help_explains_test_many"
+        ),
+        "dev script should print the active cargo target dir in reproducible cargo steps: {stderr}"
     );
 }
