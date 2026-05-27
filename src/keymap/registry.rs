@@ -525,8 +525,8 @@ impl Registry {
                 .with_description("Open the command palette"),
         );
         self.register_command(
-            Command::new("app.help", "Help", || Action::OpenHelp)
-                .with_description("Open the help view"),
+            Command::new("app.help", "Toggle help", || Action::OpenHelp)
+                .with_description("Show or hide the help overlay"),
         );
         self.register_command(
             Command::new("app.back", "Back", || Action::Back)
@@ -877,6 +877,12 @@ mod tests {
             .expect("global search command");
         assert_eq!(search.name, "Global search");
         assert_eq!(search.description.as_deref(), Some("Open global search"));
+        let help = registry.get_command("app.help").expect("help command");
+        assert_eq!(help.name, "Toggle help");
+        assert_eq!(
+            help.description.as_deref(),
+            Some("Show or hide the help overlay")
+        );
     }
 
     #[test]

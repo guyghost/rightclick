@@ -27,7 +27,7 @@ pub enum Action {
     /// Open the command palette.
     OpenPalette,
 
-    /// Open the help view.
+    /// Toggle the help overlay.
     OpenHelp,
 
     /// Navigate up in a list or tree.
@@ -160,7 +160,7 @@ impl Action {
             Self::Refresh => "Refresh",
             Self::SwitchPlugin(_) => "Switch Plugin",
             Self::OpenPalette => "Open Command Palette",
-            Self::OpenHelp => "Open Help",
+            Self::OpenHelp => "Toggle help",
             Self::NavigateUp => "Navigate Up",
             Self::NavigateDown => "Navigate Down",
             Self::NavigateLeft => "Navigate Left",
@@ -313,6 +313,7 @@ mod tests {
         assert_eq!(Action::Quit.description(), "Quit");
         assert_eq!(Action::Refresh.description(), "Refresh");
         assert_eq!(Action::OpenPalette.description(), "Open Command Palette");
+        assert_eq!(Action::OpenHelp.description(), "Toggle help");
         assert_eq!(Action::Search.description(), "Global search");
     }
 
