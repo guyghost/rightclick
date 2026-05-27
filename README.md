@@ -80,7 +80,8 @@ If you prefer `just`, run `just help` for the same command overview. The default
 substring filters. If a filter does not match any test, the script prints the
 matching `test-list` command plus broader token searches to help refine the
 filter. `test-list` only accepts filters; pass Cargo test args to `test-one` or
-`test-many` after `--`. Use `test-many` when you want to check several filters in one command;
+`test-many` after `--`. `test-one` accepts exactly one filter; use `test-many`
+for multiple filters. Use `test-many` when you want to check several filters in one command;
 Cargo itself accepts only one substring filter per `cargo test` invocation.
 `test-list` reports `Listed N tests.` for the full list and
 `Listed N tests for filter: ...` for filtered lists. Filtered `test-list`,

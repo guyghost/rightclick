@@ -165,6 +165,10 @@ fn dev_script_help_explains_test_many() {
         "dev script help should explain when to use test-many"
     );
     assert!(
+        stdout.contains("test-one accepts exactly one filter; use test-many for multiple filters."),
+        "dev script help should explain that multiple filters belong on test-many"
+    );
+    assert!(
         stdout.contains(
             "quick          diff check, fmt check, and clippy with warnings denied, without tests"
         ),

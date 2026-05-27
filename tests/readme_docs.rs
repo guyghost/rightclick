@@ -117,6 +117,12 @@ fn developer_commands_explain_test_many() {
         "README should explain when to use test-many"
     );
     assert!(
+        README.contains(
+            "`test-one` accepts exactly one filter; use `test-many`\nfor multiple filters"
+        ),
+        "README should explain that multiple filters belong on test-many"
+    );
+    assert!(
         README
             .contains("Cargo itself accepts only one substring filter per `cargo test` invocation"),
         "README should clarify why test-many runs filters separately"
