@@ -740,7 +740,7 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
             detailed_context_hint,
             "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab",
             "Backspace: Edit | Ctrl+U: Clear | Esc: Close",
-            "Backspace/Ctrl+U  Esc/Tab/?",
+            "Edit/Clear | Esc/Tab/?",
             edit_context_hint,
             context_hint,
             short_context_hint,
@@ -1365,7 +1365,7 @@ mod tests {
         );
         assert_eq!(
             palette_empty_action_hint(27, true, false),
-            "Backspace/Ctrl+U  Esc/Tab/?"
+            "Edit/Clear | Esc/Tab/?"
         );
         assert_eq!(
             palette_empty_action_hint(55, true, false),
