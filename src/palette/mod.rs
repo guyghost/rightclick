@@ -134,7 +134,7 @@ pub fn standard_entries() -> Vec<PaletteEntry> {
             .with_description("Show or hide the bottom panel")
             .with_key("ctrl+j"),
         PaletteEntry::minimal("view.command_palette", "Command Search", Category::View)
-            .with_description("Search available commands")
+            .with_description("Search commands by plugin or action")
             .with_key(":"),
         // Git
         PaletteEntry::minimal("git.commit", "Git Commit", Category::Git)
@@ -181,7 +181,10 @@ mod tests {
             .expect("standard entries should include command search");
 
         assert_eq!(command_search.name, "Command Search");
-        assert_eq!(command_search.description, "Search available commands");
+        assert_eq!(
+            command_search.description,
+            "Search commands by plugin or action"
+        );
         assert_eq!(command_search.key, ":");
     }
 
