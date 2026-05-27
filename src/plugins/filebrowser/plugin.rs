@@ -20,7 +20,9 @@ use crate::event::Event;
 use crate::keymap::{Action, FocusContext};
 use crate::plugin::{Command, Plugin, PluginCommand, PluginContext};
 use crate::theme::{UiElement, style_for_ui_element};
-use crate::ui::{Footer, HELP_HINT, Header, KeyHint, compact_help_hint};
+use crate::ui::{
+    Footer, HELP_HINT, Header, KeyHint, compact_global_search_hint, compact_help_hint,
+};
 
 use super::preview::PreviewWidget;
 use super::state::{FileOperationModal, PluginState};
@@ -33,7 +35,6 @@ const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty input: Clear  |  E
 const ERROR_MODAL_HINT: &str = "Enter/Esc: Close";
 const HELP_OVERLAY_HINT: &str = HELP_HINT;
 const FILE_INFO_OVERLAY_HINT: &str = "I: Close";
-const FILE_BROWSER_SEARCH_HINT: &str = "/: Global search  |  : Command search";
 const MIN_OVERLAY_WIDTH: u16 = 24;
 const MIN_OVERLAY_HEIGHT: u16 = 5;
 
@@ -1485,16 +1486,7 @@ fn file_browser_empty_message(mut lines: Vec<String>, width: u16) -> String {
 }
 
 fn file_browser_search_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [
-        FILE_BROWSER_SEARCH_HINT,
-        "/: Search  |  : Commands",
-        "/: Search  |  : Cmds",
-        "/: Search",
-        "/:",
-    ]
-    .into_iter()
-    .find(|hint| hint.width() <= width)
+    compact_global_search_hint(width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
@@ -1918,7 +1910,10 @@ mod tests {
             file_browser_search_hint(24),
             Some("/: Search  |  : Commands")
         );
-        assert_eq!(file_browser_search_hint(80), Some(FILE_BROWSER_SEARCH_HINT));
+        assert_eq!(
+            file_browser_search_hint(80),
+            Some(crate::ui::GLOBAL_SEARCH_HINT)
+        );
     }
 
     #[test]

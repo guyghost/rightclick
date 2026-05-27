@@ -14,7 +14,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::compact_help_hint;
+use crate::ui::{compact_global_search_hint, compact_help_hint};
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 
@@ -23,7 +23,6 @@ const DELETE_WORKTREE_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const LINK_TASK_MODAL_HINT: &str = "Enter: Link  |  Esc: Cancel";
 const MERGE_WORKFLOW_MODAL_HINT: &str = "1-3: Select  |  Esc: Cancel";
 const INTERACTIVE_MODE_HINT: &str = "q: Return";
-const WORKSPACE_SEARCH_HINT: &str = "/: Global search  |  : Command search";
 const MIN_WORKSPACE_MODAL_WIDTH: u16 = 30;
 const MIN_WORKSPACE_MODAL_HEIGHT: u16 = 8;
 
@@ -587,16 +586,7 @@ fn workspace_empty_message(mut lines: Vec<String>, width: u16) -> String {
 }
 
 fn workspace_search_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [
-        WORKSPACE_SEARCH_HINT,
-        "/: Search  |  : Commands",
-        "/: Search  |  : Cmds",
-        "/: Search",
-        "/:",
-    ]
-    .into_iter()
-    .find(|hint| hint.width() <= width)
+    compact_global_search_hint(width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
@@ -1164,7 +1154,10 @@ mod tests {
         assert_eq!(workspace_search_hint(9), Some("/: Search"));
         assert_eq!(workspace_search_hint(20), Some("/: Search  |  : Cmds"));
         assert_eq!(workspace_search_hint(24), Some("/: Search  |  : Commands"));
-        assert_eq!(workspace_search_hint(80), Some(WORKSPACE_SEARCH_HINT));
+        assert_eq!(
+            workspace_search_hint(80),
+            Some(crate::ui::GLOBAL_SEARCH_HINT)
+        );
     }
 
     #[test]

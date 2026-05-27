@@ -34,7 +34,7 @@ use rightclick::{
     },
     state,
     theme::{self, resolve_theme},
-    ui::{Footer, Header, NotificationManager},
+    ui::{Footer, Header, NotificationManager, compact_global_search_hint},
 };
 
 #[derive(Debug)]
@@ -1044,16 +1044,7 @@ fn no_plugins_empty_message(width: u16) -> String {
 }
 
 fn no_plugins_search_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [
-        "/: Global search  |  : Command search",
-        "/: Search  |  : Commands",
-        "/: Search  |  : Cmds",
-        "/: Search",
-        "/:",
-    ]
-    .into_iter()
-    .find(|hint| hint.len() <= width)
+    compact_global_search_hint(width)
 }
 
 fn fit_no_plugins_line(line: &str, width: u16) -> String {
@@ -1894,7 +1885,7 @@ mod tests {
         assert_eq!(no_plugins_search_hint(24), Some("/: Search  |  : Commands"));
         assert_eq!(
             no_plugins_search_hint(80),
-            Some("/: Global search  |  : Command search")
+            Some(rightclick::ui::GLOBAL_SEARCH_HINT)
         );
     }
 

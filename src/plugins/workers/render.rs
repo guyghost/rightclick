@@ -13,14 +13,12 @@ use ratatui::{
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
-use crate::ui::compact_help_hint;
+use crate::ui::{compact_global_search_hint_with_stacked, compact_help_hint};
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
 
 const CREATE_INTENT_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
 const DELETE_INTENT_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
-const SEARCH_HINT_INLINE: &str = "/: Global search  |  : Command search";
-const SEARCH_HINT_STACKED: &str = "/: Global search\n: Command search";
 const MIN_WORKERS_MODAL_WIDTH: u16 = 24;
 const MIN_WORKERS_MODAL_HEIGHT: u16 = 7;
 
@@ -827,17 +825,7 @@ fn workers_empty_message(mut lines: Vec<String>, width: u16, hint_prefix: &str) 
 }
 
 fn workers_search_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [
-        SEARCH_HINT_INLINE,
-        SEARCH_HINT_STACKED,
-        "/: Search  |  : Commands",
-        "/: Search  |  : Cmds",
-        "/: Search",
-        "/:",
-    ]
-    .into_iter()
-    .find(|hint| hint.lines().all(|line| line.width() <= width))
+    compact_global_search_hint_with_stacked(width)
 }
 
 fn specs_path_line(path: &str, width: u16) -> String {
@@ -1209,12 +1197,21 @@ mod tests {
         use std::path::PathBuf;
 
         let assert_hint = |message: &str| {
-            assert!(message.contains(SEARCH_HINT_INLINE), "{message}");
-            assert!(!message.contains(SEARCH_HINT_STACKED), "{message}");
+            assert!(message.contains(crate::ui::GLOBAL_SEARCH_HINT), "{message}");
+            assert!(
+                !message.contains(crate::ui::STACKED_GLOBAL_SEARCH_HINT),
+                "{message}"
+            );
         };
         let assert_kanban_hint = |message: &str| {
-            assert!(message.contains(SEARCH_HINT_STACKED), "{message}");
-            assert!(!message.contains(SEARCH_HINT_INLINE), "{message}");
+            assert!(
+                message.contains(crate::ui::STACKED_GLOBAL_SEARCH_HINT),
+                "{message}"
+            );
+            assert!(
+                !message.contains(crate::ui::GLOBAL_SEARCH_HINT),
+                "{message}"
+            );
         };
         let mut empty_state =
             PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
@@ -1253,9 +1250,15 @@ mod tests {
         assert_eq!(workers_search_hint(1), None);
         assert_eq!(workers_search_hint(2), Some("/:"));
         assert_eq!(workers_search_hint(9), Some("/: Search"));
-        assert_eq!(workers_search_hint(20), Some(SEARCH_HINT_STACKED));
-        assert_eq!(workers_search_hint(28), Some(SEARCH_HINT_STACKED));
-        assert_eq!(workers_search_hint(80), Some(SEARCH_HINT_INLINE));
+        assert_eq!(
+            workers_search_hint(20),
+            Some(crate::ui::STACKED_GLOBAL_SEARCH_HINT)
+        );
+        assert_eq!(
+            workers_search_hint(28),
+            Some(crate::ui::STACKED_GLOBAL_SEARCH_HINT)
+        );
+        assert_eq!(workers_search_hint(80), Some(crate::ui::GLOBAL_SEARCH_HINT));
     }
 
     #[test]

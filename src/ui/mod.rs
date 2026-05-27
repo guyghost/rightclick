@@ -42,7 +42,10 @@ mod spinner;
 pub mod text_input;
 
 pub use components::{Footer, Header, KeyHint};
-pub use hints::{HELP_HINT, compact_help_hint};
+pub use hints::{
+    GLOBAL_SEARCH_HINT, HELP_HINT, STACKED_GLOBAL_SEARCH_HINT, compact_global_search_hint,
+    compact_global_search_hint_with_stacked, compact_help_hint,
+};
 pub use notifications::{NotificationLevel, NotificationManager};
 pub use overlay::Overlay;
 pub use progress::ProgressBar;

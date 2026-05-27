@@ -9,7 +9,7 @@ use crate::plugins::conversations::state::SessionInfo;
 use crate::plugins::conversations::state::{ConversationView, PluginState};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
-use crate::ui::compact_help_hint;
+use crate::ui::{GLOBAL_SEARCH_HINT, compact_global_search_hint, compact_help_hint};
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -25,7 +25,7 @@ const FILTER_OVERLAY_WIDTH: u16 = 50;
 const FILTER_OVERLAY_HEIGHT: u16 = 3;
 const MIN_FILTER_OVERLAY_WIDTH: u16 = 20;
 const MIN_FILTER_OVERLAY_HEIGHT: u16 = 3;
-const SEARCH_HINT: &str = "/: Global search  |  : Command search";
+const SEARCH_HINT: &str = GLOBAL_SEARCH_HINT;
 
 /// Renderer for the Conversations plugin UI
 #[derive(Clone, Debug, Default)]
@@ -950,16 +950,7 @@ fn append_help_hint(lines: &mut Vec<String>, width: u16) {
 }
 
 fn conversation_search_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [
-        SEARCH_HINT,
-        "/: Search  |  : Commands",
-        "/: Search  |  : Cmds",
-        "/: Search",
-        "/:",
-    ]
-    .into_iter()
-    .find(|hint| hint.width() <= width)
+    compact_global_search_hint(width)
 }
 
 fn compact_message_count(count: usize) -> String {

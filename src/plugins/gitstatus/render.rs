@@ -15,7 +15,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 use crate::core::models::Theme;
 use crate::core::models::{ChangeType, Diff, FileChange, FileDiff, FileStatus};
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::compact_help_hint;
+use crate::ui::{compact_global_search_hint, compact_help_hint};
 
 use super::state::{FocusPane, PluginState, ViewMode};
 
@@ -27,8 +27,6 @@ const GIT_MODAL_WIDTH: u16 = 50;
 const GIT_MODAL_HEIGHT: u16 = 7;
 const MIN_GIT_MODAL_WIDTH: u16 = 20;
 const MIN_GIT_MODAL_HEIGHT: u16 = 5;
-const GIT_SEARCH_HINT: &str = "/: Global search  |  : Command search";
-
 /// Render the git status plugin
 pub fn render_git_status(
     state: &PluginState,
@@ -1543,16 +1541,7 @@ fn git_empty_message(mut lines: Vec<String>, width: u16) -> String {
 }
 
 fn git_search_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [
-        GIT_SEARCH_HINT,
-        "/: Search  |  : Commands",
-        "/: Search  |  : Cmds",
-        "/: Search",
-        "/:",
-    ]
-    .into_iter()
-    .find(|hint| hint.width() <= width)
+    compact_global_search_hint(width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
@@ -1857,7 +1846,7 @@ mod tests {
         assert_eq!(git_search_hint(9), Some("/: Search"));
         assert_eq!(git_search_hint(20), Some("/: Search  |  : Cmds"));
         assert_eq!(git_search_hint(24), Some("/: Search  |  : Commands"));
-        assert_eq!(git_search_hint(80), Some(GIT_SEARCH_HINT));
+        assert_eq!(git_search_hint(80), Some(crate::ui::GLOBAL_SEARCH_HINT));
     }
 
     #[test]
