@@ -175,6 +175,14 @@ fn dev_script_help_explains_test_many() {
         stdout.contains("collecting the buffered Cargo test list"),
         "dev script help should explain the buffered test listing progress note"
     );
+    assert!(
+        stdout.contains("CARGO_TARGET_DIR=/tmp/rightclick-target-verify"),
+        "dev script help should explain how to isolate Cargo target locks"
+    );
+    assert!(
+        stdout.contains("with an isolated build cache"),
+        "dev script help should explain why to set CARGO_TARGET_DIR"
+    );
 }
 
 #[test]

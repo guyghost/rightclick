@@ -143,4 +143,12 @@ fn developer_commands_explain_test_many() {
         README.contains("`test-many`\nvalidates all filters from one test list"),
         "README should explain that test-many batches filter validation"
     );
+    assert!(
+        README.contains("`CARGO_TARGET_DIR=/tmp/rightclick-target-verify`"),
+        "README should document the isolated Cargo target directory example"
+    );
+    assert!(
+        README.contains("with an isolated build cache"),
+        "README should explain why to set CARGO_TARGET_DIR"
+    );
 }

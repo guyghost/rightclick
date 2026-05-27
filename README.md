@@ -92,6 +92,9 @@ test discovery phases do not look stalled.
 Cargo, then report `Matched N tests for filter: ...` so long filter checks are
 visible and confirm the filter scope before the test run starts. `test-many`
 validates all filters from one test list before running each filter separately.
+When another Cargo job is using the default target directory, set
+`CARGO_TARGET_DIR=/tmp/rightclick-target-verify` before a command to run checks
+with an isolated build cache.
 
 `run` forwards arguments after `--` to the RightClick binary. `install-local`
 forwards extra arguments to `cargo install`, so flags like `--locked` or
