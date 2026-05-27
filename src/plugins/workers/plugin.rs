@@ -1008,22 +1008,21 @@ fn workers_status_line(state: &PluginState) -> String {
         })
         .count();
 
-    if running > 0 || failed > 0 {
-        format!(
-            "{} | {} | {} running | {} failed",
-            count_label(state.intents.len(), "intent"),
-            count_label(state.workers.len(), "worker"),
-            running,
-            failed
-        )
-    } else {
-        format!(
-            "{} | {} | {} completed",
-            count_label(state.intents.len(), "intent"),
-            count_label(state.workers.len(), "worker"),
-            completed
-        )
+    let mut parts = vec![
+        count_label(state.intents.len(), "intent"),
+        count_label(state.workers.len(), "worker"),
+    ];
+    if running > 0 {
+        parts.push(format!("{} running", running));
     }
+    if failed > 0 {
+        parts.push(format!("{} failed", failed));
+    }
+    if completed > 0 {
+        parts.push(format!("{} completed", completed));
+    }
+
+    parts.join(" | ")
 }
 
 fn count_label(count: usize, label: &str) -> String {
@@ -1576,6 +1575,41 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some("1 intent | 1 worker | 1 completed".to_string())
+        );
+    }
+
+    #[test]
+    fn test_status_line_omits_zero_worker_outcomes() {
+        let mut plugin = WorkersPlugin::new();
+        let mut intent = Intent::new(
+            "Ship workers polish",
+            PathBuf::from(".rightclick/intents/workers-polish.md"),
+            "2026-05-26T10:00:00Z",
+        );
+        intent.id = "intent-workers-polish".to_string();
+        plugin.state.add_intent(intent);
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("1 intent | 0 workers".to_string())
+        );
+
+        let mut failed = Worker::new(
+            "verify",
+            WorkerType::Verifier,
+            "intent-workers-polish",
+            PathBuf::from("/repo/w1"),
+            "branch",
+            "claude",
+            PathBuf::from("/repo/log1"),
+            "2026-05-26T10:00:00Z",
+        );
+        failed.mark_failed("2026-05-26T11:00:00Z", 1);
+        plugin.state.add_worker(failed);
+
+        assert_eq!(
+            plugin.status_line(),
+            Some("1 intent | 1 worker | 1 failed".to_string())
         );
     }
 
