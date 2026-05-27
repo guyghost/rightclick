@@ -1024,12 +1024,14 @@ fn conversations_status_line(state: &PluginState) -> String {
     let messages = state.total_message_count();
 
     if state.search_query.is_some() || state.adapter_filter.is_some() {
-        let mut status = format!(
-            "{} visible | {} total | {}",
-            conversation_count_label(visible, "session"),
-            conversation_count_label(total, "session"),
-            conversation_count_label(messages, "message")
-        );
+        let mut parts = vec![
+            format!("{} visible", conversation_count_label(visible, "session")),
+            format!("{} total", conversation_count_label(total, "session")),
+        ];
+        if messages > 0 {
+            parts.push(conversation_count_label(messages, "message"));
+        }
+        let mut status = parts.join(" | ");
         if let Some(adapter_type) = state.adapter_filter {
             status.push_str(&format!(" | adapter: {}", adapter_type.display_name()));
         }
@@ -1038,11 +1040,11 @@ fn conversations_status_line(state: &PluginState) -> String {
         }
         status
     } else {
-        format!(
-            "{} | {}",
-            conversation_count_label(total, "session"),
-            conversation_count_label(messages, "message")
-        )
+        let mut parts = vec![conversation_count_label(total, "session")];
+        if messages > 0 {
+            parts.push(conversation_count_label(messages, "message"));
+        }
+        parts.join(" | ")
     }
 }
 
@@ -1430,6 +1432,20 @@ mod tests {
             plugin.status_line(),
             Some("1 session | 1 message".to_string())
         );
+    }
+
+    #[test]
+    fn test_status_line_omits_zero_message_count() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
+        let session =
+            crate::core::models::conversation::Session::new("session-1", "Render bug", "codex");
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin
+            .state_mut()
+            .set_sessions(vec![SessionInfo::new(session, &adapter)]);
+
+        assert_eq!(plugin.status_line(), Some("1 session".to_string()));
     }
 
     #[derive(Debug)]
