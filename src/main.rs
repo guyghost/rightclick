@@ -854,7 +854,7 @@ fn build_help_lines(
         String::new(),
         "Global shortcuts:".to_string(),
         "  /: Global search".to_string(),
-        "  :: Command search".to_string(),
+        "  : Command search".to_string(),
         "  ?: Toggle help".to_string(),
         "  j/k or ↑/↓: Navigate items".to_string(),
         "  Enter: Select".to_string(),
@@ -929,7 +929,7 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         String::new(),
         "Global shortcuts:".to_string(),
         "  /: Global search".to_string(),
-        "  :: Command search".to_string(),
+        "  : Command search".to_string(),
         "  ?: Toggle help".to_string(),
         "  q/Ctrl+C: Quit".to_string(),
         String::new(),
@@ -994,7 +994,7 @@ fn plugin_uses_tab_for_panes(plugin_id: &str) -> bool {
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?: Toggle help\n/: Global search\n:: Command search\nq/Ctrl+C: Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug bash scripts/dev.sh run\nCheck configuration if this persists."
+    "No plugins loaded\n\n?: Toggle help\n/: Global search\n: Command search\nq/Ctrl+C: Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug bash scripts/dev.sh run\nCheck configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -1155,7 +1155,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("/") && line.contains("Global search"))
         );
-        assert!(lines.contains(&"  :: Command search".to_string()));
+        assert!(lines.contains(&"  : Command search".to_string()));
         assert!(lines.iter().any(|line| line == "  ?: Toggle help"));
         assert!(lines.contains(&"  j/k or ↑/↓: Navigate items".to_string()));
         assert!(lines.contains(&"  Enter: Select".to_string()));
@@ -1347,7 +1347,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("/") && line.contains("Global search"))
         );
-        assert!(lines.contains(&"  :: Command search".to_string()));
+        assert!(lines.contains(&"  : Command search".to_string()));
         assert!(
             lines
                 .iter()
@@ -1718,7 +1718,7 @@ mod tests {
         assert!(message.contains("No plugins loaded"));
         assert!(message.contains("?: Toggle help"));
         assert!(message.contains("/: Global search"));
-        assert!(message.contains(":: Command search"));
+        assert!(message.contains(": Command search"));
         assert!(message.contains("q/Ctrl+C: Quit"));
         assert!(message.contains("Diagnostics:"));
         assert!(message.contains("bash scripts/dev.sh doctor"));

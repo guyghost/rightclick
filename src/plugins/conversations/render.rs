@@ -875,20 +875,20 @@ fn empty_sessions_message(state: &PluginState) -> String {
         .filter(|query| !query.is_empty())
     {
         Some(query) => format!(
-            "No sessions match \"{}\"\n\nBackspace: Edit filter\nEsc: Clear filter\nr: Refresh sessions\n/: Global search\n:: Command search\n?: Toggle help",
+            "No sessions match \"{}\"\n\nBackspace: Edit filter\nEsc: Clear filter\nr: Refresh sessions\n/: Global search\n: Command search\n?: Toggle help",
             query
         ),
-        None => "No sessions found\n\nr: Refresh sessions\nf: Filter sessions\n/: Global search\n:: Command search\n?: Toggle help\n\nSessions appear after supported adapters are detected."
+        None => "No sessions found\n\nr: Refresh sessions\nf: Filter sessions\n/: Global search\n: Command search\n?: Toggle help\n\nSessions appear after supported adapters are detected."
             .to_string(),
     }
 }
 
 fn empty_messages_message() -> &'static str {
-    "No messages in this session\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n/: Global search\n:: Command search\n?: Toggle help"
+    "No messages in this session\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n/: Global search\n: Command search\n?: Toggle help"
 }
 
 fn loading_messages_message() -> &'static str {
-    "Loading messages\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n/: Global search\n:: Command search\n?: Toggle help"
+    "Loading messages\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n/: Global search\n: Command search\n?: Toggle help"
 }
 
 fn compact_message_count(count: usize) -> String {
@@ -1041,7 +1041,7 @@ mod tests {
         assert!(message.contains("r: Refresh sessions"));
         assert!(message.contains("f: Filter sessions"));
         assert!(message.contains("/: Global search"));
-        assert!(message.contains(":: Command search"));
+        assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(message.contains("Sessions appear after supported adapters are detected"));
     }
@@ -1058,7 +1058,7 @@ mod tests {
         assert!(!message.contains("f  Reset filter"));
         assert!(message.contains("Esc: Clear filter"));
         assert!(message.contains("/: Global search"));
-        assert!(message.contains(":: Command search"));
+        assert!(message.contains(": Command search"));
         assert!(!message.contains("Esc  Clear search"));
         assert!(message.contains("?: Toggle help"));
     }
@@ -1072,7 +1072,7 @@ mod tests {
         assert!(message.contains("f: Filter sessions"));
         assert!(message.contains("Esc/h: Back to sessions"));
         assert!(message.contains("/: Global search"));
-        assert!(message.contains(":: Command search"));
+        assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(!message.contains("Then r"));
     }
@@ -1086,7 +1086,7 @@ mod tests {
         assert!(message.contains("f: Filter sessions"));
         assert!(message.contains("Esc/h: Back to sessions"));
         assert!(message.contains("/: Global search"));
-        assert!(message.contains(":: Command search"));
+        assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(!message.contains("r: Refresh sessions"));
     }
