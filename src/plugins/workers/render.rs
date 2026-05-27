@@ -467,7 +467,7 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
                 Style::default().fg(theme_comment(theme)),
             )));
             lines.push(Line::from(Span::styled(
-                "/  Global search",
+                "/  Global search  |  :  Command search",
                 Style::default().fg(theme_comment(theme)),
             )));
             lines.push(Line::from(Span::styled(
@@ -524,35 +524,35 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
 
 fn empty_intents_message(state: &PluginState) -> String {
     format!(
-        "No intents yet\n\nn  New intent\nf  Refresh intents\n/  Global search\n?  Help\n\nSpecs: {}",
+        "No intents yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help\n\nSpecs: {}",
         state.intents_dir.display()
     )
 }
 
 fn no_workers_for_intent_message() -> &'static str {
-    "  No workers yet\n  r  Run workers\n  f  Refresh intents\n  /  Global search\n  ?  Help"
+    "  No workers yet\n  r  Run workers\n  f  Refresh intents\n  /  Global search  |  :  Command search\n  ?  Help"
 }
 
 fn output_empty_message(state: &PluginState) -> &'static str {
     if state.intents.is_empty() {
-        "No output yet\n\nn  New intent\nf  Refresh intents\n/  Global search\n?  Help"
+        "No output yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
     } else if state.selected_intent().is_none() {
-        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search\n?  Help"
+        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
     } else {
-        "No output yet\n\nr  Run workers\nf  Refresh intents\n/  Global search\n?  Help"
+        "No output yet\n\nr  Run workers\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
     }
 }
 
 fn select_intent_details_message() -> &'static str {
-    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search\n?  Help"
+    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
 }
 
 fn select_intent_criteria_message() -> &'static str {
-    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search\n?  Help"
+    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
 }
 
 fn empty_criteria_message() -> &'static str {
-    "No criteria yet\n\nn  New intent\nf  Refresh intents\n/  Global search\n?  Help"
+    "No criteria yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -711,16 +711,16 @@ fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
     if state.workers.is_empty() {
         if state.selected_intent().is_some() {
             format!(
-                "No {status} workers\n\nr  Run workers\nf  Refresh intents\n/  Global search\nv  Switch view\n?  Help"
+                "No {status} workers\n\nr  Run workers\nf  Refresh intents\n/ Search | : Command search\nv  Switch view\n?  Help"
             )
         } else {
             format!(
-                "No {status} workers\n\nn  New intent\nf  Refresh intents\n/  Global search\nv  Switch view\n?  Help"
+                "No {status} workers\n\nn  New intent\nf  Refresh intents\n/ Search | : Command search\nv  Switch view\n?  Help"
             )
         }
     } else {
         format!(
-            "No {status} workers\n\nh/l  Move columns\nf  Refresh intents\n/  Global search\nv  Switch view\n?  Help"
+            "No {status} workers\n\nh/l  Move columns\nf  Refresh intents\n/ Search | : Command search\nv  Switch view\n?  Help"
         )
     }
 }
@@ -1054,7 +1054,8 @@ mod tests {
         assert!(content.contains("No running workers"));
         assert!(content.contains("n  New intent"));
         assert!(content.contains("f  Refresh intents"));
-        assert!(content.contains("/  Global search"));
+        assert!(content.contains("/ Search"));
+        assert!(content.contains(": Command search"));
         assert!(content.contains("v  Switch view"));
         assert!(content.contains("?  Help"));
         assert!(!content.contains("No workers"));
@@ -1071,8 +1072,46 @@ mod tests {
         assert!(message.contains("n  New intent"));
         assert!(message.contains("f  Refresh intents"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(message.contains("?  Help"));
         assert!(message.contains(".rightclick/intents"));
+    }
+
+    #[test]
+    fn test_workers_empty_messages_surface_command_search() {
+        use crate::core::models::intent::Intent;
+        use std::path::PathBuf;
+
+        let assert_hint = |message: &str| {
+            assert!(message.contains("/  Global search"), "{message}");
+            assert!(message.contains(":  Command search"), "{message}");
+        };
+        let assert_compact_hint = |message: &str| {
+            assert!(message.contains("/ Search"), "{message}");
+            assert!(message.contains(": Command search"), "{message}");
+        };
+
+        let mut empty_state =
+            PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        assert_hint(&empty_intents_message(&empty_state));
+        assert_hint(no_workers_for_intent_message());
+        assert_hint(output_empty_message(&empty_state));
+        assert_hint(select_intent_details_message());
+        assert_hint(select_intent_criteria_message());
+        assert_hint(empty_criteria_message());
+        assert_compact_hint(&kanban_empty_column_message(&empty_state, "Pending"));
+
+        empty_state.add_intent(Intent::new(
+            "Improve worker empty states",
+            PathBuf::from(".rightclick/intents/empty-states.md"),
+            "2026-02-14T10:00:00Z",
+        ));
+        empty_state.selected_intent = None;
+        assert_hint(output_empty_message(&empty_state));
+
+        empty_state.selected_intent = Some(0);
+        assert_hint(output_empty_message(&empty_state));
+        assert_compact_hint(&kanban_empty_column_message(&empty_state, "Running"));
     }
 
     #[test]
@@ -1095,6 +1134,7 @@ mod tests {
         assert!(content.contains("New intent"));
         assert!(content.contains("Refresh intents"));
         assert!(content.contains("Global search"));
+        assert!(content.contains("Command search"));
     }
 
     #[test]
@@ -1126,6 +1166,7 @@ mod tests {
         assert!(content.contains("r  Run workers"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
@@ -1159,6 +1200,7 @@ mod tests {
         assert!(content.contains("Enter/o  Open intent"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
@@ -1184,6 +1226,7 @@ mod tests {
         assert!(content.contains("n  New intent"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
@@ -1209,6 +1252,7 @@ mod tests {
         assert!(content.contains("n  New intent"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
@@ -1243,6 +1287,7 @@ mod tests {
         assert!(content.contains("Enter/o  Open intent"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
@@ -1276,6 +1321,7 @@ mod tests {
         assert!(content.contains("No criteria defined."));
         assert!(content.contains("Edit the intent spec to add acceptance criteria."));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
@@ -1309,6 +1355,7 @@ mod tests {
         assert!(content.contains("Enter/o  Open intent"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
@@ -1341,6 +1388,7 @@ mod tests {
         assert!(content.contains("r  Run workers"));
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
