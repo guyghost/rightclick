@@ -23,6 +23,7 @@ const LINK_TASK_MODAL_HINT: &str = "Enter: Link  |  Esc: Cancel";
 const MERGE_WORKFLOW_MODAL_HINT: &str = "1-3: Select  |  Esc: Cancel";
 const INTERACTIVE_MODE_HINT: &str = "q: Return";
 const WORKSPACE_SEARCH_HINT: &str = "/: Global search  |  : Command search";
+const WORKSPACE_HELP_HINT: &str = "?: Toggle help";
 const MIN_WORKSPACE_MODAL_WIDTH: u16 = 30;
 const MIN_WORKSPACE_MODAL_HEIGHT: u16 = 8;
 
@@ -579,7 +580,9 @@ fn workspace_empty_message(mut lines: Vec<String>, width: u16) -> String {
     if let Some(hint) = workspace_search_hint(width) {
         lines.push(hint.to_string());
     }
-    lines.push("?: Toggle help".to_string());
+    if let Some(hint) = workspace_help_hint(width) {
+        lines.push(hint.to_string());
+    }
     lines.join("\n")
 }
 
@@ -594,6 +597,13 @@ fn workspace_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.width() <= width)
+}
+
+fn workspace_help_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [WORKSPACE_HELP_HINT, "?: Help", "?"]
+        .into_iter()
+        .find(|hint| hint.width() <= width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
@@ -1165,13 +1175,31 @@ mod tests {
     }
 
     #[test]
+    fn test_workspace_help_hint_compacts_for_narrow_widths() {
+        assert_eq!(workspace_help_hint(0), None);
+        assert_eq!(workspace_help_hint(1), Some("?"));
+        assert_eq!(workspace_help_hint(7), Some("?: Help"));
+        assert_eq!(workspace_help_hint(14), Some(WORKSPACE_HELP_HINT));
+
+        for width in 0..=30 {
+            if let Some(hint) = workspace_help_hint(width) {
+                assert!(
+                    hint.width() <= width as usize,
+                    "hint {hint:?} overflowed width {width}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_workspace_empty_messages_omit_search_hint_when_too_narrow() {
         let message = select_worktree_message(1);
 
         assert!(message.contains("No worktree selected"));
         assert!(!message.contains("Global search"));
         assert!(!message.contains("/:"));
-        assert!(message.contains("?: Toggle help"));
+        assert!(message.contains("?"));
+        assert!(!message.contains("?: Toggle help"));
     }
 
     #[test]
