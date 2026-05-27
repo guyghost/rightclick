@@ -25,6 +25,9 @@ pub enum WorkerRunnerError {
     #[error("Agent not found: {0}")]
     AgentNotFound(String),
 
+    #[error("Agent does not support non-interactive worker prompts: {0}")]
+    UnsupportedPromptMode(String),
+
     #[error("Failed to spawn agent: {0}")]
     SpawnFailed(String),
 
@@ -437,22 +440,8 @@ async fn spawn_agent_process(
     cmd.current_dir(worktree_path);
 
     // Configure based on agent type
-    match agent {
-        "claude" | "claude-code" => {
-            cmd.arg("--prompt").arg(prompt);
-        }
-        "cursor" => {
-            // Cursor doesn't have a direct CLI prompt option
-            // We'd need to use a different approach
-            cmd.arg("--help"); // Placeholder
-        }
-        "codex" => {
-            cmd.arg("--prompt").arg(prompt);
-        }
-        _ => {
-            // Generic fallback - pass prompt as argument
-            cmd.arg(prompt);
-        }
+    for arg in agent_prompt_args(agent, prompt)? {
+        cmd.arg(arg);
     }
 
     // Set up pipes for stdout/stderr
@@ -466,6 +455,16 @@ async fn spawn_agent_process(
         .map_err(|e| WorkerRunnerError::SpawnFailed(format!("Failed to spawn {}: {}", agent, e)))?;
 
     Ok(child)
+}
+
+fn agent_prompt_args(agent: &str, prompt: &str) -> Result<Vec<String>, WorkerRunnerError> {
+    match agent {
+        "claude" | "claude-code" | "codex" => Ok(vec!["--prompt".to_string(), prompt.to_string()]),
+        "cursor" => Err(WorkerRunnerError::UnsupportedPromptMode(
+            "cursor has no supported non-interactive prompt mode".to_string(),
+        )),
+        _ => Ok(vec![prompt.to_string()]),
+    }
 }
 
 /// Handle output streaming and process completion.
@@ -565,5 +564,34 @@ mod tests {
     fn test_worker_runner_new() {
         let runner = WorkerRunner::new();
         assert!(runner.running_workers().is_empty());
+    }
+
+    #[test]
+    fn test_agent_prompt_args_for_supported_agents() {
+        assert_eq!(
+            agent_prompt_args("claude", "ship it").unwrap(),
+            vec!["--prompt".to_string(), "ship it".to_string()]
+        );
+        assert_eq!(
+            agent_prompt_args("codex", "ship it").unwrap(),
+            vec!["--prompt".to_string(), "ship it".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_agent_prompt_args_rejects_cursor_placeholder() {
+        let error = agent_prompt_args("cursor", "ship it").unwrap_err();
+
+        assert!(matches!(error, WorkerRunnerError::UnsupportedPromptMode(_)));
+        assert!(error.to_string().contains("cursor"));
+        assert!(!error.to_string().contains("--help"));
+    }
+
+    #[test]
+    fn test_agent_prompt_args_keeps_custom_agent_fallback() {
+        assert_eq!(
+            agent_prompt_args("custom-agent", "ship it").unwrap(),
+            vec!["ship it".to_string()]
+        );
     }
 }
