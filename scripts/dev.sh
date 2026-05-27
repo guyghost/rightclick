@@ -214,6 +214,11 @@ ensure_test_filter_arg() {
   local filter="$3"
 
   if [ "$filter" = "--" ]; then
+    if [ "$command_name" = "test-list" ]; then
+      echo "test-list does not accept cargo test args; pass filters without --." >&2
+      echo "Usage: bash scripts/dev.sh $command_name $usage" >&2
+      exit 2
+    fi
     echo "A test filter is required before --." >&2
     echo "Usage: bash scripts/dev.sh $command_name $usage" >&2
     exit 2
