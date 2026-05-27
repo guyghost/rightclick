@@ -300,6 +300,12 @@ impl App {
                     self.should_quit = true;
                     return Ok(());
                 }
+                if is_ctrl_r_refresh_key(&key) {
+                    if let Some(plugin) = self.plugins.get_mut(self.active_plugin) {
+                        plugin.handle_event(rightclick::event::Event::RefreshNeeded);
+                    }
+                    return Ok(());
+                }
 
                 // If search overlay is visible, route all input to it
                 if self.search.visible {
@@ -1011,6 +1017,13 @@ fn is_ctrl_c_quit_key(key: &crossterm::event::KeyEvent) -> bool {
         && key.modifiers.contains(KeyModifiers::CONTROL)
 }
 
+fn is_ctrl_r_refresh_key(key: &crossterm::event::KeyEvent) -> bool {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    matches!(key.code, KeyCode::Char('r') | KeyCode::Char('R'))
+        && key.modifiers.contains(KeyModifiers::CONTROL)
+}
+
 fn plugin_shortcut_index(c: char) -> Option<usize> {
     c.to_digit(10)
         .and_then(|digit| digit.checked_sub(1))
@@ -1578,6 +1591,89 @@ mod tests {
         assert_eq!(app.active_plugin, 1);
     }
 
+    #[derive(Debug)]
+    struct RecordingPlugin {
+        events: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+        focused: bool,
+    }
+
+    #[async_trait::async_trait]
+    impl Plugin for RecordingPlugin {
+        fn id(&self) -> &str {
+            "recording"
+        }
+
+        fn name(&self) -> &str {
+            "Recording"
+        }
+
+        fn icon(&self) -> char {
+            'R'
+        }
+
+        async fn init(&mut self, _ctx: &PluginContext) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn shutdown(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn handle_event(
+            &mut self,
+            event: rightclick::event::Event,
+        ) -> Vec<rightclick::plugin::Command> {
+            let label = match event {
+                rightclick::event::Event::RefreshNeeded => "refresh".to_string(),
+                rightclick::event::Event::Key { code, modifiers } => {
+                    format!("key:{code}:ctrl={}", modifiers.ctrl)
+                }
+                _ => "other".to_string(),
+            };
+            self.events.lock().unwrap().push(label);
+            Vec::new()
+        }
+
+        fn render(&self, _area: Rect, _buf: &mut ratatui::buffer::Buffer, _theme: &Theme) {}
+
+        fn is_focused(&self) -> bool {
+            self.focused
+        }
+
+        fn set_focused(&mut self, focused: bool) {
+            self.focused = focused;
+        }
+
+        fn commands(&self) -> Vec<rightclick::plugin::PluginCommand> {
+            Vec::new()
+        }
+
+        fn focus_context(&self) -> rightclick::keymap::FocusContext {
+            rightclick::keymap::FocusContext::Global
+        }
+    }
+
+    #[tokio::test]
+    async fn test_ctrl_r_requests_active_plugin_refresh() {
+        use crossterm::event::{Event as CEvent, KeyCode, KeyEvent, KeyModifiers};
+
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![Box::new(RecordingPlugin {
+            events: events.clone(),
+            focused: false,
+        })];
+        let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+
+        app.handle_event(CEvent::Key(KeyEvent::new(
+            KeyCode::Char('r'),
+            KeyModifiers::CONTROL,
+        )))
+        .await
+        .unwrap();
+
+        assert_eq!(*events.lock().unwrap(), vec!["refresh".to_string()]);
+    }
+
     #[test]
     fn test_no_plugins_empty_state_points_to_global_actions() {
         let message = no_plugins_empty_message();
@@ -1638,6 +1734,22 @@ mod tests {
         assert!(is_ctrl_c_quit_key(&ctrl_c));
         assert!(is_ctrl_c_quit_key(&ctrl_shift_c));
         assert!(!is_ctrl_c_quit_key(&plain_c));
+    }
+
+    #[test]
+    fn test_ctrl_r_refresh_key_accepts_lowercase_and_shifted_forms() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+        let ctrl_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
+        let ctrl_shift_r = KeyEvent::new(
+            KeyCode::Char('R'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        let plain_r = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE);
+
+        assert!(is_ctrl_r_refresh_key(&ctrl_r));
+        assert!(is_ctrl_r_refresh_key(&ctrl_shift_r));
+        assert!(!is_ctrl_r_refresh_key(&plain_r));
     }
 
     #[test]
