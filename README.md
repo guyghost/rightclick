@@ -93,7 +93,7 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 | `j/k`, `↓/↑` | Navigate items |
 | `enter` | Select |
 | `esc` | Back/close |
-| `r` | Refresh |
+| `r` | Refresh current view |
 | `?` | Toggle help |
 
 ## Search
