@@ -702,11 +702,23 @@ fn palette_empty_state_message(
         )
     } else {
         let input = truncate_query(input, 40);
-        format!(
-            "No command name, description, shortcut, category, or command ID matches \"{}\"\n\n{}",
-            input, hint
-        )
+        let message = format!("No commands match \"{}\"", input);
+        if let Some(detail) = palette_no_match_detail(width) {
+            format!("{message}\n{detail}\n\n{hint}")
+        } else {
+            format!("{message}\n\n{hint}")
+        }
     }
+}
+
+fn palette_no_match_detail(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [
+        "Searches name, description, shortcut, category, and command ID",
+        "Searches command metadata and IDs",
+    ]
+    .into_iter()
+    .find(|detail| detail.width() <= width)
 }
 
 fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: bool) -> &'static str {
@@ -1380,9 +1392,11 @@ mod tests {
         assert!(all_contexts_empty.contains("Tab/Shift+Tab: Current context"));
 
         let no_match = palette_empty_state_message("deploy", 80, true, false);
-        assert!(no_match.contains(
-            "No command name, description, shortcut, category, or command ID matches \"deploy\""
-        ));
+        assert!(no_match.contains("No commands match \"deploy\""));
+        assert!(
+            no_match.contains("Searches name, description, shortcut, category, and command ID")
+        );
+        assert!(!no_match.contains("No command name, description"));
         assert!(no_match.contains(PALETTE_NO_MATCH_ACTION_HINT_SCOPED));
         assert!(!no_match.contains("Backspace  Edit search"));
         assert!(!no_match.contains("Ctrl+U  Clear search"));
@@ -1399,9 +1413,22 @@ mod tests {
             true,
             false,
         );
-        assert!(truncated.contains(
-            "No command name, description, shortcut, category, or command ID matches \"abcdefghijklmnopqrstuvwxyz0123456789a...\""
-        ));
+        assert!(
+            truncated.contains("No commands match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
+        );
+    }
+
+    #[test]
+    fn test_palette_no_match_detail_compacts_for_width() {
+        assert_eq!(
+            palette_no_match_detail(80),
+            Some("Searches name, description, shortcut, category, and command ID")
+        );
+        assert_eq!(
+            palette_no_match_detail(34),
+            Some("Searches command metadata and IDs")
+        );
+        assert_eq!(palette_no_match_detail(12), None);
     }
 
     #[test]
