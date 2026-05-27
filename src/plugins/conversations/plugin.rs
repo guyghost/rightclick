@@ -519,7 +519,7 @@ impl ConversationsPlugin {
             ConversationView::SessionsList => vec![
                 ("↑/↓", "Navigate"),
                 ("Enter/l/o", "Open"),
-                ("f", "Filter"),
+                ("f", "Filter sessions"),
                 ("r", "Refresh sessions"),
                 ("Ctrl+d/u", "Page"),
                 ("g/G", "First/Last"),
@@ -528,14 +528,14 @@ impl ConversationsPlugin {
                 ("↑/↓", "Scroll"),
                 ("Ctrl+d/u", "Page"),
                 ("Esc/h", "Back"),
-                ("f", "Filter"),
+                ("f", "Filter sessions"),
                 ("r", "Refresh messages"),
                 ("Space", "Expand"),
                 ("e/c", "Expand/Collapse All"),
             ],
             ConversationView::Search => vec![
-                ("Type", "Filter"),
-                ("Backspace", "Edit"),
+                ("Type", "Filter sessions"),
+                ("Backspace", "Edit filter"),
                 ("Esc", "Clear filter"),
             ],
         }
@@ -900,7 +900,7 @@ impl Plugin for ConversationsPlugin {
             .with_footer_priority(3),
             crate::plugin::PluginCommand::with_context_description(
                 "search",
-                "Filter",
+                "Filter Sessions",
                 "Filter loaded sessions",
                 'f',
                 crate::keymap::FocusContext::Conversations,
@@ -1100,7 +1100,7 @@ mod tests {
         let hints = plugin.key_hints();
         assert!(!hints.is_empty());
         assert!(hints.contains(&("Enter/l/o", "Open")));
-        assert!(hints.contains(&("f", "Filter")));
+        assert!(hints.contains(&("f", "Filter sessions")));
         assert!(hints.contains(&("r", "Refresh sessions")));
         assert!(
             !hints
@@ -1115,8 +1115,8 @@ mod tests {
         plugin.state_mut().view = ConversationView::Search;
         let hints = plugin.key_hints();
         assert!(hints.contains(&("Esc", "Clear filter")));
-        assert!(hints.contains(&("Type", "Filter")));
-        assert!(hints.contains(&("Backspace", "Edit")));
+        assert!(hints.contains(&("Type", "Filter sessions")));
+        assert!(hints.contains(&("Backspace", "Edit filter")));
         assert!(!hints.iter().any(|(_, label)| *label == "Search"));
     }
 
@@ -1184,7 +1184,7 @@ mod tests {
             "Reload sessions or messages for the active view"
         );
         assert_eq!(refresh_command.key, 'r');
-        assert_eq!(filter_command.name, "Filter");
+        assert_eq!(filter_command.name, "Filter Sessions");
         assert_eq!(filter_command.key, 'f');
         assert!(commands.iter().any(|command| command.id == "expand"
             && command.name == "Expand All"
