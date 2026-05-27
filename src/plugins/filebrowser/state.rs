@@ -453,8 +453,16 @@ mod tests {
         state.refresh();
 
         // Set filter
-        state.set_filter(Some("test".to_string()));
-        assert!(state.filter_count() > 0 || state.filter_count() == 0);
+        state.set_filter(Some("test.txt".to_string()));
+        assert_eq!(state.filter_query.as_deref(), Some("test.txt"));
+        assert_eq!(state.filter_count(), 1);
+        assert_eq!(
+            state
+                .selected_path
+                .as_ref()
+                .and_then(|path| path.file_name()),
+            Some(std::ffi::OsStr::new("test.txt"))
+        );
 
         // Clear filter
         state.set_filter(None);
