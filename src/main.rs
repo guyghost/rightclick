@@ -917,7 +917,7 @@ fn compact_help_overlay_text(width: u16) -> &'static str {
         13..=22 => "? Toggle help",
         23..=29 => "? Toggle help  / Global",
         30..=34 => "? Toggle help  / Global search",
-        35..=40 => "? Toggle help  / Global  : Commands",
+        35..=40 => "? Toggle help  / Global  : Command",
         41..=47 => "? Toggle help  / Global  : Command search",
         48..=55 => "? Toggle help  / Global search  : Command search",
         _ => "? Toggle help  / Global search  : Command search  q Quit",
@@ -1290,7 +1290,7 @@ mod tests {
         );
         assert_eq!(
             compact_help_overlay_text(35),
-            "? Toggle help  / Global  : Commands"
+            "? Toggle help  / Global  : Command"
         );
         assert_eq!(
             compact_help_overlay_text(41),
