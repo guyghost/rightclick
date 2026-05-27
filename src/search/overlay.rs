@@ -739,7 +739,8 @@ fn search_empty_action_hint(width: u16) -> &'static str {
     [
         SEARCH_EMPTY_ACTION_HINT,
         "Ctrl+U: Clear | Tab: Scope | Esc",
-        "Clear | Scope | Esc",
+        "Clear | Tab: Scope | Esc",
+        "Clear | Tab | Esc",
         "Ctrl+U/Tab/Esc",
         "Tab/Esc",
         "Esc",
@@ -1293,7 +1294,8 @@ mod tests {
         assert_eq!(search_empty_action_hint(3), "Esc");
         assert_eq!(search_empty_action_hint(7), "Tab/Esc");
         assert_eq!(search_empty_action_hint(14), "Ctrl+U/Tab/Esc");
-        assert_eq!(search_empty_action_hint(19), "Clear | Scope | Esc");
+        assert_eq!(search_empty_action_hint(17), "Clear | Tab | Esc");
+        assert_eq!(search_empty_action_hint(24), "Clear | Tab: Scope | Esc");
         assert_eq!(
             search_empty_action_hint(32),
             "Ctrl+U: Clear | Tab: Scope | Esc"
