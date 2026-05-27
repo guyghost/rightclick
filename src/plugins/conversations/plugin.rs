@@ -1015,7 +1015,7 @@ fn conversations_status_line(state: &PluginState) -> String {
     }
 
     if state.sessions.is_empty() {
-        return "No sessions | r Refresh sessions | f Filter | / Global search | : Command search | ? Toggle help"
+        return "No sessions | r Refresh sessions | f Filter | /: Global search | :: Command search | ? Toggle help"
             .to_string();
     }
 
@@ -1335,7 +1335,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No sessions | r Refresh sessions | f Filter | / Global search | : Command search | ? Toggle help"
+                "No sessions | r Refresh sessions | f Filter | /: Global search | :: Command search | ? Toggle help"
                     .to_string()
             )
         );

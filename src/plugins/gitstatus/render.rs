@@ -1275,7 +1275,7 @@ pub fn render_status_info(state: &PluginState) -> String {
     let mut parts = Vec::new();
 
     if state.branch.is_empty() && state.files.is_empty() && state.commits.is_empty() {
-        return "No repository data loaded | r Refresh git status | / Global search | : Command search | ? Toggle help"
+        return "No repository data loaded | r Refresh git status | /: Global search | :: Command search | ? Toggle help"
             .to_string();
     }
 
@@ -1623,7 +1623,7 @@ mod tests {
 
         assert_eq!(
             info,
-            "No repository data loaded | r Refresh git status | / Global search | : Command search | ? Toggle help"
+            "No repository data loaded | r Refresh git status | /: Global search | :: Command search | ? Toggle help"
         );
     }
 
@@ -1638,7 +1638,7 @@ mod tests {
         assert_hint(git_changes_empty_message(&unloaded));
         assert_hint(git_diff_empty_message(&unloaded));
         assert_hint(git_sidebar_empty_message(&unloaded));
-        assert!(render_status_info(&unloaded).contains(": Command search"));
+        assert!(render_status_info(&unloaded).contains(":: Command search"));
 
         let mut clean = PluginState::new();
         clean.branch = "main".to_string();
