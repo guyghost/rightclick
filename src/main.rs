@@ -889,7 +889,7 @@ fn build_help_lines(
         }
     }
     if seen.is_empty() {
-        lines.push("  No plugin commands available in this view".to_string());
+        lines.push("  No view-specific plugin commands".to_string());
     }
 
     lines
@@ -1224,6 +1224,11 @@ mod tests {
         assert!(lines.iter().any(|line| line.contains("Plugin commands:")));
         assert!(
             lines
+                .iter()
+                .any(|line| line.contains("No view-specific plugin commands"))
+        );
+        assert!(
+            !lines
                 .iter()
                 .any(|line| line.contains("No plugin commands available in this view"))
         );
