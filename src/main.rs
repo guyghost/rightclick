@@ -1020,9 +1020,12 @@ fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginComma
 
 fn format_command_search_preview(command: &rightclick::plugin::PluginCommand) -> String {
     if command.description.is_empty() {
-        format!("Shortcut: {}", command.key)
+        format!("Shortcut: {} | ID: {}", command.key, command.id)
     } else {
-        format!("Shortcut: {} | {}", command.key, command.description)
+        format!(
+            "Shortcut: {} | ID: {} | {}",
+            command.key, command.id, command.description
+        )
     }
 }
 
@@ -1378,7 +1381,7 @@ mod tests {
 
         assert_eq!(
             format_command_search_preview(&command),
-            "Shortcut: r | Reload repository state"
+            "Shortcut: r | ID: refresh | Reload repository state"
         );
     }
 
@@ -1391,7 +1394,10 @@ mod tests {
             rightclick::keymap::FocusContext::Global,
         );
 
-        assert_eq!(format_command_search_preview(&command), "Shortcut: r");
+        assert_eq!(
+            format_command_search_preview(&command),
+            "Shortcut: r | ID: refresh"
+        );
     }
 
     #[test]
@@ -1802,7 +1808,10 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "Builder: Build Project");
-        assert_eq!(results[0].preview, "Shortcut: z | Compile workspace");
+        assert_eq!(
+            results[0].preview,
+            "Shortcut: z | ID: rebuild | Compile workspace"
+        );
     }
 
     #[test]
@@ -1840,7 +1849,7 @@ mod tests {
                     id: "target:refresh".to_string(),
                 },
                 title: "Target: Refresh Target".to_string(),
-                preview: "Shortcut: r | Reload target plugin data".to_string(),
+                preview: "Shortcut: r | ID: refresh | Reload target plugin data".to_string(),
                 score: 100,
             }]);
 
