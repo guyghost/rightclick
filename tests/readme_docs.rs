@@ -36,9 +36,9 @@ fn keyboard_shortcuts_include_command_search() {
 fn search_docs_explain_command_search_fields() {
     assert!(
         README.contains(
-            "- **Commands**: search commands by name, description, shortcut, category, or command ID",
+            "- **Commands**: search commands by plugin, category, name, description, shortcut, or command ID",
         ),
-        "README search docs should match command palette search fields"
+        "README search docs should match command search fields"
     );
     assert!(
         !README.contains("search available commands with their current descriptions"),

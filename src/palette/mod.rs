@@ -135,7 +135,7 @@ pub fn standard_entries() -> Vec<PaletteEntry> {
             .with_key("ctrl+j"),
         PaletteEntry::minimal("view.command_palette", "Command Search", Category::View)
             .with_description(
-                "Search commands by name, description, shortcut, category, or command ID",
+                "Search commands by plugin, category, name, description, shortcut, or command ID",
             )
             .with_key(":"),
         // Git
@@ -185,7 +185,7 @@ mod tests {
         assert_eq!(command_search.name, "Command Search");
         assert_eq!(
             command_search.description,
-            "Search commands by name, description, shortcut, category, or command ID"
+            "Search commands by plugin, category, name, description, shortcut, or command ID"
         );
         assert_eq!(command_search.key, ":");
     }

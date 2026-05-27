@@ -522,7 +522,7 @@ impl Registry {
         );
         self.register_command(
             Command::new("app.palette", "Command search", || Action::OpenPalette).with_description(
-                "Search commands by name, description, shortcut, category, or command ID",
+                "Search commands by plugin, category, name, description, shortcut, or command ID",
             ),
         );
         self.register_command(
@@ -879,7 +879,7 @@ mod tests {
         assert_eq!(palette.name, "Command search");
         assert_eq!(
             palette.description.as_deref(),
-            Some("Search commands by name, description, shortcut, category, or command ID")
+            Some("Search commands by plugin, category, name, description, shortcut, or command ID")
         );
         let search = registry
             .get_command("app.search")
