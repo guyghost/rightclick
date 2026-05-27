@@ -941,7 +941,7 @@ fn build_footer_hints(
     let mut global_hints = vec![
         ("Tab", tab_label),
         ("Enter", "Select"),
-        ("Ctrl+R", "Refresh"),
+        ("Ctrl+R", "Refresh current view"),
         ("/", "Global search"),
         (":", "Command search"),
         ("?", "Toggle help"),
@@ -1405,7 +1405,7 @@ mod tests {
                 ("Tab".to_string(), "Pane".to_string()),
                 ("Ctrl+Tab".to_string(), "Plugin".to_string()),
                 ("Enter".to_string(), "Select".to_string()),
-                ("Ctrl+R".to_string(), "Refresh".to_string()),
+                ("Ctrl+R".to_string(), "Refresh current view".to_string()),
                 ("/".to_string(), "Global search".to_string()),
                 (":".to_string(), "Command search".to_string()),
                 ("?".to_string(), "Toggle help".to_string()),
