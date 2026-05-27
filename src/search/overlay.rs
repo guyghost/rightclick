@@ -19,7 +19,7 @@ use ratatui::{
 use std::str::FromStr;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab: Scope  |  Esc: Close";
+const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear | Tab: Scope | Esc: Close";
 const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
 const MIN_SEARCH_OVERLAY_HEIGHT: u16 = 8;
 const SEARCH_RESULT_SCROLL_WINDOW: usize = 10;
@@ -467,7 +467,7 @@ fn render_results(
         let msg = if state.query().is_empty() {
             empty_query_hint(state.scope).to_string()
         } else {
-            no_results_message(state.query(), state.scope)
+            no_results_message(state.query(), state.scope, area.width)
         };
         Paragraph::new(msg)
             .style(Style::default().fg(muted))
@@ -649,7 +649,7 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
     }
 }
 
-fn no_results_message(query: &str, scope: SearchScope) -> String {
+fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
     let query = truncate_str(query, 40);
     let message = match scope {
         SearchScope::All => format!("No results match \"{}\"", query),
@@ -658,7 +658,22 @@ fn no_results_message(query: &str, scope: SearchScope) -> String {
         SearchScope::Commands => format!("No command matches \"{}\"", query),
     };
 
-    format!("{}\n\n{}", message, SEARCH_EMPTY_ACTION_HINT)
+    format!("{}\n\n{}", message, search_empty_action_hint(width))
+}
+
+fn search_empty_action_hint(width: u16) -> &'static str {
+    let width = width as usize;
+    [
+        SEARCH_EMPTY_ACTION_HINT,
+        "Ctrl+U: Clear | Tab: Scope | Esc",
+        "Clear | Scope | Esc",
+        "Ctrl+U/Tab/Esc",
+        "Tab/Esc",
+        "Esc",
+    ]
+    .into_iter()
+    .find(|hint| hint.width() <= width)
+    .unwrap_or("")
 }
 
 fn search_result_icon(kind: &super::types::SearchResultKind) -> &'static str {
@@ -1136,6 +1151,31 @@ mod tests {
     }
 
     #[test]
+    fn test_search_empty_action_hint_compacts_for_narrow_widths() {
+        assert_eq!(search_empty_action_hint(2), "");
+        assert_eq!(search_empty_action_hint(3), "Esc");
+        assert_eq!(search_empty_action_hint(7), "Tab/Esc");
+        assert_eq!(search_empty_action_hint(14), "Ctrl+U/Tab/Esc");
+        assert_eq!(search_empty_action_hint(19), "Clear | Scope | Esc");
+        assert_eq!(
+            search_empty_action_hint(32),
+            "Ctrl+U: Clear | Tab: Scope | Esc"
+        );
+        assert_eq!(search_empty_action_hint(80), SEARCH_EMPTY_ACTION_HINT);
+    }
+
+    #[test]
+    fn test_search_empty_action_hint_never_exceeds_width() {
+        for width in 0..=100 {
+            assert!(
+                search_empty_action_hint(width).width() <= width as usize,
+                "hint for width {width:?} was {:?}",
+                search_empty_action_hint(width)
+            );
+        }
+    }
+
+    #[test]
     fn test_empty_query_hint_is_scope_specific() {
         assert_eq!(
             empty_query_hint(SearchScope::All),
@@ -1157,7 +1197,7 @@ mod tests {
 
     #[test]
     fn test_no_results_message_includes_scope_and_query() {
-        let items = no_results_message("worker", SearchScope::Items);
+        let items = no_results_message("worker", SearchScope::Items, 80);
         assert!(items.contains("No project item matches \"worker\""));
         assert!(items.contains(SEARCH_EMPTY_ACTION_HINT));
         assert!(!items.contains("Ctrl+U  Clear search"));
@@ -1167,11 +1207,21 @@ mod tests {
         let truncated = no_results_message(
             "abcdefghijklmnopqrstuvwxyz0123456789abcdef",
             SearchScope::All,
+            80,
         );
         assert!(
             truncated.contains("No results match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
         );
         assert!(truncated.contains(SEARCH_EMPTY_ACTION_HINT));
+    }
+
+    #[test]
+    fn test_no_results_message_uses_compact_hint_when_narrow() {
+        let message = no_results_message("deploy", SearchScope::Commands, 14);
+
+        assert!(message.contains("No command matches \"deploy\""));
+        assert!(message.contains("Ctrl+U/Tab/Esc"));
+        assert!(!message.contains(SEARCH_EMPTY_ACTION_HINT));
     }
 
     #[test]
