@@ -598,7 +598,7 @@ fn modal_hint_text(primary_action: Option<&str>, has_focusable_elements: bool) -
     }
 
     if has_focusable_elements {
-        hints.push("Tab: Navigate".to_string());
+        hints.push("Tab/Shift+Tab: Navigate".to_string());
     }
 
     hints.join("  |  ")
@@ -650,7 +650,7 @@ mod tests {
         );
         assert_eq!(
             modal_hint_text(Some("Save changes"), true),
-            "Esc: Close  |  Enter: Save changes  |  Tab: Navigate"
+            "Esc: Close  |  Enter: Save changes  |  Tab/Shift+Tab: Navigate"
         );
     }
 
@@ -747,6 +747,22 @@ mod tests {
 
         assert!(matches!(action, Some(Action::Refresh)));
         assert_eq!(modal.focus_index, 1);
+    }
+
+    #[test]
+    fn modal_handle_backtab_navigates_reverse() {
+        use crate::modal::section::CheckboxSection;
+
+        let mut modal = Modal::new("Test");
+        modal.add_section(Box::new(CheckboxSection::new("cb1", "Checkbox 1", false)));
+        modal.add_section(Box::new(CheckboxSection::new("cb2", "Checkbox 2", false)));
+
+        let key = KeyEvent::from(KeyCode::BackTab);
+        let action = modal.handle_key(key);
+
+        assert!(matches!(action, Some(Action::Refresh)));
+        assert_eq!(modal.focus_index, 1);
+        assert_eq!(modal.focused_id(), Some("cb2"));
     }
 
     #[test]
