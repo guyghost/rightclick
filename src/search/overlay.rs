@@ -705,7 +705,7 @@ fn search_footer_hint(width: u16) -> &'static str {
 
 fn result_count_label(count: usize) -> String {
     match count {
-        0 => "No results".to_string(),
+        0 => "No search results".to_string(),
         1 => "1 result".to_string(),
         n => format!("{} results", n),
     }
@@ -1160,14 +1160,14 @@ mod tests {
 
     #[test]
     fn test_result_count_label() {
-        assert_eq!(result_count_label(0), "No results");
+        assert_eq!(result_count_label(0), "No search results");
         assert_eq!(result_count_label(1), "1 result");
         assert_eq!(result_count_label(2), "2 results");
     }
 
     #[test]
     fn test_scope_tabs_width_accounts_for_result_count() {
-        assert_eq!(full_scope_tabs_width(0), 44);
+        assert_eq!(full_scope_tabs_width(0), 51);
         assert_eq!(full_scope_tabs_width(1), 42);
         assert_eq!(full_scope_tabs_width(2), 43);
     }
@@ -1176,7 +1176,7 @@ mod tests {
     fn test_compact_scope_tabs_keep_active_scope_visible() {
         assert_eq!(
             compact_scope_tabs_text(SearchScope::Commands, 0, 28),
-            "Scope: Commands | No results"
+            "Commands | No search results"
         );
         assert_eq!(
             compact_scope_tabs_text(SearchScope::Commands, 0, 20),
