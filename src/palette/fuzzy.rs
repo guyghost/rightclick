@@ -27,10 +27,16 @@ impl FuzzyMatcher {
         &self,
         entries: &[PaletteEntry],
         query: &str,
-        _context: crate::keymap::FocusContext,
-        _show_all: bool,
+        context: crate::keymap::FocusContext,
+        show_all: bool,
     ) -> Vec<MatchResult> {
-        self.match_entries(entries, query)
+        let visible_entries: Vec<PaletteEntry> = entries
+            .iter()
+            .filter(|entry| entry.is_available_in(context, show_all))
+            .cloned()
+            .collect();
+
+        self.match_entries(&visible_entries, query)
     }
 
     /// Match entries against a query using nucleo fuzzy matching.
@@ -236,6 +242,26 @@ mod tests {
 
         let results = matcher.match_entries(&entries, "file");
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_match_entries_with_context_hides_unavailable_commands() {
+        let matcher = FuzzyMatcher::new();
+        let entries = vec![
+            PaletteEntry::minimal("app.refresh", "Refresh", Category::Actions)
+                .with_context(FocusContext::Global),
+            PaletteEntry::minimal("git.commit", "Commit", Category::Git)
+                .with_context(FocusContext::GitStatus),
+        ];
+
+        let scoped =
+            matcher.match_entries_with_context(&entries, "", FocusContext::Workspace, false);
+        assert_eq!(scoped.len(), 1);
+        assert_eq!(scoped[0].entry.name, "Refresh");
+
+        let all_contexts =
+            matcher.match_entries_with_context(&entries, "", FocusContext::Workspace, true);
+        assert_eq!(all_contexts.len(), 2);
     }
 
     #[test]

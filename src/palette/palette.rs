@@ -23,9 +23,12 @@ use crate::palette::fuzzy::{FuzzyMatcher, MatchResult};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
 
-const PALETTE_EMPTY_ACTION_HINT: &str = "Esc: Close  |  Tab: Contexts  |  ?: Help";
-const PALETTE_NO_MATCH_ACTION_HINT: &str =
-    "Backspace: Edit  |  Ctrl+U: Clear  |  Esc: Close  |  Tab: Contexts  |  ?: Help";
+const PALETTE_EMPTY_ACTION_HINT_SCOPED: &str = "Esc: Close | Tab: All contexts | ?: Help";
+const PALETTE_EMPTY_ACTION_HINT_ALL: &str = "Esc: Close | Tab: Current context | ?: Help";
+const PALETTE_NO_MATCH_ACTION_HINT_SCOPED: &str =
+    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All contexts | ?: Help";
+const PALETTE_NO_MATCH_ACTION_HINT_ALL: &str =
+    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current context | ?: Help";
 const MIN_VISIBLE_RESULTS: usize = 1;
 const MAX_RENDERABLE_VISIBLE_RESULTS: usize = u16::MAX as usize - 4;
 
@@ -569,7 +572,12 @@ impl Palette {
     /// Renders the empty state when no results are found.
     fn render_empty_state(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
         let text_style = style_for_ui_element(theme, UiElement::MutedText);
-        let message = palette_empty_state_message(&self.input, area.width);
+        let message = palette_empty_state_message(
+            &self.input,
+            area.width,
+            !self.all_entries.is_empty(),
+            self.show_all_contexts,
+        );
 
         let text = Paragraph::new(message)
             .style(text_style)
@@ -670,29 +678,54 @@ impl Palette {
     }
 }
 
-fn palette_empty_state_message(input: &str, width: u16) -> String {
+fn palette_empty_state_message(
+    input: &str,
+    width: u16,
+    has_commands: bool,
+    show_all_contexts: bool,
+) -> String {
+    let hint = palette_empty_action_hint(width, !input.is_empty(), show_all_contexts);
+
     if input.is_empty() {
+        if has_commands {
+            let heading = if show_all_contexts {
+                "No commands available"
+            } else {
+                "No commands in this context"
+            };
+            return format!("{heading}\n\n{hint}");
+        }
+
         format!(
             "No commands yet\n\n{}\n\nCommands appear after plugins finish loading.",
-            palette_empty_action_hint(width, false)
+            hint
         )
     } else {
         let input = truncate_query(input, 40);
-        format!(
-            "No command matches \"{}\"\n\n{}",
-            input,
-            palette_empty_action_hint(width, true)
-        )
+        format!("No command matches \"{}\"\n\n{}", input, hint)
     }
 }
 
-fn palette_empty_action_hint(width: u16, has_input: bool) -> &'static str {
+fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: bool) -> &'static str {
     let width = width as usize;
     if has_input {
+        let full_hint = if show_all_contexts {
+            PALETTE_NO_MATCH_ACTION_HINT_ALL
+        } else {
+            PALETTE_NO_MATCH_ACTION_HINT_SCOPED
+        };
+        let context_hint = if show_all_contexts {
+            "Tab: Current context"
+        } else {
+            "Tab: All contexts"
+        };
+
         [
-            PALETTE_NO_MATCH_ACTION_HINT,
-            "Backspace: Edit  |  Ctrl+U: Clear  |  Esc: Close",
+            full_hint,
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab",
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close",
             "Backspace/Ctrl+U  Esc/Tab/?",
+            context_hint,
             "Edit/Clear  Close",
             "Esc",
         ]
@@ -700,9 +733,21 @@ fn palette_empty_action_hint(width: u16, has_input: bool) -> &'static str {
         .find(|hint| hint.width() <= width)
         .unwrap_or("")
     } else {
+        let full_hint = if show_all_contexts {
+            PALETTE_EMPTY_ACTION_HINT_ALL
+        } else {
+            PALETTE_EMPTY_ACTION_HINT_SCOPED
+        };
+        let context_hint = if show_all_contexts {
+            "Tab: Current context"
+        } else {
+            "Tab: All contexts"
+        };
+
         [
-            PALETTE_EMPTY_ACTION_HINT,
-            "Esc: Close  |  Tab: Contexts",
+            full_hint,
+            "Esc: Close | Tab",
+            context_hint,
             "Esc/Tab/?",
             "Esc",
             "",
@@ -937,6 +982,12 @@ mod tests {
 
         // Without show_all, context-compatible entries should be visible
         assert!(palette.filtered.iter().any(|m| m.entry.name == "Open File"));
+        assert!(
+            !palette
+                .filtered
+                .iter()
+                .any(|m| m.entry.name == "Git Commit")
+        );
 
         // With show_all, all entries should be visible
         palette.set_show_all_contexts(true);
@@ -1194,23 +1245,39 @@ mod tests {
 
     #[test]
     fn test_palette_empty_state_message_points_to_next_actions() {
-        let empty = palette_empty_state_message("", 80);
+        let empty = palette_empty_state_message("", 80, false, false);
         assert!(empty.contains("No commands yet"));
-        assert!(empty.contains(PALETTE_EMPTY_ACTION_HINT));
+        assert!(empty.contains(PALETTE_EMPTY_ACTION_HINT_SCOPED));
         assert!(!empty.contains("Esc  Close palette"));
         assert!(!empty.contains("Tab  Toggle contexts"));
         assert!(empty.contains("Commands appear after plugins finish loading"));
 
-        let no_match = palette_empty_state_message("deploy", 80);
+        let context_empty = palette_empty_state_message("", 80, true, false);
+        assert!(context_empty.contains("No commands in this context"));
+        assert!(context_empty.contains("Tab: All contexts"));
+        assert!(!context_empty.contains("Commands appear after plugins finish loading"));
+
+        let all_contexts_empty = palette_empty_state_message("", 80, true, true);
+        assert!(all_contexts_empty.contains("No commands available"));
+        assert!(all_contexts_empty.contains("Tab: Current context"));
+
+        let no_match = palette_empty_state_message("deploy", 80, true, false);
         assert!(no_match.contains("No command matches \"deploy\""));
-        assert!(no_match.contains(PALETTE_NO_MATCH_ACTION_HINT));
+        assert!(no_match.contains(PALETTE_NO_MATCH_ACTION_HINT_SCOPED));
         assert!(!no_match.contains("Backspace  Edit search"));
         assert!(!no_match.contains("Ctrl+U  Clear search"));
         assert!(!no_match.contains("Esc  Close palette"));
         assert!(!no_match.contains("Tab  Toggle contexts"));
 
-        let truncated =
-            palette_empty_state_message("abcdefghijklmnopqrstuvwxyz0123456789abcdef", 80);
+        let no_match_all_contexts = palette_empty_state_message("deploy", 80, true, true);
+        assert!(no_match_all_contexts.contains(PALETTE_NO_MATCH_ACTION_HINT_ALL));
+
+        let truncated = palette_empty_state_message(
+            "abcdefghijklmnopqrstuvwxyz0123456789abcdef",
+            80,
+            true,
+            false,
+        );
         assert!(
             truncated.contains("No command matches \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
         );
@@ -1218,38 +1285,61 @@ mod tests {
 
     #[test]
     fn test_palette_empty_action_hint_compacts_for_narrow_widths() {
-        assert_eq!(palette_empty_action_hint(2, false), "");
-        assert_eq!(palette_empty_action_hint(3, false), "Esc");
-        assert_eq!(palette_empty_action_hint(9, false), "Esc/Tab/?");
+        assert_eq!(palette_empty_action_hint(2, false, false), "");
+        assert_eq!(palette_empty_action_hint(3, false, false), "Esc");
+        assert_eq!(palette_empty_action_hint(9, false, false), "Esc/Tab/?");
         assert_eq!(
-            palette_empty_action_hint(28, false),
-            "Esc: Close  |  Tab: Contexts"
+            palette_empty_action_hint(17, false, false),
+            "Esc: Close | Tab"
         );
         assert_eq!(
-            palette_empty_action_hint(80, false),
-            PALETTE_EMPTY_ACTION_HINT
+            palette_empty_action_hint(28, false, false),
+            "Esc: Close | Tab"
+        );
+        assert_eq!(
+            palette_empty_action_hint(80, false, false),
+            PALETTE_EMPTY_ACTION_HINT_SCOPED
+        );
+        assert_eq!(
+            palette_empty_action_hint(80, false, true),
+            PALETTE_EMPTY_ACTION_HINT_ALL
         );
 
-        assert_eq!(palette_empty_action_hint(3, true), "Esc");
-        assert_eq!(palette_empty_action_hint(18, true), "Edit/Clear  Close");
+        assert_eq!(palette_empty_action_hint(3, true, false), "Esc");
         assert_eq!(
-            palette_empty_action_hint(27, true),
+            palette_empty_action_hint(17, true, false),
+            "Tab: All contexts"
+        );
+        assert_eq!(
+            palette_empty_action_hint(18, true, false),
+            "Tab: All contexts"
+        );
+        assert_eq!(
+            palette_empty_action_hint(27, true, false),
             "Backspace/Ctrl+U  Esc/Tab/?"
         );
         assert_eq!(
-            palette_empty_action_hint(80, true),
-            PALETTE_NO_MATCH_ACTION_HINT
+            palette_empty_action_hint(80, true, false),
+            PALETTE_NO_MATCH_ACTION_HINT_SCOPED
+        );
+        assert_eq!(
+            palette_empty_action_hint(80, true, true),
+            PALETTE_NO_MATCH_ACTION_HINT_ALL
         );
     }
 
     #[test]
     fn test_palette_empty_action_hint_never_exceeds_width() {
         for width in 0..=80 {
-            let empty = palette_empty_action_hint(width, false);
-            let no_match = palette_empty_action_hint(width, true);
+            let empty = palette_empty_action_hint(width, false, false);
+            let all_empty = palette_empty_action_hint(width, false, true);
+            let no_match = palette_empty_action_hint(width, true, false);
+            let all_no_match = palette_empty_action_hint(width, true, true);
 
             assert!(empty.width() <= width as usize);
+            assert!(all_empty.width() <= width as usize);
             assert!(no_match.width() <= width as usize);
+            assert!(all_no_match.width() <= width as usize);
         }
     }
 
@@ -1290,7 +1380,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("No commands yet"));
-        assert!(content.contains(PALETTE_EMPTY_ACTION_HINT));
+        assert!(content.contains(PALETTE_EMPTY_ACTION_HINT_SCOPED));
     }
 
     #[test]
@@ -1308,8 +1398,8 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("No commands yet"));
-        assert!(content.contains("Esc: Close  |  Tab: Contexts"));
-        assert!(!content.contains(PALETTE_EMPTY_ACTION_HINT));
+        assert!(content.contains("Esc: Close | Tab"));
+        assert!(!content.contains(PALETTE_EMPTY_ACTION_HINT_SCOPED));
     }
 
     #[test]
