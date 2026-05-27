@@ -334,7 +334,7 @@ fn diff_empty_message(state: &PluginState) -> String {
             )
         }
     } else if state.worktrees.is_empty() {
-        "No diff available\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+        "No worktree diff yet\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     } else {
         select_worktree_message().to_string()
@@ -1176,7 +1176,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("No diff available"));
+        assert!(content.contains("No worktree diff yet"));
+        assert!(!content.contains("No diff available"));
         assert!(content.contains("n: Create worktree"));
         assert!(content.contains("r: Refresh worktrees"));
         assert!(content.contains("/: Global search"));
