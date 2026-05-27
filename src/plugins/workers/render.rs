@@ -539,11 +539,11 @@ fn output_empty_message(state: &PluginState) -> &'static str {
 }
 
 fn select_intent_details_message() -> &'static str {
-    "Select an intent to view details\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+    "No intent selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
 }
 
 fn select_intent_criteria_message() -> &'static str {
-    "Select an intent to view criteria\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+    "No intent selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
 }
 
 fn empty_criteria_message() -> &'static str {
@@ -1214,7 +1214,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("Select an intent to view details"));
+        assert!(content.contains("No intent selected"));
+        assert!(!content.contains("Select an intent to view details"));
         assert!(content.contains("j/k: Navigate intents"));
         assert!(content.contains("Enter/o: Open intent"));
         assert!(content.contains("Tab/Shift+Tab: Switch pane"));
@@ -1302,7 +1303,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("Select an intent to view criteria"));
+        assert!(content.contains("No intent selected"));
+        assert!(!content.contains("Select an intent to view criteria"));
         assert!(content.contains("j/k: Navigate intents"));
         assert!(content.contains("Enter/o: Open intent"));
         assert!(content.contains("Tab/Shift+Tab: Switch pane"));
