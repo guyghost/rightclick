@@ -690,6 +690,8 @@ fn search_footer_hint(width: u16) -> &'static str {
         "Tab/Shift+Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close",
         "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close",
         "Tab: Scope  |  Enter: Open  |  Esc: Close",
+        "Tab: Scope | Enter | Esc",
+        "Tab/Enter/Esc",
         "Enter: Open  |  Esc: Close",
         "Enter: Open | Esc",
         "Enter/Esc",
@@ -1260,8 +1262,9 @@ mod tests {
         assert_eq!(search_footer_hint(2), "");
         assert_eq!(search_footer_hint(3), "Esc");
         assert_eq!(search_footer_hint(9), "Enter/Esc");
-        assert_eq!(search_footer_hint(20), "Enter: Open | Esc");
-        assert_eq!(search_footer_hint(26), "Enter: Open  |  Esc: Close");
+        assert_eq!(search_footer_hint(13), "Tab/Enter/Esc");
+        assert_eq!(search_footer_hint(24), "Tab: Scope | Enter | Esc");
+        assert_eq!(search_footer_hint(26), "Tab: Scope | Enter | Esc");
         assert_eq!(
             search_footer_hint(48),
             "Tab: Scope  |  Enter: Open  |  Esc: Close"
