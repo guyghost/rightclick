@@ -1329,68 +1329,68 @@ pub fn render_status_info(state: &PluginState) -> String {
 
 fn git_changes_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
-        "No repository data loaded\n\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "No repository data loaded\n\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     } else {
-        "Working tree clean\n\nB: Branches\nH: History\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "Working tree clean\n\nB: Branches\nH: History\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
 fn git_diff_empty_message(state: &PluginState) -> &'static str {
     if state.files.is_empty() {
-        "Working tree clean\n\nH: History\nB: Branches\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "Working tree clean\n\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     } else {
-        "No file selected\n\nj/k: Navigate files\nS: Status\nH: History\nB: Branches\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "No file selected\n\nj/k: Navigate files\nS: Status\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
 fn git_file_no_diff_message(file: &FileChange) -> String {
     format!(
-        "No diff available for {}\n\nj/k: Navigate files\ns: Stage\nu: Unstage\nc: Commit\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help",
+        "No diff available for {}\n\nj/k: Navigate files\ns: Stage\nu: Unstage\nc: Commit\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help",
         file.path
     )
 }
 
 fn git_sidebar_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
-        "No repository data loaded\n\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "No repository data loaded\n\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     } else {
-        "No changes or commits\n\nB: Branches\nH: History\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "No changes or commits\n\nB: Branches\nH: History\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
 fn git_commits_empty_message() -> &'static str {
-    "No commits\n\nS: Status\nB: Branches\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+    "No commits\n\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
 }
 
 fn git_commit_details_empty_message(state: &PluginState) -> &'static str {
     if state.commits.is_empty() {
         git_commits_empty_message()
     } else {
-        "No commit selected\n\nj/k: Navigate commits\nS: Status\nB: Branches\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "No commit selected\n\nj/k: Navigate commits\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
 fn git_branches_empty_message() -> &'static str {
-    "No branches\n\nS: Status\nH: History\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+    "No branches\n\nS: Status\nH: History\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
 }
 
 fn git_branch_details_empty_message(state: &PluginState) -> &'static str {
     if state.branches.is_empty() {
         git_branches_empty_message()
     } else {
-        "No branch selected\n\nj/k: Navigate branches\nn: New branch\nS: Status\nH: History\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "No branch selected\n\nj/k: Navigate branches\nn: New branch\nS: Status\nH: History\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
 fn git_stashes_empty_message() -> &'static str {
-    "No stashes\n\ns: Save stash\nS: Status\nB: Branches\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+    "No stashes\n\ns: Save stash\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
 }
 
 fn git_stash_details_empty_message(state: &PluginState) -> &'static str {
     if state.stashes.is_empty() {
         git_stashes_empty_message()
     } else {
-        "No stash selected\n\nj/k: Navigate stashes\ns: Save stash\nS: Status\nB: Branches\nr: Refresh git status\n/  Global search  |  :  Command search\n?: Toggle help"
+        "No stash selected\n\nj/k: Navigate stashes\ns: Save stash\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
@@ -1630,8 +1630,8 @@ mod tests {
     #[test]
     fn test_git_empty_messages_surface_command_search() {
         let assert_hint = |message: &str| {
-            assert!(message.contains("/  Global search"), "{message}");
-            assert!(message.contains(":  Command search"), "{message}");
+            assert!(message.contains("/: Global search"), "{message}");
+            assert!(message.contains(":: Command search"), "{message}");
         };
 
         let unloaded = PluginState::new();
@@ -1743,8 +1743,8 @@ mod tests {
         assert!(message.contains("B: Branches"));
         assert!(message.contains("H: History"));
         assert!(message.contains("r: Refresh git status"));
-        assert!(message.contains("/  Global search"));
-        assert!(message.contains(":  Command search"));
+        assert!(message.contains("/: Global search"));
+        assert!(message.contains(":: Command search"));
         assert!(message.contains("?: Toggle help"));
     }
 
@@ -1755,8 +1755,8 @@ mod tests {
 
         assert!(message.contains("No repository data loaded"));
         assert!(message.contains("r: Refresh git status"));
-        assert!(message.contains("/  Global search"));
-        assert!(message.contains(":  Command search"));
+        assert!(message.contains("/: Global search"));
+        assert!(message.contains(":: Command search"));
         assert!(message.contains("?: Toggle help"));
     }
 
@@ -1769,8 +1769,8 @@ mod tests {
         assert!(message.contains("H: History"));
         assert!(message.contains("B: Branches"));
         assert!(message.contains("r: Refresh git status"));
-        assert!(message.contains("/  Global search"));
-        assert!(message.contains(":  Command search"));
+        assert!(message.contains("/: Global search"));
+        assert!(message.contains(":: Command search"));
         assert!(message.contains("?: Toggle help"));
     }
 
@@ -1789,8 +1789,8 @@ mod tests {
         assert!(message.contains("H: History"));
         assert!(message.contains("B: Branches"));
         assert!(message.contains("r: Refresh git status"));
-        assert!(message.contains("/  Global search"));
-        assert!(message.contains(":  Command search"));
+        assert!(message.contains("/: Global search"));
+        assert!(message.contains(":: Command search"));
         assert!(message.contains("?: Toggle help"));
     }
 
@@ -1819,8 +1819,8 @@ mod tests {
         assert!(content.contains("u: Unstage"));
         assert!(content.contains("c: Commit"));
         assert!(content.contains("r: Refresh git status"));
-        assert!(content.contains("/  Global search"));
-        assert!(content.contains(":  Command search"));
+        assert!(content.contains("/: Global search"));
+        assert!(content.contains(":: Command search"));
         assert!(content.contains("?: Toggle help"));
     }
 
@@ -1872,8 +1872,8 @@ mod tests {
         let unloaded = git_sidebar_empty_message(&state);
         assert!(unloaded.contains("No repository data loaded"));
         assert!(unloaded.contains("r: Refresh git status"));
-        assert!(unloaded.contains("/  Global search"));
-        assert!(unloaded.contains(":  Command search"));
+        assert!(unloaded.contains("/: Global search"));
+        assert!(unloaded.contains(":: Command search"));
         assert!(unloaded.contains("?: Toggle help"));
 
         let mut clean_state = PluginState::new();
@@ -1883,8 +1883,8 @@ mod tests {
         assert!(clean.contains("B: Branches"));
         assert!(clean.contains("H: History"));
         assert!(clean.contains("r: Refresh git status"));
-        assert!(clean.contains("/  Global search"));
-        assert!(clean.contains(":  Command search"));
+        assert!(clean.contains("/: Global search"));
+        assert!(clean.contains(":: Command search"));
         assert!(clean.contains("?: Toggle help"));
     }
 
@@ -1962,24 +1962,24 @@ mod tests {
         assert!(commit.contains("No commit selected"));
         assert!(commit.contains("j/k: Navigate commits"));
         assert!(commit.contains("S: Status"));
-        assert!(commit.contains("/  Global search"));
-        assert!(commit.contains(":  Command search"));
+        assert!(commit.contains("/: Global search"));
+        assert!(commit.contains(":: Command search"));
         assert!(commit.contains("?: Toggle help"));
 
         let branch = git_branch_details_empty_message(&state);
         assert!(branch.contains("No branch selected"));
         assert!(branch.contains("j/k: Navigate branches"));
         assert!(branch.contains("n: New branch"));
-        assert!(branch.contains("/  Global search"));
-        assert!(branch.contains(":  Command search"));
+        assert!(branch.contains("/: Global search"));
+        assert!(branch.contains(":: Command search"));
         assert!(branch.contains("?: Toggle help"));
 
         let stash = git_stash_details_empty_message(&state);
         assert!(stash.contains("No stash selected"));
         assert!(stash.contains("j/k: Navigate stashes"));
         assert!(stash.contains("s: Save stash"));
-        assert!(stash.contains("/  Global search"));
-        assert!(stash.contains(":  Command search"));
+        assert!(stash.contains("/: Global search"));
+        assert!(stash.contains(":: Command search"));
         assert!(stash.contains("?: Toggle help"));
     }
 }
