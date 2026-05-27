@@ -171,6 +171,10 @@ fn dev_script_help_explains_test_many() {
         stdout.contains("so broad filters do not pay Cargo's slower filtered --list path"),
         "dev script help should explain why filtered commands use the unfiltered list"
     );
+    assert!(
+        stdout.contains("collecting the buffered Cargo test list"),
+        "dev script help should explain the buffered test listing progress note"
+    );
 }
 
 #[test]
@@ -582,6 +586,10 @@ fn dev_script_test_one_reports_filter_validation_before_running() {
         "test-one should validate from the unfiltered test list: {stderr}"
     );
     assert!(
+        stderr.contains("Collecting test list; Cargo output is buffered until listing completes."),
+        "test-one should explain the quiet buffered list phase"
+    );
+    assert!(
         stderr.contains("==> validate test filter dev_script_help_explains_test_many"),
         "dev script should report the filter validation step"
     );
@@ -616,6 +624,10 @@ fn dev_script_test_many_validates_filters_from_single_test_list() {
         stderr.matches("==> cargo test -- --list").count(),
         1,
         "test-many should list tests once for all filter validation: {stderr}"
+    );
+    assert!(
+        stderr.contains("Collecting test list; Cargo output is buffered until listing completes."),
+        "test-many should explain the quiet buffered list phase"
     );
     assert!(
         stderr.contains("Matched 1 test for filter: dev_script_help_explains_test_many"),

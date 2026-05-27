@@ -86,6 +86,8 @@ Cargo itself accepts only one substring filter per `cargo test` invocation.
 `Listed N tests for filter: ...` for filtered lists. Filtered `test-list`,
 `test-one`, and `test-many` reuse one unfiltered Cargo test list for validation
 so broad filters avoid Cargo's slower filtered `--list` path.
+The script prints when it is collecting the buffered Cargo test list so long
+test discovery phases do not look stalled.
 `test-one` and `test-many` print a `validate test filter` step before running
 Cargo, then report `Matched N tests for filter: ...` so long filter checks are
 visible and confirm the filter scope before the test run starts. `test-many`

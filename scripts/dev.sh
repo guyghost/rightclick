@@ -57,6 +57,8 @@ test-list reports "Listed N tests." for the full list and
 "Listed N tests for filter: ..." for filtered lists.
 Filtered test-list, test-one, and test-many reuse one unfiltered Cargo test list
 for validation so broad filters do not pay Cargo's slower filtered --list path.
+The script prints when it is collecting the buffered Cargo test list so long
+test discovery phases do not look stalled.
 test-one and test-many print a "validate test filter" step before running Cargo
 and then report "Matched N tests for filter: ..." so long filter checks are
 visible and confirm the filter scope before the test run starts. test-many
@@ -271,12 +273,17 @@ print_test_filter_matches() {
   '
 }
 
+print_test_list_collection_note() {
+  echo "Collecting test list; Cargo output is buffered until listing completes." >&2
+}
+
 ensure_test_filters_match() {
   local output
   local filter
   local matches
 
   printf '\n==> cargo test -- --list\n' >&2
+  print_test_list_collection_note
   if ! output="$(cargo test -- --list 2>&1)"; then
     printf '%s\n' "$output" >&2
     exit 1
@@ -305,6 +312,7 @@ list_tests_for_filters() {
   local matches
 
   printf '\n==> cargo test -- --list\n' >&2
+  print_test_list_collection_note
   if ! output="$(cargo test -- --list 2>&1)"; then
     printf '%s\n' "$output" >&2
     exit 1
@@ -335,6 +343,7 @@ list_all_tests() {
   local matches
 
   printf '\n==> cargo test -- --list\n' >&2
+  print_test_list_collection_note
   if ! output="$(cargo test -- --list 2>&1)"; then
     printf '%s\n' "$output" >&2
     exit 1

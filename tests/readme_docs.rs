@@ -132,6 +132,10 @@ fn developer_commands_explain_test_many() {
         "README should explain why filtered commands avoid Cargo's filtered list path"
     );
     assert!(
+        README.contains("collecting the buffered Cargo test list"),
+        "README should explain the visible progress note for buffered test listing"
+    );
+    assert!(
         README.contains("then report `Matched N tests for filter: ...`"),
         "README should explain the matched test count feedback"
     );
