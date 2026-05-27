@@ -167,7 +167,7 @@ impl ConversationsRenderer {
         let sessions: Vec<&SessionInfo> = state.filtered_sessions();
 
         if sessions.is_empty() && !state.is_loading {
-            let empty_text = empty_sessions_message(state);
+            let empty_text = empty_sessions_message(state, inner_area.width);
 
             let paragraph = Paragraph::new(empty_text)
                 .style(muted_style)
@@ -426,13 +426,13 @@ impl ConversationsRenderer {
         if state.messages.is_empty() {
             if state.is_loading {
                 let loading_style = style_for_ui_element(theme, UiElement::Info);
-                let loading = Paragraph::new(loading_messages_message())
+                let loading = Paragraph::new(loading_messages_message(inner_area.width))
                     .style(loading_style)
                     .alignment(Alignment::Center);
                 loading.render(inner_area, buf);
             } else {
                 let muted_style = style_for_ui_element(theme, UiElement::MutedText);
-                let empty = Paragraph::new(empty_messages_message())
+                let empty = Paragraph::new(empty_messages_message(inner_area.width))
                     .style(muted_style)
                     .alignment(Alignment::Center);
                 empty.render(inner_area, buf);
@@ -873,35 +873,86 @@ fn wrap_break_index(text: &str, width: usize) -> usize {
     text.len()
 }
 
-fn empty_sessions_message(state: &PluginState) -> String {
+fn empty_sessions_message(state: &PluginState, width: u16) -> String {
     match state
         .search_query
         .as_deref()
         .filter(|query| !query.is_empty())
     {
-        Some(query) => format!(
-            "No sessions match \"{}\"\n\nBackspace: Edit filter\nEsc: Clear filter\nr: Refresh sessions\n{}\n?: Toggle help",
-            query, SEARCH_HINT
-        ),
-        None => format!(
-            "No sessions yet\n\nr: Refresh sessions\nf: Filter sessions\n{}\n?: Toggle help\n\nSessions appear after supported adapters are detected.",
-            SEARCH_HINT
-        ),
+        Some(query) => {
+            let query = truncate_string(query, 40);
+            let mut lines = vec![
+                format!("No sessions match \"{query}\""),
+                String::new(),
+                "Backspace: Edit filter".to_string(),
+                "Esc: Clear filter".to_string(),
+                "r: Refresh sessions".to_string(),
+            ];
+            append_search_hint(&mut lines, width);
+            lines.push("?: Toggle help".to_string());
+            lines.join("\n")
+        }
+        None => {
+            let mut lines = vec![
+                "No sessions yet".to_string(),
+                String::new(),
+                "r: Refresh sessions".to_string(),
+                "f: Filter sessions".to_string(),
+            ];
+            append_search_hint(&mut lines, width);
+            lines.extend([
+                "?: Toggle help".to_string(),
+                String::new(),
+                "Sessions appear after supported adapters are detected.".to_string(),
+            ]);
+            lines.join("\n")
+        }
     }
 }
 
-fn empty_messages_message() -> String {
-    format!(
-        "No messages in this session\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n{}\n?: Toggle help",
-        SEARCH_HINT
-    )
+fn empty_messages_message(width: u16) -> String {
+    let mut lines = vec![
+        "No messages in this session".to_string(),
+        String::new(),
+        "r: Refresh messages".to_string(),
+        "f: Filter sessions".to_string(),
+        "Esc/h: Back to sessions".to_string(),
+    ];
+    append_search_hint(&mut lines, width);
+    lines.push("?: Toggle help".to_string());
+    lines.join("\n")
 }
 
-fn loading_messages_message() -> String {
-    format!(
-        "Loading messages\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n{}\n?: Toggle help",
-        SEARCH_HINT
-    )
+fn loading_messages_message(width: u16) -> String {
+    let mut lines = vec![
+        "Loading messages".to_string(),
+        String::new(),
+        "r: Refresh messages".to_string(),
+        "f: Filter sessions".to_string(),
+        "Esc/h: Back to sessions".to_string(),
+    ];
+    append_search_hint(&mut lines, width);
+    lines.push("?: Toggle help".to_string());
+    lines.join("\n")
+}
+
+fn append_search_hint(lines: &mut Vec<String>, width: u16) {
+    if let Some(hint) = conversation_search_hint(width) {
+        lines.push(hint.to_string());
+    }
+}
+
+fn conversation_search_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [
+        SEARCH_HINT,
+        "/: Search  |  : Commands",
+        "/: Search  |  : Cmds",
+        "/: Search",
+        "/:",
+    ]
+    .into_iter()
+    .find(|hint| hint.width() <= width)
 }
 
 fn compact_message_count(count: usize) -> String {
@@ -1048,7 +1099,7 @@ mod tests {
     #[test]
     fn test_empty_sessions_message_points_to_next_actions() {
         let state = PluginState::new();
-        let message = empty_sessions_message(&state);
+        let message = empty_sessions_message(&state, 80);
 
         assert!(message.contains("No sessions yet"));
         assert!(message.contains("r: Refresh sessions"));
@@ -1064,7 +1115,7 @@ mod tests {
     fn test_empty_sessions_message_mentions_query() {
         let mut state = PluginState::new();
         state.start_search("render".to_string());
-        let message = empty_sessions_message(&state);
+        let message = empty_sessions_message(&state, 80);
 
         assert!(message.contains("No sessions match \"render\""));
         assert!(message.contains("Backspace: Edit filter"));
@@ -1079,7 +1130,7 @@ mod tests {
 
     #[test]
     fn test_empty_messages_message_points_to_next_actions() {
-        let message = empty_messages_message();
+        let message = empty_messages_message(80);
 
         assert!(message.contains("No messages in this session"));
         assert!(message.contains("r: Refresh messages"));
@@ -1093,7 +1144,7 @@ mod tests {
 
     #[test]
     fn test_loading_messages_message_points_to_next_actions() {
-        let message = loading_messages_message();
+        let message = loading_messages_message(80);
 
         assert!(message.contains("Loading messages"));
         assert!(message.contains("r: Refresh messages"));
@@ -1103,6 +1154,39 @@ mod tests {
         assert!(!message.contains("/: Global search\n: Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(!message.contains("r: Refresh sessions"));
+    }
+
+    #[test]
+    fn test_conversation_search_hint_compacts_for_narrow_widths() {
+        assert_eq!(conversation_search_hint(1), None);
+        assert_eq!(conversation_search_hint(2), Some("/:"));
+        assert_eq!(conversation_search_hint(9), Some("/: Search"));
+        assert_eq!(conversation_search_hint(20), Some("/: Search  |  : Cmds"));
+        assert_eq!(
+            conversation_search_hint(24),
+            Some("/: Search  |  : Commands")
+        );
+        assert_eq!(conversation_search_hint(80), Some(SEARCH_HINT));
+    }
+
+    #[test]
+    fn test_empty_sessions_message_truncates_long_filter_query() {
+        let mut state = PluginState::new();
+        state.start_search("abcdefghijklmnopqrstuvwxyz0123456789abcdef".to_string());
+        let message = empty_sessions_message(&state, 80);
+
+        assert!(message.contains("No sessions match \"abcdefghijklmnopqrstuvwxyz0123456789a...\""));
+        assert!(!message.contains("abcdef\""));
+    }
+
+    #[test]
+    fn test_empty_messages_message_omits_search_hint_when_too_narrow() {
+        let message = empty_messages_message(1);
+
+        assert!(message.contains("No messages in this session"));
+        assert!(!message.contains("Global search"));
+        assert!(!message.contains("/:"));
+        assert!(message.contains("?: Toggle help"));
     }
 
     #[test]
