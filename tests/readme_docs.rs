@@ -39,8 +39,8 @@ fn keyboard_shortcuts_use_display_key_casing() {
     }
 
     assert!(
-        README.contains("Use\n`Tab` inside the overlay to switch scope:"),
-        "README search docs should match UI key casing for Tab"
+        README.contains("Use\n`Tab` or `Shift+Tab` inside the overlay to switch scope:"),
+        "README search docs should match UI key casing for Tab and Shift+Tab"
     );
 }
 

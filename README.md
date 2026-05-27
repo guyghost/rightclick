@@ -104,7 +104,7 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 ## Search
 
 Press `/` to open global search, or `:` to open command search directly. Use
-`Tab` inside the overlay to switch scope:
+`Tab` or `Shift+Tab` inside the overlay to switch scope:
 
 - **All**: search files, commands, sessions, worktrees, and intents together
 - **Files**: search file contents with `rg`

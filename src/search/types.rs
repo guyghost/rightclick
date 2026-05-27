@@ -34,6 +34,16 @@ impl SearchScope {
             SearchScope::Commands => SearchScope::All,
         }
     }
+
+    /// Cycle to previous scope
+    pub fn prev(&self) -> Self {
+        match self {
+            SearchScope::All => SearchScope::Commands,
+            SearchScope::Files => SearchScope::All,
+            SearchScope::Items => SearchScope::Files,
+            SearchScope::Commands => SearchScope::Items,
+        }
+    }
 }
 
 /// A search query with scope and text
@@ -99,6 +109,11 @@ mod tests {
         assert_eq!(SearchScope::Files.next(), SearchScope::Items);
         assert_eq!(SearchScope::Items.next(), SearchScope::Commands);
         assert_eq!(SearchScope::Commands.next(), SearchScope::All);
+
+        assert_eq!(SearchScope::All.prev(), SearchScope::Commands);
+        assert_eq!(SearchScope::Commands.prev(), SearchScope::Items);
+        assert_eq!(SearchScope::Items.prev(), SearchScope::Files);
+        assert_eq!(SearchScope::Files.prev(), SearchScope::All);
     }
 
     #[test]

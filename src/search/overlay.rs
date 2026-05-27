@@ -19,7 +19,7 @@ use ratatui::{
 use std::str::FromStr;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear | Tab: Scope | Esc: Close";
+const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear | Tab/Shift+Tab: Scope | Esc: Close";
 const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
 const MIN_SEARCH_OVERLAY_HEIGHT: u16 = 8;
 const SEARCH_RESULT_SCROLL_WINDOW: usize = 10;
@@ -87,6 +87,13 @@ impl SearchOverlayState {
         self.scroll_offset = 0;
     }
 
+    /// Cycle to the previous search scope
+    pub fn prev_scope(&mut self) {
+        self.scope = self.scope.prev();
+        self.selected = 0;
+        self.scroll_offset = 0;
+    }
+
     /// Move selection up
     pub fn select_prev(&mut self) {
         self.normalize_selection(SEARCH_RESULT_SCROLL_WINDOW);
@@ -141,6 +148,10 @@ impl SearchOverlayState {
             }
             "Tab" => {
                 self.next_scope();
+                SearchOverlayAction::ScopeChanged
+            }
+            "BackTab" => {
+                self.prev_scope();
                 SearchOverlayAction::ScopeChanged
             }
             "Up" => {
@@ -676,7 +687,7 @@ fn search_input_placeholder(scope: SearchScope) -> &'static str {
 fn search_footer_hint(width: u16) -> &'static str {
     let width = width as usize;
     [
-        "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close",
+        "Tab/Shift+Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close",
         "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close",
         "Tab: Scope  |  Enter: Open  |  Esc: Close",
         "Enter: Open  |  Esc: Close",
@@ -843,6 +854,15 @@ mod tests {
         assert_eq!(state.scope, SearchScope::Commands);
         state.next_scope();
         assert_eq!(state.scope, SearchScope::All);
+
+        state.prev_scope();
+        assert_eq!(state.scope, SearchScope::Commands);
+        state.prev_scope();
+        assert_eq!(state.scope, SearchScope::Items);
+        state.prev_scope();
+        assert_eq!(state.scope, SearchScope::Files);
+        state.prev_scope();
+        assert_eq!(state.scope, SearchScope::All);
     }
 
     #[test]
@@ -952,6 +972,16 @@ mod tests {
         let action = state.handle_key("Tab", false);
         assert_eq!(action, SearchOverlayAction::ScopeChanged);
         assert_eq!(state.scope, SearchScope::Files);
+    }
+
+    #[test]
+    fn test_overlay_handle_key_backtab_reverses_scope() {
+        let mut state = SearchOverlayState::new();
+        state.open();
+
+        let action = state.handle_key("BackTab", false);
+        assert_eq!(action, SearchOverlayAction::ScopeChanged);
+        assert_eq!(state.scope, SearchScope::Commands);
     }
 
     #[test]
@@ -1209,9 +1239,9 @@ mod tests {
 
     #[test]
     fn test_search_footer_hint_names_scope_action() {
-        let hint = search_footer_hint(80);
+        let hint = search_footer_hint(90);
 
-        assert!(hint.contains("Tab: Scope"));
+        assert!(hint.contains("Tab/Shift+Tab: Scope"));
         assert!(hint.contains("Enter: Open"));
         assert!(hint.contains("Up/Down: Select"));
         assert!(hint.contains("Ctrl+U: Clear"));
@@ -1235,6 +1265,10 @@ mod tests {
             "Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Esc: Close"
         );
         assert!(!search_footer_hint(61).contains("Ctrl+U: Clear"));
+        assert_eq!(
+            search_footer_hint(90),
+            "Tab/Shift+Tab: Scope  |  Enter: Open  |  Up/Down: Select  |  Ctrl+U: Clear  |  Esc: Close"
+        );
     }
 
     #[test]
@@ -1258,6 +1292,10 @@ mod tests {
         assert_eq!(
             search_empty_action_hint(32),
             "Ctrl+U: Clear | Tab: Scope | Esc"
+        );
+        assert_eq!(
+            search_empty_action_hint(80),
+            "Ctrl+U: Clear | Tab/Shift+Tab: Scope | Esc: Close"
         );
         assert_eq!(search_empty_action_hint(80), SEARCH_EMPTY_ACTION_HINT);
     }
