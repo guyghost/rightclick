@@ -45,7 +45,7 @@ impl SearchOverlayState {
     /// Create a new search overlay state
     pub fn new() -> Self {
         let mut input = TextInputState::new(InputMode::SingleLine)
-            .with_placeholder("Search files, commands, project items...");
+            .with_placeholder("Search files, commands, sessions, worktrees, intents...");
         input.set_active(true);
         Self {
             visible: false,
@@ -657,7 +657,7 @@ fn search_overlay_title(scope: SearchScope, result_count: usize) -> String {
     let title = match scope {
         SearchScope::All => "Global Search",
         SearchScope::Files => "File Search",
-        SearchScope::Items => "Project Item Search",
+        SearchScope::Items => "Project Search",
         SearchScope::Commands => "Command Search",
     };
 
@@ -677,7 +677,7 @@ fn search_input_prompt(scope: SearchScope) -> &'static str {
 
 fn search_input_placeholder(scope: SearchScope) -> &'static str {
     match scope {
-        SearchScope::All => "Search files, commands, project items...",
+        SearchScope::All => "Search files, commands, sessions, worktrees, intents...",
         SearchScope::Files => "Search file contents...",
         SearchScope::Items => "Search sessions, worktrees, and intents...",
         SearchScope::Commands => {
@@ -716,7 +716,7 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
     match scope {
         SearchScope::All => "Search everything: files, commands, sessions, worktrees, intents",
         SearchScope::Files => "Search file contents with ripgrep",
-        SearchScope::Items => "Search project sessions, worktrees, and intents",
+        SearchScope::Items => "Search sessions, worktrees, and intents",
         SearchScope::Commands => {
             "Search commands by plugin, name, description, shortcut, or command ID"
         }
@@ -728,7 +728,7 @@ fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
     let message = match scope {
         SearchScope::All => format!("No results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
-        SearchScope::Items => format!("No project items match \"{}\"", query),
+        SearchScope::Items => format!("No session, worktree, or intent matches \"{}\"", query),
         SearchScope::Commands => {
             format!(
                 "No command, plugin, description, shortcut, or command ID matches \"{}\"",
@@ -825,7 +825,7 @@ mod tests {
         assert_eq!(state.selected, 0);
         assert_eq!(
             state.input.placeholder(),
-            "Search files, commands, project items..."
+            "Search files, commands, sessions, worktrees, intents..."
         );
     }
 
@@ -1216,7 +1216,7 @@ mod tests {
         );
         assert_eq!(
             search_overlay_title(SearchScope::Items, 1),
-            " Project Item Search - 1 result "
+            " Project Search - 1 result "
         );
         assert_eq!(
             search_overlay_title(SearchScope::Commands, 0),
@@ -1233,7 +1233,7 @@ mod tests {
 
         assert_eq!(
             search_input_placeholder(SearchScope::All),
-            "Search files, commands, project items..."
+            "Search files, commands, sessions, worktrees, intents..."
         );
         assert_eq!(
             search_input_placeholder(SearchScope::Files),
@@ -1337,7 +1337,7 @@ mod tests {
         );
         assert_eq!(
             empty_query_hint(SearchScope::Items),
-            "Search project sessions, worktrees, and intents"
+            "Search sessions, worktrees, and intents"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Commands),
@@ -1348,7 +1348,7 @@ mod tests {
     #[test]
     fn test_no_results_message_includes_scope_and_query() {
         let items = no_results_message("worker", SearchScope::Items, 80);
-        assert!(items.contains("No project items match \"worker\""));
+        assert!(items.contains("No session, worktree, or intent matches \"worker\""));
         assert!(items.contains(SEARCH_EMPTY_ACTION_HINT));
         assert!(!items.contains("Ctrl+U  Clear search"));
         assert!(!items.contains("Tab  Change scope"));
@@ -1527,7 +1527,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Global Search"));
-        assert!(content.contains("Search files, commands, project items"));
+        assert!(content.contains("Search files, commands, sessions, worktrees, intents"));
         assert!(content.contains("Project"));
     }
 
@@ -1552,7 +1552,7 @@ mod tests {
             content
                 .contains("Search commands by plugin, name, description, shortcut, or command ID")
         );
-        assert!(!content.contains("Search files, commands, project items"));
+        assert!(!content.contains("Search files, commands, sessions, worktrees, intents"));
     }
 
     #[test]
