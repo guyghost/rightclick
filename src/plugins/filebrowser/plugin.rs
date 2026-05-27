@@ -20,7 +20,7 @@ use crate::event::Event;
 use crate::keymap::{Action, FocusContext};
 use crate::plugin::{Command, Plugin, PluginCommand, PluginContext};
 use crate::theme::{UiElement, style_for_ui_element};
-use crate::ui::{Footer, Header, KeyHint};
+use crate::ui::{Footer, HELP_HINT, Header, KeyHint, compact_help_hint};
 
 use super::preview::PreviewWidget;
 use super::state::{FileOperationModal, PluginState};
@@ -31,7 +31,7 @@ const DELETE_ENTRY_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const RENAME_ENTRY_MODAL_HINT: &str = "Enter: Rename  |  Esc: Cancel";
 const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty input: Clear  |  Esc: Cancel";
 const ERROR_MODAL_HINT: &str = "Enter/Esc: Close";
-const HELP_OVERLAY_HINT: &str = "?: Toggle help";
+const HELP_OVERLAY_HINT: &str = HELP_HINT;
 const FILE_INFO_OVERLAY_HINT: &str = "I: Close";
 const FILE_BROWSER_SEARCH_HINT: &str = "/: Global search  |  : Command search";
 const MIN_OVERLAY_WIDTH: u16 = 24;
@@ -1478,7 +1478,7 @@ fn file_browser_empty_message(mut lines: Vec<String>, width: u16) -> String {
     if let Some(hint) = file_browser_search_hint(width) {
         lines.push(hint.to_string());
     }
-    if let Some(hint) = file_browser_help_hint(width) {
+    if let Some(hint) = compact_help_hint(width) {
         lines.push(hint.to_string());
     }
     lines.join("\n")
@@ -1495,13 +1495,6 @@ fn file_browser_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.width() <= width)
-}
-
-fn file_browser_help_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [HELP_OVERLAY_HINT, "?: Help", "?"]
-        .into_iter()
-        .find(|hint| hint.width() <= width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
@@ -1926,23 +1919,6 @@ mod tests {
             Some("/: Search  |  : Commands")
         );
         assert_eq!(file_browser_search_hint(80), Some(FILE_BROWSER_SEARCH_HINT));
-    }
-
-    #[test]
-    fn test_file_browser_help_hint_compacts_for_narrow_widths() {
-        assert_eq!(file_browser_help_hint(0), None);
-        assert_eq!(file_browser_help_hint(1), Some("?"));
-        assert_eq!(file_browser_help_hint(7), Some("?: Help"));
-        assert_eq!(file_browser_help_hint(14), Some(HELP_OVERLAY_HINT));
-
-        for width in 0..=30 {
-            if let Some(hint) = file_browser_help_hint(width) {
-                assert!(
-                    hint.width() <= width as usize,
-                    "hint {hint:?} overflowed width {width}"
-                );
-            }
-        }
     }
 
     #[test]

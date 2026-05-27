@@ -7,6 +7,7 @@
 //! # Module Structure
 //!
 //! - `components` - Basic UI components (Header, Footer, tabs)
+//! - `hints` - Shared keyboard hint formatting
 //! - `overlay` - Modal overlay for dialogs and popups
 //! - `selection` - Text selection handling
 //! - `scroll` - Scrollable view state management
@@ -31,6 +32,7 @@
 //! ```
 
 mod components;
+mod hints;
 pub mod notifications;
 mod overlay;
 pub mod progress;
@@ -40,6 +42,7 @@ mod spinner;
 pub mod text_input;
 
 pub use components::{Footer, Header, KeyHint};
+pub use hints::{HELP_HINT, compact_help_hint};
 pub use notifications::{NotificationLevel, NotificationManager};
 pub use overlay::Overlay;
 pub use progress::ProgressBar;

@@ -9,6 +9,7 @@ use crate::plugins::conversations::state::SessionInfo;
 use crate::plugins::conversations::state::{ConversationView, PluginState};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
+use crate::ui::compact_help_hint;
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -25,7 +26,6 @@ const FILTER_OVERLAY_HEIGHT: u16 = 3;
 const MIN_FILTER_OVERLAY_WIDTH: u16 = 20;
 const MIN_FILTER_OVERLAY_HEIGHT: u16 = 3;
 const SEARCH_HINT: &str = "/: Global search  |  : Command search";
-const HELP_HINT: &str = "?: Toggle help";
 
 /// Renderer for the Conversations plugin UI
 #[derive(Clone, Debug, Default)]
@@ -944,7 +944,7 @@ fn append_search_hint(lines: &mut Vec<String>, width: u16) {
 }
 
 fn append_help_hint(lines: &mut Vec<String>, width: u16) {
-    if let Some(hint) = conversation_help_hint(width) {
+    if let Some(hint) = compact_help_hint(width) {
         lines.push(hint.to_string());
     }
 }
@@ -960,13 +960,6 @@ fn conversation_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.width() <= width)
-}
-
-fn conversation_help_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [HELP_HINT, "?: Help", "?"]
-        .into_iter()
-        .find(|hint| hint.width() <= width)
 }
 
 fn compact_message_count(count: usize) -> String {
@@ -1181,23 +1174,6 @@ mod tests {
             Some("/: Search  |  : Commands")
         );
         assert_eq!(conversation_search_hint(80), Some(SEARCH_HINT));
-    }
-
-    #[test]
-    fn test_conversation_help_hint_compacts_for_narrow_widths() {
-        assert_eq!(conversation_help_hint(0), None);
-        assert_eq!(conversation_help_hint(1), Some("?"));
-        assert_eq!(conversation_help_hint(7), Some("?: Help"));
-        assert_eq!(conversation_help_hint(14), Some(HELP_HINT));
-
-        for width in 0..=30 {
-            if let Some(hint) = conversation_help_hint(width) {
-                assert!(
-                    hint.width() <= width as usize,
-                    "hint {hint:?} overflowed width {width}"
-                );
-            }
-        }
     }
 
     #[test]

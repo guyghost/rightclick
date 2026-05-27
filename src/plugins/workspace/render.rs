@@ -14,6 +14,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
+use crate::ui::compact_help_hint;
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 
@@ -23,7 +24,6 @@ const LINK_TASK_MODAL_HINT: &str = "Enter: Link  |  Esc: Cancel";
 const MERGE_WORKFLOW_MODAL_HINT: &str = "1-3: Select  |  Esc: Cancel";
 const INTERACTIVE_MODE_HINT: &str = "q: Return";
 const WORKSPACE_SEARCH_HINT: &str = "/: Global search  |  : Command search";
-const WORKSPACE_HELP_HINT: &str = "?: Toggle help";
 const MIN_WORKSPACE_MODAL_WIDTH: u16 = 30;
 const MIN_WORKSPACE_MODAL_HEIGHT: u16 = 8;
 
@@ -580,7 +580,7 @@ fn workspace_empty_message(mut lines: Vec<String>, width: u16) -> String {
     if let Some(hint) = workspace_search_hint(width) {
         lines.push(hint.to_string());
     }
-    if let Some(hint) = workspace_help_hint(width) {
+    if let Some(hint) = compact_help_hint(width) {
         lines.push(hint.to_string());
     }
     lines.join("\n")
@@ -597,13 +597,6 @@ fn workspace_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.width() <= width)
-}
-
-fn workspace_help_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [WORKSPACE_HELP_HINT, "?: Help", "?"]
-        .into_iter()
-        .find(|hint| hint.width() <= width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
@@ -1172,23 +1165,6 @@ mod tests {
         assert_eq!(workspace_search_hint(20), Some("/: Search  |  : Cmds"));
         assert_eq!(workspace_search_hint(24), Some("/: Search  |  : Commands"));
         assert_eq!(workspace_search_hint(80), Some(WORKSPACE_SEARCH_HINT));
-    }
-
-    #[test]
-    fn test_workspace_help_hint_compacts_for_narrow_widths() {
-        assert_eq!(workspace_help_hint(0), None);
-        assert_eq!(workspace_help_hint(1), Some("?"));
-        assert_eq!(workspace_help_hint(7), Some("?: Help"));
-        assert_eq!(workspace_help_hint(14), Some(WORKSPACE_HELP_HINT));
-
-        for width in 0..=30 {
-            if let Some(hint) = workspace_help_hint(width) {
-                assert!(
-                    hint.width() <= width as usize,
-                    "hint {hint:?} overflowed width {width}"
-                );
-            }
-        }
     }
 
     #[test]

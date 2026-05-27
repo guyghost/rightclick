@@ -13,6 +13,7 @@ use ratatui::{
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
+use crate::ui::compact_help_hint;
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
 
@@ -20,7 +21,6 @@ const CREATE_INTENT_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
 const DELETE_INTENT_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const SEARCH_HINT_INLINE: &str = "/: Global search  |  : Command search";
 const SEARCH_HINT_STACKED: &str = "/: Global search\n: Command search";
-const HELP_HINT: &str = "?: Toggle help";
 const MIN_WORKERS_MODAL_WIDTH: u16 = 24;
 const MIN_WORKERS_MODAL_HEIGHT: u16 = 7;
 
@@ -790,7 +790,7 @@ fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> 
     let search_hint = workers_search_hint(width)
         .map(|hint| format!("{hint}\n"))
         .unwrap_or_default();
-    let help_hint = workers_help_hint(width)
+    let help_hint = compact_help_hint(width)
         .map(|hint| format!("\n{hint}"))
         .unwrap_or_default();
 
@@ -820,7 +820,7 @@ fn workers_empty_message(mut lines: Vec<String>, width: u16, hint_prefix: &str) 
     if let Some(hint) = workers_search_hint(hint_width) {
         lines.extend(hint.lines().map(|line| format!("{hint_prefix}{line}")));
     }
-    if let Some(hint) = workers_help_hint(hint_width) {
+    if let Some(hint) = compact_help_hint(hint_width) {
         lines.push(format!("{hint_prefix}{hint}"));
     }
     lines.join("\n")
@@ -838,13 +838,6 @@ fn workers_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.lines().all(|line| line.width() <= width))
-}
-
-fn workers_help_hint(width: u16) -> Option<&'static str> {
-    let width = width as usize;
-    [HELP_HINT, "?: Help", "?"]
-        .into_iter()
-        .find(|hint| hint.width() <= width)
 }
 
 fn specs_path_line(path: &str, width: u16) -> String {
@@ -1263,23 +1256,6 @@ mod tests {
         assert_eq!(workers_search_hint(20), Some(SEARCH_HINT_STACKED));
         assert_eq!(workers_search_hint(28), Some(SEARCH_HINT_STACKED));
         assert_eq!(workers_search_hint(80), Some(SEARCH_HINT_INLINE));
-    }
-
-    #[test]
-    fn test_workers_help_hint_compacts_for_narrow_widths() {
-        assert_eq!(workers_help_hint(0), None);
-        assert_eq!(workers_help_hint(1), Some("?"));
-        assert_eq!(workers_help_hint(7), Some("?: Help"));
-        assert_eq!(workers_help_hint(14), Some(HELP_HINT));
-
-        for width in 0..=30 {
-            if let Some(hint) = workers_help_hint(width) {
-                assert!(
-                    hint.width() <= width as usize,
-                    "hint {hint:?} overflowed width {width}"
-                );
-            }
-        }
     }
 
     #[test]
