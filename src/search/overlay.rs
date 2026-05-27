@@ -711,7 +711,7 @@ fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
     let message = match scope {
         SearchScope::All => format!("No results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
-        SearchScope::Items => format!("No project item matches \"{}\"", query),
+        SearchScope::Items => format!("No project items match \"{}\"", query),
         SearchScope::Commands => format!("No command matches \"{}\"", query),
     };
 
@@ -1296,7 +1296,7 @@ mod tests {
     #[test]
     fn test_no_results_message_includes_scope_and_query() {
         let items = no_results_message("worker", SearchScope::Items, 80);
-        assert!(items.contains("No project item matches \"worker\""));
+        assert!(items.contains("No project items match \"worker\""));
         assert!(items.contains(SEARCH_EMPTY_ACTION_HINT));
         assert!(!items.contains("Ctrl+U  Clear search"));
         assert!(!items.contains("Tab  Change scope"));
