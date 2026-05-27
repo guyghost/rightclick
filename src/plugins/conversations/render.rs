@@ -884,11 +884,11 @@ fn empty_sessions_message(state: &PluginState) -> String {
 }
 
 fn empty_messages_message() -> &'static str {
-    "No messages in this session\n\nr  Refresh messages\nf  Filter sessions\nEsc/h  Back to sessions"
+    "No messages in this session\n\nr  Refresh messages\nf  Filter sessions\nEsc/h  Back to sessions\n/  Global search\n?  Help"
 }
 
 fn loading_messages_message() -> &'static str {
-    "Loading messages\n\nr  Refresh messages\nf  Filter sessions\nEsc/h  Back to sessions"
+    "Loading messages\n\nr  Refresh messages\nf  Filter sessions\nEsc/h  Back to sessions\n/  Global search\n?  Help"
 }
 
 fn compact_message_count(count: usize) -> String {
@@ -1068,6 +1068,8 @@ mod tests {
         assert!(message.contains("r  Refresh messages"));
         assert!(message.contains("f  Filter sessions"));
         assert!(message.contains("Esc/h  Back to sessions"));
+        assert!(message.contains("/  Global search"));
+        assert!(message.contains("?  Help"));
         assert!(!message.contains("Then r"));
     }
 
@@ -1079,6 +1081,8 @@ mod tests {
         assert!(message.contains("r  Refresh messages"));
         assert!(message.contains("f  Filter sessions"));
         assert!(message.contains("Esc/h  Back to sessions"));
+        assert!(message.contains("/  Global search"));
+        assert!(message.contains("?  Help"));
         assert!(!message.contains("r  Refresh sessions"));
     }
 
