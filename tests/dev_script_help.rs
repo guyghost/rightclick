@@ -138,3 +138,26 @@ fn dev_script_test_one_explains_missing_filter() {
         "dev script should still print test-one usage"
     );
 }
+
+#[test]
+fn dev_script_test_many_explains_missing_filters() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "test-many"])
+        .output()
+        .expect("dev script test-many usage path should run");
+
+    assert!(
+        !output.status.success(),
+        "test-many should fail when no filters are provided"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("At least one test filter is required."),
+        "dev script should explain that at least one test filter is required"
+    );
+    assert!(
+        stderr.contains("Usage: bash scripts/dev.sh test-many <test-filter>..."),
+        "dev script should still print test-many usage"
+    );
+}

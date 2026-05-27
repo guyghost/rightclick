@@ -443,6 +443,7 @@ case "$cmd" in
   test-many)
     shift
     if [ "$#" -eq 0 ]; then
+      echo "At least one test filter is required." >&2
       echo "Usage: bash scripts/dev.sh test-many <test-filter>... [-- <cargo-test-args>]" >&2
       exit 2
     fi
