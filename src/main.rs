@@ -1555,7 +1555,7 @@ mod tests {
         let commands = <workers::WorkersPlugin as Plugin>::commands(&plugin);
         let hints = build_footer_hints(plugin.id(), &commands);
 
-        assert!(hints.contains(&("f".to_string(), "Refresh Intents".to_string())));
+        assert!(hints.contains(&("f".to_string(), "Reload Intents".to_string())));
     }
 
     #[test]

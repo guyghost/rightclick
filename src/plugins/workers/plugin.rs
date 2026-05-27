@@ -153,7 +153,7 @@ impl WorkersPlugin {
         // Intent operations
         registry.bind("n", Action::NewFile, FocusContext::Workspace); // Create intent
         registry.bind("D", Action::Delete, FocusContext::Workspace); // Delete intent
-        registry.bind("f", Action::Filter, FocusContext::Workspace); // Refresh intents
+        registry.bind("f", Action::Filter, FocusContext::Workspace); // Reload intents
         registry.bind("r", Action::Refresh, FocusContext::Workspace); // Run workers
         // Stop workers is handled directly by the plugin because Action has no Stop variant.
         registry.bind("enter", Action::Enter, FocusContext::Workspace); // Open intent
@@ -678,7 +678,7 @@ impl WorkersPlugin {
                             self.state.modal_state = ModalState::CreateIntent;
                         }
                         "f" => {
-                            // Refresh intents from disk
+                            // Reload intents from disk
                             commands.push(Command::Refresh);
                         }
                         "D" => {
@@ -917,7 +917,7 @@ impl WorkersPlugin {
             PluginCommand::new("run", "Run Workers", 'r'),
             PluginCommand::new("stop", "Stop Workers", 's'),
             PluginCommand::new("open", "Open Intent", 'o'),
-            PluginCommand::new("refresh", "Refresh Intents", 'f'),
+            PluginCommand::new("refresh", "Reload Intents", 'f'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
             PluginCommand::new("prev-tab", "Previous Tab", '['),
             PluginCommand::new("next-tab", "Next Tab", ']'),
@@ -990,7 +990,7 @@ impl super::state::PluginState {
 fn workers_status_line(state: &PluginState) -> String {
     if state.intents.is_empty() {
         return format!(
-            "No intents | n: New intent | f: Refresh intents | /: Global search | : Command search | ?: Toggle help | specs: {}",
+            "No intents | n: New intent | f: Reload intents | /: Global search | : Command search | ?: Toggle help | specs: {}",
             state.intents_dir.display()
         );
     }
@@ -1152,7 +1152,7 @@ impl Plugin for WorkersPlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
-                "Refresh Intents",
+                "Reload Intents",
                 "Reload intents from disk",
                 'f',
                 crate::keymap::FocusContext::Workspace,
@@ -1275,7 +1275,7 @@ mod tests {
             .iter()
             .find(|command| command.id == "refresh")
             .expect("workers refresh command");
-        assert_eq!(refresh_command.name, "Refresh Intents");
+        assert_eq!(refresh_command.name, "Reload Intents");
         assert_eq!(refresh_command.key, 'f');
 
         let trait_commands = <WorkersPlugin as crate::plugin::Plugin>::commands(&plugin);
@@ -1283,7 +1283,7 @@ mod tests {
             .iter()
             .find(|command| command.id == "refresh")
             .expect("workers trait refresh command");
-        assert_eq!(trait_refresh_command.name, "Refresh Intents");
+        assert_eq!(trait_refresh_command.name, "Reload Intents");
         assert_eq!(
             trait_refresh_command.description,
             "Reload intents from disk"
@@ -1366,7 +1366,7 @@ mod tests {
             .execute_command("refresh")
             .expect("refresh command should execute");
 
-        assert_eq!(execution.command_name, "Refresh Intents");
+        assert_eq!(execution.command_name, "Reload Intents");
         assert_eq!(plugin.pending_commands.pop_front(), Some(Command::Refresh));
     }
 
@@ -1500,7 +1500,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No intents | n: New intent | f: Refresh intents | /: Global search | : Command search | ?: Toggle help | specs: .rightclick/intents"
+                "No intents | n: New intent | f: Reload intents | /: Global search | : Command search | ?: Toggle help | specs: .rightclick/intents"
                     .to_string()
             )
         );
