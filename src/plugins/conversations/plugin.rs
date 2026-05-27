@@ -520,7 +520,7 @@ impl ConversationsPlugin {
                 ("↑/↓", "Navigate"),
                 ("Enter/l/o", "Open"),
                 ("f", "Filter"),
-                ("r", "Refresh"),
+                ("r", "Refresh sessions"),
                 ("Ctrl+d/u", "Page"),
                 ("g/G", "First/Last"),
             ],
@@ -529,7 +529,7 @@ impl ConversationsPlugin {
                 ("Ctrl+d/u", "Page"),
                 ("Esc/h", "Back"),
                 ("f", "Filter"),
-                ("r", "Refresh"),
+                ("r", "Refresh messages"),
                 ("Space", "Expand"),
                 ("e/c", "Expand/Collapse All"),
             ],
@@ -892,8 +892,8 @@ impl Plugin for ConversationsPlugin {
         vec![
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
-                "Refresh",
-                "Reload sessions from detected adapters",
+                "Refresh current view",
+                "Reload sessions or messages for the active view",
                 'r',
                 crate::keymap::FocusContext::Conversations,
             )
@@ -1101,11 +1101,16 @@ mod tests {
         assert!(!hints.is_empty());
         assert!(hints.contains(&("Enter/l/o", "Open")));
         assert!(hints.contains(&("f", "Filter")));
+        assert!(hints.contains(&("r", "Refresh sessions")));
         assert!(
             !hints
                 .iter()
                 .any(|(key, label)| *key == "/" && *label == "Search")
         );
+
+        plugin.state_mut().view = ConversationView::Conversation;
+        let hints = plugin.key_hints();
+        assert!(hints.contains(&("r", "Refresh messages")));
 
         plugin.state_mut().view = ConversationView::Search;
         let hints = plugin.key_hints();
@@ -1168,7 +1173,16 @@ mod tests {
             .iter()
             .find(|command| command.id == "search")
             .expect("conversations filter command");
+        let refresh_command = commands
+            .iter()
+            .find(|command| command.id == "refresh")
+            .expect("conversations refresh command");
 
+        assert_eq!(refresh_command.name, "Refresh current view");
+        assert_eq!(
+            refresh_command.description,
+            "Reload sessions or messages for the active view"
+        );
         assert_eq!(filter_command.name, "Filter");
         assert_eq!(filter_command.key, 'f');
         assert!(commands.iter().any(|command| command.id == "expand"
