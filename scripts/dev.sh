@@ -17,7 +17,7 @@ Commands:
   doctor         check required and optional local developer tools
   rust-version   print the required Rust version from Cargo.toml
   check          diff check, fmt check, clippy with warnings denied, and tests
-  quick          diff check, fmt check, and clippy with warnings denied
+  quick          diff check, fmt check, and clippy with warnings denied, without tests
   script-check   validate shell helper script and justfile syntax when available
   diff-check     run git whitespace checks for staged and unstaged changes
   fmt-check      run cargo fmt --check

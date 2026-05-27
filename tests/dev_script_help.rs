@@ -165,6 +165,12 @@ fn dev_script_help_explains_test_many() {
         "dev script help should explain when to use test-many"
     );
     assert!(
+        stdout.contains(
+            "quick          diff check, fmt check, and clippy with warnings denied, without tests"
+        ),
+        "dev script help should explain that quick still denies warnings but skips tests"
+    );
+    assert!(
         stdout.contains("cargo test\nitself accepts only one substring filter per invocation"),
         "dev script help should explain why test-many runs filters separately"
     );
