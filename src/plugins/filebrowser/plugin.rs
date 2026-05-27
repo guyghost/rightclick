@@ -1330,7 +1330,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 
     if visible == 0 && state.filter_query.is_some() {
         return format!(
-            "No matching files | {}{} | f: Filter | r: Refresh files | /: Global search | :: Command search | ?: Toggle help",
+            "No matching files | {}{} | f: Change filter | r: Refresh files | /: Global search | :: Command search | ?: Toggle help",
             visible_file_count_label(visible),
             filter
         );
@@ -1704,7 +1704,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No matching files | 0 visible files | filter: missing | f: Filter | r: Refresh files | /: Global search | :: Command search | ?: Toggle help"
+                "No matching files | 0 visible files | filter: missing | f: Change filter | r: Refresh files | /: Global search | :: Command search | ?: Toggle help"
                     .to_string()
             )
         );
