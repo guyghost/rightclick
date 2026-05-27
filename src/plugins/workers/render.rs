@@ -471,7 +471,7 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
                 Style::default().fg(theme_comment(theme)),
             )));
             lines.push(Line::from(Span::styled(
-                "?  Help",
+                "?  Toggle help",
                 Style::default().fg(theme_comment(theme)),
             )));
         } else {
@@ -524,35 +524,35 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
 
 fn empty_intents_message(state: &PluginState) -> String {
     format!(
-        "No intents yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help\n\nSpecs: {}",
+        "No intents yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Toggle help\n\nSpecs: {}",
         state.intents_dir.display()
     )
 }
 
 fn no_workers_for_intent_message() -> &'static str {
-    "  No workers yet\n  r  Run workers\n  f  Refresh intents\n  /  Global search  |  :  Command search\n  ?  Help"
+    "  No workers yet\n  r  Run workers\n  f  Refresh intents\n  /  Global search  |  :  Command search\n  ?  Toggle help"
 }
 
 fn output_empty_message(state: &PluginState) -> &'static str {
     if state.intents.is_empty() {
-        "No output yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
+        "No output yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Toggle help"
     } else if state.selected_intent().is_none() {
-        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
+        "No output selected\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Toggle help"
     } else {
-        "No output yet\n\nr  Run workers\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
+        "No output yet\n\nr  Run workers\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Toggle help"
     }
 }
 
 fn select_intent_details_message() -> &'static str {
-    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
+    "Select an intent to view details\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Toggle help"
 }
 
 fn select_intent_criteria_message() -> &'static str {
-    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
+    "Select an intent to view criteria\n\nj/k  Navigate intents\nEnter/o  Open intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Toggle help"
 }
 
 fn empty_criteria_message() -> &'static str {
-    "No criteria yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Help"
+    "No criteria yet\n\nn  New intent\nf  Refresh intents\n/  Global search  |  :  Command search\n?  Toggle help"
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -711,16 +711,16 @@ fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
     if state.workers.is_empty() {
         if state.selected_intent().is_some() {
             format!(
-                "No {status} workers\n\nr  Run workers\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Help"
+                "No {status} workers\n\nr  Run workers\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Toggle help"
             )
         } else {
             format!(
-                "No {status} workers\n\nn  New intent\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Help"
+                "No {status} workers\n\nn  New intent\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Toggle help"
             )
         }
     } else {
         format!(
-            "No {status} workers\n\nh/l  Move columns\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Help"
+            "No {status} workers\n\nh/l  Move columns\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Toggle help"
         )
     }
 }
@@ -1057,7 +1057,7 @@ mod tests {
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
         assert!(content.contains("v  Switch view"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
         assert!(!content.contains("No workers"));
     }
 
@@ -1073,7 +1073,7 @@ mod tests {
         assert!(message.contains("f  Refresh intents"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains(":  Command search"));
-        assert!(message.contains("?  Help"));
+        assert!(message.contains("?  Toggle help"));
         assert!(message.contains(".rightclick/intents"));
     }
 
@@ -1162,7 +1162,7 @@ mod tests {
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
     }
 
     #[test]
@@ -1196,7 +1196,7 @@ mod tests {
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
     }
 
     #[test]
@@ -1222,7 +1222,7 @@ mod tests {
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
     }
 
     #[test]
@@ -1248,7 +1248,7 @@ mod tests {
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
     }
 
     #[test]
@@ -1283,7 +1283,7 @@ mod tests {
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
     }
 
     #[test]
@@ -1317,7 +1317,7 @@ mod tests {
         assert!(content.contains("Edit the intent spec to add acceptance criteria."));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
     }
 
     #[test]
@@ -1351,7 +1351,7 @@ mod tests {
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
     }
 
     #[test]
@@ -1384,7 +1384,7 @@ mod tests {
         assert!(content.contains("f  Refresh intents"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Help"));
+        assert!(content.contains("?  Toggle help"));
     }
 
     #[test]
