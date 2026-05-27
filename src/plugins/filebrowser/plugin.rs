@@ -1332,6 +1332,15 @@ fn file_browser_status_line(state: &PluginState) -> String {
             }
         });
 
+    if state.selected_path.is_none() && visible > 0 {
+        return format!(
+            "{} | {}{} | j/k Navigate | / Global search | ? Help",
+            selected,
+            visible_file_count_label(visible),
+            filter
+        );
+    }
+
     format!(
         "{} | {}{}",
         selected,
@@ -1681,7 +1690,7 @@ mod tests {
 
         assert_eq!(
             file_browser_status_line(&state),
-            "No file selected | 1 visible file"
+            "No file selected | 1 visible file | j/k Navigate | / Global search | ? Help"
         );
 
         let beta = temp_dir.path().join("beta.txt");
@@ -1693,7 +1702,7 @@ mod tests {
 
         assert_eq!(
             file_browser_status_line(&state),
-            "No file selected | 2 visible files"
+            "No file selected | 2 visible files | j/k Navigate | / Global search | ? Help"
         );
     }
 
