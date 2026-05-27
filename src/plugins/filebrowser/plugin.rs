@@ -1376,14 +1376,14 @@ fn visible_file_count_label(count: usize) -> String {
 fn file_tree_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No files match \"{}\"\n\nf  Change or clear filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Toggle help",
+            "No files match \"{}\"\n\nf: Change or clear filter\nr: Refresh files\n/  Global search  |  :  Command search\n?: Toggle help",
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No files found\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search  |  :  Command search\n?  Toggle help"
+        "No files found\n\na: New file\nA: New directory\nr: Refresh files\n/  Global search  |  :  Command search\n?: Toggle help"
             .to_string()
     } else {
-        "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Toggle help"
+        "No visible files\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter\nr: Refresh files\n/  Global search  |  :  Command search\n?: Toggle help"
             .to_string()
     }
 }
@@ -1391,23 +1391,23 @@ fn file_tree_empty_message(state: &PluginState) -> String {
 fn file_preview_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No preview available\n\nNo files match \"{}\"\nf  Change or clear filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Toggle help",
+            "No preview available\n\nNo files match \"{}\"\nf: Change or clear filter\nr: Refresh files\n/  Global search  |  :  Command search\n?: Toggle help",
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No preview available\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search  |  :  Command search\n?  Toggle help"
+        "No preview available\n\na: New file\nA: New directory\nr: Refresh files\n/  Global search  |  :  Command search\n?: Toggle help"
             .to_string()
     } else if state.visible_indices().is_empty() {
-        "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Toggle help"
+        "No preview available\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter\nr: Refresh files\n/  Global search  |  :  Command search\n?: Toggle help"
             .to_string()
     } else {
-        "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Toggle help"
+        "No preview selected\n\nj/k: Navigate files\nEnter/Space: Expand directory\nf: Filter\nr: Refresh files\n/  Global search  |  :  Command search\n?: Toggle help"
             .to_string()
     }
 }
 
 fn file_info_empty_message() -> &'static str {
-    "No file selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nI  Close info\nr  Refresh files\n/  Global search  |  :  Command search\n?  Toggle help"
+    "No file selected\n\nj/k: Navigate files\nEnter/Space: Expand directory\nI: Close info\nr: Refresh files\n/  Global search  |  :  Command search\n?: Toggle help"
 }
 
 // Helper function for muted style
@@ -1738,12 +1738,12 @@ mod tests {
         let message = file_tree_empty_message(&state);
 
         assert!(message.contains("No files found"));
-        assert!(message.contains("a  New file"));
-        assert!(message.contains("A  New directory"));
-        assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("a: New file"));
+        assert!(message.contains("A: New directory"));
+        assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains(":  Command search"));
-        assert!(message.contains("?  Toggle help"));
+        assert!(message.contains("?: Toggle help"));
     }
 
     #[test]
@@ -1790,12 +1790,12 @@ mod tests {
         let message = file_tree_empty_message(&state);
 
         assert!(message.contains("No files match \"missing\""));
-        assert!(message.contains("f  Change or clear filter"));
-        assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("f: Change or clear filter"));
+        assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains(":  Command search"));
         assert!(!message.contains("Esc  Close dialogs"));
-        assert!(message.contains("?  Toggle help"));
+        assert!(message.contains("?: Toggle help"));
     }
 
     #[test]
@@ -1808,11 +1808,11 @@ mod tests {
 
         assert!(message.contains("No preview available"));
         assert!(message.contains("No files match \"missing\""));
-        assert!(message.contains("f  Change or clear filter"));
-        assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("f: Change or clear filter"));
+        assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains(":  Command search"));
-        assert!(message.contains("?  Toggle help"));
+        assert!(message.contains("?: Toggle help"));
     }
 
     #[test]
@@ -1826,13 +1826,13 @@ mod tests {
         let message = file_tree_empty_message(&state);
 
         assert!(message.contains("No visible files"));
-        assert!(message.contains("H  Toggle hidden"));
-        assert!(message.contains("i  Toggle ignored"));
-        assert!(message.contains("f  Filter"));
-        assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("H: Toggle hidden"));
+        assert!(message.contains("i: Toggle ignored"));
+        assert!(message.contains("f: Filter"));
+        assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains(":  Command search"));
-        assert!(message.contains("?  Toggle help"));
+        assert!(message.contains("?: Toggle help"));
     }
 
     #[test]
@@ -1846,13 +1846,13 @@ mod tests {
         let message = file_preview_empty_message(&state);
 
         assert!(message.contains("No preview available"));
-        assert!(message.contains("H  Toggle hidden"));
-        assert!(message.contains("i  Toggle ignored"));
-        assert!(message.contains("f  Filter"));
-        assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("H: Toggle hidden"));
+        assert!(message.contains("i: Toggle ignored"));
+        assert!(message.contains("f: Filter"));
+        assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains(":  Command search"));
-        assert!(message.contains("?  Toggle help"));
+        assert!(message.contains("?: Toggle help"));
     }
 
     #[test]
@@ -1864,12 +1864,12 @@ mod tests {
         let message = file_preview_empty_message(&state);
 
         assert!(message.contains("No preview available"));
-        assert!(message.contains("a  New file"));
-        assert!(message.contains("A  New directory"));
-        assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("a: New file"));
+        assert!(message.contains("A: New directory"));
+        assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains(":  Command search"));
-        assert!(message.contains("?  Toggle help"));
+        assert!(message.contains("?: Toggle help"));
     }
 
     #[test]
@@ -1891,13 +1891,13 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("No preview selected"));
-        assert!(content.contains("j/k  Navigate files"));
-        assert!(content.contains("Enter/Space  Expand directory"));
-        assert!(content.contains("f  Filter"));
-        assert!(content.contains("r  Refresh files"));
+        assert!(content.contains("j/k: Navigate files"));
+        assert!(content.contains("Enter/Space: Expand directory"));
+        assert!(content.contains("f: Filter"));
+        assert!(content.contains("r: Refresh files"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Toggle help"));
+        assert!(content.contains("?: Toggle help"));
     }
 
     #[test]
@@ -1940,13 +1940,13 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("No file selected"));
-        assert!(content.contains("j/k  Navigate files"));
-        assert!(content.contains("Enter/Space  Expand directory"));
+        assert!(content.contains("j/k: Navigate files"));
+        assert!(content.contains("Enter/Space: Expand directory"));
         assert!(content.contains("Close info"));
-        assert!(content.contains("r  Refresh files"));
+        assert!(content.contains("r: Refresh files"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains(":  Command search"));
-        assert!(content.contains("?  Toggle help"));
+        assert!(content.contains("?: Toggle help"));
     }
 
     #[test]
