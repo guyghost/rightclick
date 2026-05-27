@@ -57,7 +57,8 @@ test-list reports "Listed N tests." for the full list and
 "Listed N tests for filter: ..." for filtered lists.
 test-one and test-many print a "validate test filter" step before running Cargo
 and then report "Matched N tests for filter: ..." so long filter checks are
-visible and confirm the filter scope before the test run starts.
+visible and confirm the filter scope before the test run starts. test-many
+validates all filters from one test list before running each filter separately.
 
 If you use just:
   just help
@@ -272,6 +273,44 @@ ensure_test_filter_matches() {
   else
     echo "Matched $matches tests for filter: $filter" >&2
   fi
+}
+
+test_filter_match_count() {
+  local output="$1"
+  local filter="$2"
+
+  printf '%s\n' "$output" | awk -v filter="$filter" '
+    index($0, filter) && /: test$/ { matches++ }
+    END { print matches + 0 }
+  '
+}
+
+ensure_test_filters_match() {
+  local output
+  local filter
+  local matches
+
+  printf '\n==> cargo test -- --list\n' >&2
+  if ! output="$(cargo test -- --list 2>&1)"; then
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+
+  for filter in "$@"; do
+    printf '\n==> validate test filter %s\n' "$filter" >&2
+    matches="$(test_filter_match_count "$output" "$filter")"
+    if [ "$matches" -eq 0 ]; then
+      echo "No tests matched filter: $filter" >&2
+      print_test_filter_hint "$filter"
+      exit 2
+    fi
+
+    if [ "$matches" -eq 1 ]; then
+      echo "Matched 1 test for filter: $filter" >&2
+    else
+      echo "Matched $matches tests for filter: $filter" >&2
+    fi
+  done
 }
 
 list_tests_for_filter() {
@@ -534,9 +573,7 @@ case "$cmd" in
       exit 2
     fi
 
-    for filter in "${filters[@]}"; do
-      ensure_test_filter_matches "$filter"
-    done
+    ensure_test_filters_match "${filters[@]}"
     for filter in "${filters[@]}"; do
       if [ "${#cargo_test_args[@]}" -eq 0 ]; then
         run_step cargo test "$filter"

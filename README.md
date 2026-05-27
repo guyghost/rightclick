@@ -86,7 +86,8 @@ Cargo itself accepts only one substring filter per `cargo test` invocation.
 `Listed N tests for filter: ...` for filtered lists.
 `test-one` and `test-many` print a `validate test filter` step before running
 Cargo, then report `Matched N tests for filter: ...` so long filter checks are
-visible and confirm the filter scope before the test run starts.
+visible and confirm the filter scope before the test run starts. `test-many`
+validates all filters from one test list before running each filter separately.
 
 `run` forwards arguments after `--` to the RightClick binary. `install-local`
 forwards extra arguments to `cargo install`, so flags like `--locked` or

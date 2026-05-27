@@ -100,6 +100,10 @@ fn dev_script_help_explains_test_many() {
         "dev script help should explain matched test count feedback"
     );
     assert!(
+        stdout.contains("test-many\nvalidates all filters from one test list"),
+        "dev script help should explain that test-many batches validation"
+    );
+    assert!(
         stdout.contains("test-list reports \"Listed N tests.\" for the full list"),
         "dev script help should explain unfiltered test-list count feedback"
     );
@@ -452,6 +456,51 @@ fn dev_script_test_one_reports_filter_validation_before_running() {
     assert!(
         stderr.contains("==> cargo test dev_script_help_explains_test_many -- --nocapture"),
         "dev script should still report the actual cargo test command"
+    );
+}
+
+#[test]
+fn dev_script_test_many_validates_filters_from_single_test_list() {
+    let output = Command::new("bash")
+        .args([
+            "scripts/dev.sh",
+            "test-many",
+            "dev_script_help_explains_test_many",
+            "dev_script_run_step_shell_quotes_spaced_args",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .expect("dev script test-many should run");
+
+    assert!(
+        output.status.success(),
+        "test-many should pass for known filters: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("==> cargo test -- --list").count(),
+        1,
+        "test-many should list tests once for all filter validation: {stderr}"
+    );
+    assert!(
+        stderr.contains("Matched 1 test for filter: dev_script_help_explains_test_many"),
+        "test-many should still report the first filter match count"
+    );
+    assert!(
+        stderr.contains("Matched 1 test for filter: dev_script_run_step_shell_quotes_spaced_args"),
+        "test-many should still report the second filter match count"
+    );
+    assert!(
+        stderr.contains("==> cargo test dev_script_help_explains_test_many -- --nocapture"),
+        "test-many should still run the first filter separately"
+    );
+    assert!(
+        stderr
+            .contains("==> cargo test dev_script_run_step_shell_quotes_spaced_args -- --nocapture"),
+        "test-many should still run the second filter separately"
     );
 }
 

@@ -127,4 +127,8 @@ fn developer_commands_explain_test_many() {
         README.contains("then report `Matched N tests for filter: ...`"),
         "README should explain the matched test count feedback"
     );
+    assert!(
+        README.contains("`test-many`\nvalidates all filters from one test list"),
+        "README should explain that test-many batches filter validation"
+    );
 }
