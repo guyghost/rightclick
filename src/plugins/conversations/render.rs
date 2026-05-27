@@ -176,7 +176,7 @@ impl ConversationsRenderer {
             // Center vertically
             let empty_area = Rect {
                 x: inner_area.x,
-                y: inner_area.y + inner_area.height / 3,
+                y: inner_area.y.saturating_add(inner_area.height / 3),
                 width: inner_area.width,
                 height: inner_area.height / 3,
             };
@@ -951,6 +951,17 @@ mod tests {
         let mut buf = Buffer::empty(area);
 
         renderer.render(&state, area, &mut buf, &theme, true);
+    }
+
+    #[test]
+    fn test_render_empty_sessions_handles_offset_area_near_u16_max() {
+        let renderer = ConversationsRenderer::new();
+        let state = PluginState::new();
+        let theme = Theme::default();
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 20, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render_sidebar(&state, area, &mut buf, &theme, true);
     }
 
     #[test]
