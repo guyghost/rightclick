@@ -844,6 +844,7 @@ fn build_help_lines(
         "  ?: Toggle help".to_string(),
         "  j/k or ↑/↓: Navigate items".to_string(),
         "  Enter: Select".to_string(),
+        "  Ctrl+R: Refresh current view".to_string(),
     ];
     if plugin_uses_tab_for_panes(plugin_id) {
         lines.extend([
@@ -940,6 +941,7 @@ fn build_footer_hints(
     let mut global_hints = vec![
         ("Tab", tab_label),
         ("Enter", "Select"),
+        ("Ctrl+R", "Refresh"),
         ("/", "Global search"),
         (":", "Command search"),
         ("?", "Toggle help"),
@@ -1140,6 +1142,7 @@ mod tests {
         assert!(lines.iter().any(|line| line == "  ?: Toggle help"));
         assert!(lines.contains(&"  j/k or ↑/↓: Navigate items".to_string()));
         assert!(lines.contains(&"  Enter: Select".to_string()));
+        assert!(lines.contains(&"  Ctrl+R: Refresh current view".to_string()));
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
         assert!(lines.contains(&"  Tab: Switch pane".to_string()));
         assert!(lines.contains(&"  Shift+Tab: Previous pane".to_string()));
@@ -1397,11 +1400,12 @@ mod tests {
         let hints = build_footer_hints("workspace", &commands);
 
         assert_eq!(
-            &hints[..7],
+            &hints[..8],
             &[
                 ("Tab".to_string(), "Pane".to_string()),
                 ("Ctrl+Tab".to_string(), "Plugin".to_string()),
                 ("Enter".to_string(), "Select".to_string()),
+                ("Ctrl+R".to_string(), "Refresh".to_string()),
                 ("/".to_string(), "Global search".to_string()),
                 (":".to_string(), "Command search".to_string()),
                 ("?".to_string(), "Toggle help".to_string()),
@@ -1435,7 +1439,7 @@ mod tests {
 
         let hints = build_footer_hints("workspace", &commands);
 
-        let plugin_hints = &hints[8..];
+        let plugin_hints = &hints[9..];
         assert_eq!(plugin_hints[0], ("p".to_string(), "Primary".to_string()));
         assert_eq!(plugin_hints[1], ("s".to_string(), "Secondary".to_string()));
     }
@@ -1465,7 +1469,7 @@ mod tests {
 
         let hints = build_footer_hints("workspace", &commands);
 
-        let plugin_hints = &hints[8..];
+        let plugin_hints = &hints[9..];
         assert_eq!(plugin_hints[0], ("h".to_string(), "High".to_string()));
         assert_eq!(plugin_hints[1], ("l".to_string(), "Low".to_string()));
     }
