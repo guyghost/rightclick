@@ -509,7 +509,7 @@ impl<'a> FileTreeWidget<'a> {
     }
 }
 
-impl<'a> Widget for FileTreeWidget<'a> {
+impl Widget for FileTreeWidget<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let text_style =
             style_for_ui_element(&crate::core::models::Theme::default(), UiElement::Text);

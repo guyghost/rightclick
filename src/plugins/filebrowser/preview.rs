@@ -426,7 +426,7 @@ impl<'a> PreviewWidget<'a> {
     }
 }
 
-impl<'a> Widget for PreviewWidget<'a> {
+impl Widget for PreviewWidget<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // Create a block with title
         let title = format!(
@@ -472,7 +472,7 @@ impl<'a> SimplePreviewWidget<'a> {
     }
 }
 
-impl<'a> Widget for SimplePreviewWidget<'a> {
+impl Widget for SimplePreviewWidget<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let block = Block::default()
             .title(format!(
