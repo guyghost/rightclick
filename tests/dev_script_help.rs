@@ -71,6 +71,29 @@ fn dev_script_unknown_command_suggests_match_case_insensitively() {
 }
 
 #[test]
+fn dev_script_unknown_command_suggests_prefix_match_case_insensitively() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "QU"])
+        .output()
+        .expect("dev script unknown command path should run");
+
+    assert!(
+        !output.status.success(),
+        "unknown command should fail so callers notice the typo"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Unknown command: QU"),
+        "dev script should echo the unknown command"
+    );
+    assert!(
+        stderr.contains("bash scripts/dev.sh quick"),
+        "dev script should suggest prefix matches case-insensitively"
+    );
+}
+
+#[test]
 fn dev_script_test_many_explains_missing_filters_before_cargo_args() {
     let output = Command::new("bash")
         .args(["scripts/dev.sh", "test-many", "--", "--nocapture"])

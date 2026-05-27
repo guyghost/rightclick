@@ -115,9 +115,12 @@ print_unknown_command() {
   done < <(known_commands)
 
   if [ "${#suggestions[@]}" -eq 0 ] && [ "${#unknown}" -ge 2 ]; then
-    local prefix="${unknown:0:2}"
+    local prefix="${normalized_unknown:0:2}"
     while IFS= read -r command; do
-      if [[ "$command" == "$prefix"* ]]; then
+      normalized_command="$(printf '%s' "$command" | tr '[:upper:]' '[:lower:]')"
+      normalized_command="${normalized_command//-/}"
+      normalized_command="${normalized_command//_/}"
+      if [[ "$normalized_command" == "$prefix"* ]]; then
         suggestions+=("$command")
       fi
     done < <(known_commands)
