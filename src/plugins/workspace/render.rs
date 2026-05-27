@@ -303,7 +303,7 @@ fn task_details_missing_message(task_id: &str) -> String {
 }
 
 fn create_worktree_for_task_message() -> &'static str {
-    "No worktree available\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+    "No worktrees yet\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
 }
 
 fn select_worktree_message() -> &'static str {
@@ -1285,12 +1285,13 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("No worktree available"));
+        assert!(content.contains("No worktrees yet"));
         assert!(content.contains("n: Create worktree"));
         assert!(content.contains("r: Refresh worktrees"));
         assert!(content.contains("/: Global search"));
         assert!(content.contains(": Command search"));
         assert!(content.contains("?: Toggle help"));
+        assert!(!content.contains("No worktree available"));
     }
 
     #[test]
