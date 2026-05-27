@@ -270,6 +270,10 @@ fn dev_script_test_list_validates_all_filters_before_printing_matches() {
         "test-list should report the missing filter"
     );
     assert!(
+        stderr.contains("Fix the filter before rerunning; no matching tests were selected."),
+        "test-list should explain that no tests were selected"
+    );
+    assert!(
         !stderr.contains("Listed 1 test for filter: dev_script_help_explains_test_many"),
         "test-list should not print successful filter counts before all filters validate"
     );

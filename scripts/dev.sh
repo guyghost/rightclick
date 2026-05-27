@@ -210,6 +210,7 @@ print_test_filter_hint() {
 
   printf -v quoted_filter '%q' "$filter"
   echo "Test filters are passed to Cargo as substring filters; module paths work too." >&2
+  echo "Fix the filter before rerunning; no matching tests were selected." >&2
   echo "Inspect matches with: bash scripts/dev.sh test-list $quoted_filter" >&2
   while IFS= read -r token; do
     case "$token" in
