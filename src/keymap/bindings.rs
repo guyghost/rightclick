@@ -72,7 +72,7 @@ pub enum Action {
     /// Paste from clipboard.
     Paste,
 
-    /// Open global search.
+    /// Search files, commands, sessions, worktrees, and intents.
     Search,
 
     /// Filter the current view.

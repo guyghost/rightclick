@@ -535,7 +535,7 @@ impl Registry {
         );
         self.register_command(
             Command::new("app.search", "Global search", || Action::Search)
-                .with_description("Open global search"),
+                .with_description("Search files, commands, sessions, worktrees, and intents"),
         );
         self.register_command(
             Command::new("app.filter", "Filter", || Action::Filter)
@@ -885,7 +885,10 @@ mod tests {
             .get_command("app.search")
             .expect("global search command");
         assert_eq!(search.name, "Global search");
-        assert_eq!(search.description.as_deref(), Some("Open global search"));
+        assert_eq!(
+            search.description.as_deref(),
+            Some("Search files, commands, sessions, worktrees, and intents")
+        );
         let help = registry.get_command("app.help").expect("help command");
         assert_eq!(help.name, "Toggle help");
         assert_eq!(
