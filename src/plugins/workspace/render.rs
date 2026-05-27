@@ -434,14 +434,33 @@ fn render_kanban_column(
     }
 
     if lines.is_empty() {
-        lines.push(Line::from(vec![Span::styled(
-            "Empty",
-            style_for_ui_element(theme, UiElement::MutedText),
-        )]));
+        lines.extend(
+            kanban_empty_column_message(state, title)
+                .lines()
+                .map(|line| {
+                    Line::styled(
+                        line.to_string(),
+                        style_for_ui_element(theme, UiElement::MutedText),
+                    )
+                }),
+        );
     }
 
     let text = Paragraph::new(lines);
     text.render(inner, buf);
+}
+
+fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
+    let status = title.to_lowercase();
+    if state.worktrees.is_empty() {
+        format!(
+            "No {status} worktrees\n\nn: Create worktree\nr: Refresh worktrees\nv: Switch view\n/: Global search  |  : Command search\n?: Toggle help"
+        )
+    } else {
+        format!(
+            "No {status} worktrees\n\nj/k: Navigate worktrees\nv: Switch view\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+        )
+    }
 }
 
 /// Render interactive mode
@@ -1026,6 +1045,33 @@ mod tests {
         assert!(content.contains("Waiting (1 worktree)"));
         assert!(content.contains("Done (1 worktree)"));
         assert!(!content.contains("Active (1)"));
+    }
+
+    #[test]
+    fn test_render_kanban_empty_columns_point_to_next_actions() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.view_mode = ViewMode::Kanban;
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("No active worktrees"));
+        assert!(content.contains("No waiting worktrees"));
+        assert!(content.contains("No done worktrees"));
+        assert!(content.contains("n: Create worktree"));
+        assert!(content.contains("r: Refresh worktrees"));
+        assert!(content.contains("v: Switch view"));
+        assert!(content.contains("/: Global search"));
+        assert!(content.contains(": Command search"));
+        assert!(content.contains("?: Toggle help"));
+        assert!(!content.contains("Empty"));
     }
 
     #[test]
