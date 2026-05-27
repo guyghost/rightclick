@@ -152,12 +152,12 @@ impl Action {
     /// use rightclick::keymap::Action;
     ///
     /// assert_eq!(Action::Quit.description(), "Quit");
-    /// assert_eq!(Action::Refresh.description(), "Refresh");
+    /// assert_eq!(Action::Refresh.description(), "Refresh current view");
     /// ```
     pub const fn description(&self) -> &'static str {
         match self {
             Self::Quit => "Quit",
-            Self::Refresh => "Refresh",
+            Self::Refresh => "Refresh current view",
             Self::SwitchPlugin(_) => "Switch Plugin",
             Self::OpenPalette => "Command search",
             Self::OpenHelp => "Toggle help",
@@ -311,7 +311,7 @@ mod tests {
     #[test]
     fn action_description() {
         assert_eq!(Action::Quit.description(), "Quit");
-        assert_eq!(Action::Refresh.description(), "Refresh");
+        assert_eq!(Action::Refresh.description(), "Refresh current view");
         assert_eq!(Action::OpenPalette.description(), "Command search");
         assert_eq!(Action::OpenHelp.description(), "Toggle help");
         assert_eq!(Action::Search.description(), "Global search");
