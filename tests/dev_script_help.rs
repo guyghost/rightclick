@@ -90,7 +90,9 @@ fn dev_script_help_explains_test_many() {
         "dev script help should explain where cargo test args are supported"
     );
     assert!(
-        stdout.contains("test-one and test-many print validate test filter before running Cargo"),
+        stdout.contains(
+            "test-one and test-many print a \"validate test filter\" step before running Cargo"
+        ),
         "dev script help should explain the filter validation progress line"
     );
 }

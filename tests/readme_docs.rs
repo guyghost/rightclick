@@ -112,7 +112,7 @@ fn developer_commands_explain_test_many() {
         "README should clarify that cargo test args belong on test-one/test-many"
     );
     assert!(
-        README.contains("`test-one` and `test-many` print `validate test filter`"),
+        README.contains("`test-one` and `test-many` print a `validate test filter` step"),
         "README should explain the filter validation progress line"
     );
 }

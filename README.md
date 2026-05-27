@@ -82,8 +82,8 @@ matching `test-list` command plus broader token searches to help refine the
 filter. `test-list` only accepts filters; pass Cargo test args to `test-one` or
 `test-many` after `--`. Use `test-many` when you want to check several filters in one command;
 Cargo itself accepts only one substring filter per `cargo test` invocation.
-`test-one` and `test-many` print `validate test filter` before running Cargo so
-long filter checks are visible.
+`test-one` and `test-many` print a `validate test filter` step before running
+Cargo so long filter checks are visible.
 
 `run` forwards arguments after `--` to the RightClick binary. `install-local`
 forwards extra arguments to `cargo install`, so flags like `--locked` or
