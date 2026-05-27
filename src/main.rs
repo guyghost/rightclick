@@ -327,8 +327,7 @@ impl App {
                     .get(self.active_plugin)
                     .map(|p| p.id())
                     .unwrap_or("");
-                let active_is_workspace = active_plugin_id == "workspace";
-                let active_is_gitstatus = active_plugin_id == "git-status";
+                let active_uses_tab_for_panes = plugin_uses_tab_for_panes(active_plugin_id);
 
                 // Check if the active plugin is consuming text input (e.g., modal with text field)
                 let consumes_text = self
@@ -368,7 +367,7 @@ impl App {
                             }
                         }
                         KeyCode::Tab
-                            if (!active_is_workspace && !active_is_gitstatus)
+                            if !active_uses_tab_for_panes
                                 || key
                                     .modifiers
                                     .contains(crossterm::event::KeyModifiers::CONTROL) =>
@@ -377,7 +376,7 @@ impl App {
                             return Ok(());
                         }
                         KeyCode::BackTab
-                            if (!active_is_workspace && !active_is_gitstatus)
+                            if !active_uses_tab_for_panes
                                 || key
                                     .modifiers
                                     .contains(crossterm::event::KeyModifiers::CONTROL) =>
@@ -910,7 +909,7 @@ fn build_footer_hints(
 ) -> Vec<(String, String)> {
     let mut hints: Vec<(String, String)> = Vec::new();
     let mut seen = std::collections::HashSet::new();
-    let tab_label = if plugin_id == "git-status" {
+    let tab_label = if plugin_uses_tab_for_panes(plugin_id) {
         "Pane"
     } else {
         "Switch"
@@ -947,6 +946,10 @@ fn build_footer_hints(
     }
 
     hints
+}
+
+fn plugin_uses_tab_for_panes(plugin_id: &str) -> bool {
+    matches!(plugin_id, "git-status" | "workspace" | "workers")
 }
 
 fn no_plugins_empty_message() -> &'static str {
@@ -1349,7 +1352,7 @@ mod tests {
         assert_eq!(
             &hints[..5],
             &[
-                ("Tab".to_string(), "Switch".to_string()),
+                ("Tab".to_string(), "Pane".to_string()),
                 ("/".to_string(), "Global search".to_string()),
                 (":".to_string(), "Command search".to_string()),
                 ("?".to_string(), "Toggle help".to_string()),
@@ -1392,6 +1395,64 @@ mod tests {
     fn test_build_footer_hints_labels_git_tab_as_pane() {
         let hints = build_footer_hints("git-status", &[]);
         assert_eq!(hints[0], ("Tab".to_string(), "Pane".to_string()));
+    }
+
+    #[test]
+    fn test_build_footer_hints_labels_workers_tab_as_pane() {
+        let hints = build_footer_hints("workers", &[]);
+        assert_eq!(hints[0], ("Tab".to_string(), "Pane".to_string()));
+    }
+
+    #[test]
+    fn test_plugin_uses_tab_for_panes_matches_pane_plugins() {
+        assert!(plugin_uses_tab_for_panes("git-status"));
+        assert!(plugin_uses_tab_for_panes("workspace"));
+        assert!(plugin_uses_tab_for_panes("workers"));
+        assert!(!plugin_uses_tab_for_panes("conversations"));
+    }
+
+    #[tokio::test]
+    async fn test_workers_tab_keys_are_routed_to_plugin_panes() {
+        use crossterm::event::{Event as CEvent, KeyCode, KeyEvent, KeyModifiers};
+
+        let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![
+            Box::new(workers::WorkersPlugin::new()),
+            Box::new(workspace::WorkspacePlugin::new()),
+        ];
+        let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+
+        app.handle_event(CEvent::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)))
+            .await
+            .unwrap();
+        assert_eq!(app.active_plugin, 0);
+
+        app.handle_event(CEvent::Key(KeyEvent::new(
+            KeyCode::BackTab,
+            KeyModifiers::SHIFT,
+        )))
+        .await
+        .unwrap();
+        assert_eq!(app.active_plugin, 0);
+    }
+
+    #[tokio::test]
+    async fn test_ctrl_tab_still_switches_from_pane_plugins() {
+        use crossterm::event::{Event as CEvent, KeyCode, KeyEvent, KeyModifiers};
+
+        let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![
+            Box::new(workers::WorkersPlugin::new()),
+            Box::new(workspace::WorkspacePlugin::new()),
+        ];
+        let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+
+        app.handle_event(CEvent::Key(KeyEvent::new(
+            KeyCode::Tab,
+            KeyModifiers::CONTROL,
+        )))
+        .await
+        .unwrap();
+
+        assert_eq!(app.active_plugin, 1);
     }
 
     #[test]
