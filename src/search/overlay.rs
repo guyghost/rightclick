@@ -342,8 +342,12 @@ fn search_overlay_area(area: Rect) -> Option<Rect> {
         .saturating_div(10)
         .clamp(MIN_SEARCH_OVERLAY_HEIGHT, 40)
         .min(area.height);
-    let x = area.x + (area.width.saturating_sub(overlay_width)) / 2;
-    let y = area.y + (area.height.saturating_sub(overlay_height)) / 2;
+    let x = area
+        .x
+        .saturating_add((area.width.saturating_sub(overlay_width)) / 2);
+    let y = area
+        .y
+        .saturating_add((area.height.saturating_sub(overlay_height)) / 2);
 
     Some(Rect::new(x, y, overlay_width, overlay_height))
 }
@@ -1130,6 +1134,14 @@ mod tests {
         let overlay = search_overlay_area(area).unwrap();
 
         assert_eq!(overlay, Rect::new(50, 30, 100, 40));
+    }
+
+    #[test]
+    fn test_search_overlay_area_handles_offset_near_u16_max() {
+        let area = Rect::new(u16::MAX - 100, u16::MAX - 40, 100, 40);
+        let overlay = search_overlay_area(area).unwrap();
+
+        assert_eq!(overlay, Rect::new(u16::MAX - 90, u16::MAX - 34, 80, 28));
     }
 
     #[test]
