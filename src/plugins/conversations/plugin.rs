@@ -1015,7 +1015,8 @@ fn conversations_status_line(state: &PluginState) -> String {
     }
 
     if state.sessions.is_empty() {
-        return "No sessions | r Refresh | f Filter | / Global search | ? Help".to_string();
+        return "No sessions | r Refresh sessions | f Filter | / Global search | ? Help"
+            .to_string();
     }
 
     let visible = state.filtered_sessions().len();
@@ -1319,7 +1320,10 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some("No sessions | r Refresh | f Filter | / Global search | ? Help".to_string())
+            Some(
+                "No sessions | r Refresh sessions | f Filter | / Global search | ? Help"
+                    .to_string()
+            )
         );
     }
 
