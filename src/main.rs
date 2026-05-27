@@ -1425,6 +1425,15 @@ mod tests {
     }
 
     #[test]
+    fn test_build_footer_hints_surfaces_workspace_refresh() {
+        let plugin = workspace::WorkspacePlugin::new();
+        let commands = <workspace::WorkspacePlugin as Plugin>::commands(&plugin);
+        let hints = build_footer_hints(plugin.id(), &commands);
+
+        assert!(hints.contains(&("r".to_string(), "Refresh Worktrees".to_string())));
+    }
+
+    #[test]
     fn test_build_footer_hints_omits_ctrl_tab_when_tab_switches_plugins() {
         let hints = build_footer_hints("conversations", &[]);
         assert_eq!(hints[0], ("Tab".to_string(), "Switch".to_string()));

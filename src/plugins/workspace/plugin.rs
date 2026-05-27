@@ -1214,7 +1214,8 @@ impl Plugin for WorkspacePlugin {
                 "Reload worktree status from disk",
                 'r',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(6),
         ]
     }
 
@@ -1416,7 +1417,8 @@ mod tests {
                 ("link", 3),
                 ("agent", 5),
                 ("merge", 1),
-                ("interactive", 4)
+                ("interactive", 4),
+                ("refresh", 6)
             ]
         );
     }
