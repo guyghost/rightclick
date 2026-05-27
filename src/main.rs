@@ -574,6 +574,13 @@ impl App {
             }
             SearchResultKind::Command { id } => match self.execute_search_command(&id) {
                 Ok(execution) => {
+                    if let Some(plugin_idx) = self
+                        .plugins
+                        .iter()
+                        .position(|plugin| plugin.id() == execution.plugin_id.as_str())
+                    {
+                        self.switch_plugin(plugin_idx);
+                    }
                     self.notifications
                         .info(format!("Command: {}", execution.command_name));
                 }
@@ -1597,6 +1604,9 @@ mod tests {
 
     #[derive(Debug)]
     struct RecordingPlugin {
+        id: &'static str,
+        name: &'static str,
+        commands: Vec<rightclick::plugin::PluginCommand>,
         events: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
         focused: bool,
     }
@@ -1604,11 +1614,11 @@ mod tests {
     #[async_trait::async_trait]
     impl Plugin for RecordingPlugin {
         fn id(&self) -> &str {
-            "recording"
+            self.id
         }
 
         fn name(&self) -> &str {
-            "Recording"
+            self.name
         }
 
         fn icon(&self) -> char {
@@ -1649,7 +1659,7 @@ mod tests {
         }
 
         fn commands(&self) -> Vec<rightclick::plugin::PluginCommand> {
-            Vec::new()
+            self.commands.clone()
         }
 
         fn focus_context(&self) -> rightclick::keymap::FocusContext {
@@ -1663,6 +1673,9 @@ mod tests {
 
         let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![Box::new(RecordingPlugin {
+            id: "recording",
+            name: "Recording",
+            commands: Vec::new(),
             events: events.clone(),
             focused: false,
         })];
@@ -1722,6 +1735,56 @@ mod tests {
             rightclick::search::SearchResultKind::PluginEntry { plugin_id, entry_id }
                 if plugin_id == "conversations" && entry_id == "session-1"
         ));
+    }
+
+    #[test]
+    fn test_command_search_activation_switches_to_command_plugin() {
+        let source_events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let target_events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let target_commands = vec![rightclick::plugin::PluginCommand::with_context_description(
+            "refresh",
+            "Refresh Target",
+            "Reload target plugin data",
+            'r',
+            rightclick::keymap::FocusContext::Global,
+        )];
+        let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![
+            Box::new(RecordingPlugin {
+                id: "source",
+                name: "Source",
+                commands: Vec::new(),
+                events: source_events.clone(),
+                focused: false,
+            }),
+            Box::new(RecordingPlugin {
+                id: "target",
+                name: "Target",
+                commands: target_commands,
+                events: target_events.clone(),
+                focused: false,
+            }),
+        ];
+        let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+
+        app.search
+            .set_results(vec![rightclick::search::SearchResult {
+                kind: rightclick::search::SearchResultKind::Command {
+                    id: "target:refresh".to_string(),
+                },
+                title: "Target: Refresh Target".to_string(),
+                preview: "Shortcut: r | Reload target plugin data".to_string(),
+                score: 100,
+            }]);
+
+        app.activate_selected_search_result();
+
+        assert_eq!(app.active_plugin, 1);
+        assert!(app.plugins[1].is_focused());
+        assert!(source_events.lock().unwrap().is_empty());
+        assert_eq!(
+            *target_events.lock().unwrap(),
+            vec!["key:r:ctrl=false".to_string()]
+        );
     }
 
     #[test]
