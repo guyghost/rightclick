@@ -10,6 +10,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Widget},
 };
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 use crate::core::models::{ChangeType, Diff, FileChange, FileDiff, FileStatus};
@@ -25,6 +26,7 @@ const GIT_MODAL_WIDTH: u16 = 50;
 const GIT_MODAL_HEIGHT: u16 = 7;
 const MIN_GIT_MODAL_WIDTH: u16 = 20;
 const MIN_GIT_MODAL_HEIGHT: u16 = 5;
+const GIT_SEARCH_HINT: &str = "/: Global search  |  : Command search";
 
 /// Render the git status plugin
 pub fn render_git_status(
@@ -184,7 +186,7 @@ fn render_sidebar(
 
     if state.files.is_empty() {
         lines.push(Line::raw(""));
-        for line in git_changes_empty_message(state).lines() {
+        for line in git_changes_empty_message(state, inner.width.saturating_sub(2)).lines() {
             lines.push(Line::styled(
                 format!("  {}", line),
                 style_for_ui_element(theme, UiElement::Success),
@@ -248,7 +250,7 @@ fn render_sidebar(
     }
 
     if lines.is_empty() {
-        let empty_text = Paragraph::new(git_sidebar_empty_message(state))
+        let empty_text = Paragraph::new(git_sidebar_empty_message(state, inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText))
             .wrap(ratatui::widgets::Wrap { trim: true });
@@ -311,12 +313,12 @@ fn render_diff_view(
     if let Some(diff) = &state.diff {
         render_diff_content(diff, inner, buf, theme);
     } else if let Some(file) = state.selected_file() {
-        let no_diff = Paragraph::new(git_file_no_diff_message(file))
+        let no_diff = Paragraph::new(git_file_no_diff_message(file, inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         no_diff.render(inner, buf);
     } else {
-        let empty = Paragraph::new(git_diff_empty_message(state))
+        let empty = Paragraph::new(git_diff_empty_message(state, inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -424,7 +426,7 @@ fn render_commit_list(
     block.render(area, buf);
 
     if state.commits.is_empty() {
-        let empty = Paragraph::new(git_commits_empty_message())
+        let empty = Paragraph::new(git_commits_empty_message(inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -553,7 +555,7 @@ fn render_commit_details(
     block.render(area, buf);
 
     let Some(commit) = state.selected_commit() else {
-        let empty = Paragraph::new(git_commit_details_empty_message(state))
+        let empty = Paragraph::new(git_commit_details_empty_message(state, inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText))
             .wrap(ratatui::widgets::Wrap { trim: true });
@@ -882,7 +884,7 @@ fn render_branch_list(
     block.render(area, buf);
 
     if state.branches.is_empty() {
-        let empty = Paragraph::new(git_branches_empty_message())
+        let empty = Paragraph::new(git_branches_empty_message(inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -988,7 +990,7 @@ fn render_branch_details(
         lines.push(Line::styled("  y: Copy branch name", text_style));
         lines.push(Line::styled("  S: Back to Status", text_style));
     } else {
-        let empty = Paragraph::new(git_branch_details_empty_message(state))
+        let empty = Paragraph::new(git_branch_details_empty_message(state, inner.width))
             .alignment(Alignment::Center)
             .style(muted_style)
             .wrap(ratatui::widgets::Wrap { trim: true });
@@ -1025,7 +1027,7 @@ fn render_stash_list(
     block.render(area, buf);
 
     if state.stashes.is_empty() {
-        let empty = Paragraph::new(git_stashes_empty_message())
+        let empty = Paragraph::new(git_stashes_empty_message(inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -1133,7 +1135,7 @@ fn render_stash_details(
         lines.push(Line::styled("  y: Copy stash info", text_style));
         lines.push(Line::styled("  S: Back to Status", text_style));
     } else {
-        let empty = Paragraph::new(git_stash_details_empty_message(state))
+        let empty = Paragraph::new(git_stash_details_empty_message(state, inner.width))
             .alignment(Alignment::Center)
             .style(muted_style)
             .wrap(ratatui::widgets::Wrap { trim: true });
@@ -1327,73 +1329,255 @@ pub fn render_status_info(state: &PluginState) -> String {
     parts.join(" | ")
 }
 
-fn git_changes_empty_message(state: &PluginState) -> &'static str {
+fn git_changes_empty_message(state: &PluginState, width: u16) -> String {
     if state.branch.is_empty() {
-        "Git status not loaded yet\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "Git status not loaded yet".to_string(),
+                String::new(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     } else {
-        "Working tree clean\n\nB: Branches\nH: History\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "Working tree clean".to_string(),
+                String::new(),
+                "B: Branches".to_string(),
+                "H: History".to_string(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     }
 }
 
-fn git_diff_empty_message(state: &PluginState) -> &'static str {
+fn git_diff_empty_message(state: &PluginState, width: u16) -> String {
     if state.branch.is_empty() {
-        "Git status not loaded yet\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "Git status not loaded yet".to_string(),
+                String::new(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     } else if state.files.is_empty() {
-        "Working tree clean\n\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "Working tree clean".to_string(),
+                String::new(),
+                "H: History".to_string(),
+                "B: Branches".to_string(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     } else {
-        "No file selected\n\nj/k: Navigate files\nTab/Shift+Tab: Switch pane\nS: Status\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "No file selected".to_string(),
+                String::new(),
+                "j/k: Navigate files".to_string(),
+                "Tab/Shift+Tab: Switch pane".to_string(),
+                "S: Status".to_string(),
+                "H: History".to_string(),
+                "B: Branches".to_string(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     }
 }
 
-fn git_file_no_diff_message(file: &FileChange) -> String {
-    format!(
-        "Diff not loaded yet for {}\n\nj/k: Navigate files\ns: Stage\nu: Unstage\nc: Commit\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help",
-        file.path
+fn git_file_no_diff_message(file: &FileChange, width: u16) -> String {
+    git_empty_message(
+        vec![
+            format!(
+                "Diff not loaded yet for {}",
+                truncate_display(&file.path, 48)
+            ),
+            String::new(),
+            "j/k: Navigate files".to_string(),
+            "s: Stage".to_string(),
+            "u: Unstage".to_string(),
+            "c: Commit".to_string(),
+            "r: Refresh git status".to_string(),
+        ],
+        width,
     )
 }
 
-fn git_sidebar_empty_message(state: &PluginState) -> &'static str {
+fn git_sidebar_empty_message(state: &PluginState, width: u16) -> String {
     if state.branch.is_empty() {
-        "Git status not loaded yet\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "Git status not loaded yet".to_string(),
+                String::new(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     } else {
-        "Working tree clean\n\nB: Branches\nH: History\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "Working tree clean".to_string(),
+                String::new(),
+                "B: Branches".to_string(),
+                "H: History".to_string(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     }
 }
 
-fn git_commits_empty_message() -> &'static str {
-    "No commits\n\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+fn git_commits_empty_message(width: u16) -> String {
+    git_empty_message(
+        vec![
+            "No commits".to_string(),
+            String::new(),
+            "S: Status".to_string(),
+            "B: Branches".to_string(),
+            "r: Refresh git status".to_string(),
+        ],
+        width,
+    )
 }
 
-fn git_commit_details_empty_message(state: &PluginState) -> &'static str {
+fn git_commit_details_empty_message(state: &PluginState, width: u16) -> String {
     if state.commits.is_empty() {
-        git_commits_empty_message()
+        git_commits_empty_message(width)
     } else {
-        "No commit selected\n\nj/k: Navigate commits\nTab/Shift+Tab: Switch pane\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "No commit selected".to_string(),
+                String::new(),
+                "j/k: Navigate commits".to_string(),
+                "Tab/Shift+Tab: Switch pane".to_string(),
+                "S: Status".to_string(),
+                "B: Branches".to_string(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     }
 }
 
-fn git_branches_empty_message() -> &'static str {
-    "No branches\n\nS: Status\nH: History\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+fn git_branches_empty_message(width: u16) -> String {
+    git_empty_message(
+        vec![
+            "No branches".to_string(),
+            String::new(),
+            "S: Status".to_string(),
+            "H: History".to_string(),
+            "r: Refresh git status".to_string(),
+        ],
+        width,
+    )
 }
 
-fn git_branch_details_empty_message(state: &PluginState) -> &'static str {
+fn git_branch_details_empty_message(state: &PluginState, width: u16) -> String {
     if state.branches.is_empty() {
-        git_branches_empty_message()
+        git_branches_empty_message(width)
     } else {
-        "No branch selected\n\nj/k: Navigate branches\nTab/Shift+Tab: Switch pane\nn: New branch\nS: Status\nH: History\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "No branch selected".to_string(),
+                String::new(),
+                "j/k: Navigate branches".to_string(),
+                "Tab/Shift+Tab: Switch pane".to_string(),
+                "n: New branch".to_string(),
+                "S: Status".to_string(),
+                "H: History".to_string(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     }
 }
 
-fn git_stashes_empty_message() -> &'static str {
-    "No stashes\n\ns: Save stash\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+fn git_stashes_empty_message(width: u16) -> String {
+    git_empty_message(
+        vec![
+            "No stashes".to_string(),
+            String::new(),
+            "s: Save stash".to_string(),
+            "S: Status".to_string(),
+            "B: Branches".to_string(),
+            "r: Refresh git status".to_string(),
+        ],
+        width,
+    )
 }
 
-fn git_stash_details_empty_message(state: &PluginState) -> &'static str {
+fn git_stash_details_empty_message(state: &PluginState, width: u16) -> String {
     if state.stashes.is_empty() {
-        git_stashes_empty_message()
+        git_stashes_empty_message(width)
     } else {
-        "No stash selected\n\nj/k: Navigate stashes\nTab/Shift+Tab: Switch pane\ns: Save stash\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        git_empty_message(
+            vec![
+                "No stash selected".to_string(),
+                String::new(),
+                "j/k: Navigate stashes".to_string(),
+                "Tab/Shift+Tab: Switch pane".to_string(),
+                "s: Save stash".to_string(),
+                "S: Status".to_string(),
+                "B: Branches".to_string(),
+                "r: Refresh git status".to_string(),
+            ],
+            width,
+        )
     }
+}
+
+fn git_empty_message(mut lines: Vec<String>, width: u16) -> String {
+    if let Some(hint) = git_search_hint(width) {
+        lines.push(hint.to_string());
+    }
+    lines.push("?: Toggle help".to_string());
+    lines.join("\n")
+}
+
+fn git_search_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [
+        GIT_SEARCH_HINT,
+        "/: Search  |  : Commands",
+        "/: Search  |  : Cmds",
+        "/: Search",
+        "/:",
+    ]
+    .into_iter()
+    .find(|hint| hint.width() <= width)
+}
+
+fn truncate_display(text: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+
+    if text.width() <= max_width {
+        return text.to_string();
+    }
+
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in text.chars() {
+        let ch_width = ch.width().unwrap_or(0);
+        if width + ch_width + 3 > max_width {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output.push_str("...");
+    output
 }
 
 #[cfg(test)]
@@ -1638,30 +1822,66 @@ mod tests {
         };
 
         let unloaded = PluginState::new();
-        assert_hint(git_changes_empty_message(&unloaded));
-        assert_hint(git_diff_empty_message(&unloaded));
-        assert_hint(git_sidebar_empty_message(&unloaded));
+        assert_hint(&git_changes_empty_message(&unloaded, 80));
+        assert_hint(&git_diff_empty_message(&unloaded, 80));
+        assert_hint(&git_sidebar_empty_message(&unloaded, 80));
         assert!(render_status_info(&unloaded).contains(": Command search"));
 
         let mut clean = PluginState::new();
         clean.branch = "main".to_string();
-        assert_hint(git_changes_empty_message(&clean));
-        assert_hint(git_diff_empty_message(&clean));
-        assert_hint(git_sidebar_empty_message(&clean));
+        assert_hint(&git_changes_empty_message(&clean, 80));
+        assert_hint(&git_diff_empty_message(&clean, 80));
+        assert_hint(&git_sidebar_empty_message(&clean, 80));
 
         let mut with_file = PluginState::new();
         with_file
             .files
             .push(FileChange::new("src/main.rs", FileStatus::Modified));
-        assert_hint(git_diff_empty_message(&with_file));
-        assert_hint(&git_file_no_diff_message(&with_file.files[0]));
+        assert_hint(&git_diff_empty_message(&with_file, 80));
+        assert_hint(&git_file_no_diff_message(&with_file.files[0], 80));
 
-        assert_hint(git_commits_empty_message());
-        assert_hint(git_commit_details_empty_message(&clean));
-        assert_hint(git_branches_empty_message());
-        assert_hint(git_branch_details_empty_message(&clean));
-        assert_hint(git_stashes_empty_message());
-        assert_hint(git_stash_details_empty_message(&clean));
+        assert_hint(&git_commits_empty_message(80));
+        assert_hint(&git_commit_details_empty_message(&clean, 80));
+        assert_hint(&git_branches_empty_message(80));
+        assert_hint(&git_branch_details_empty_message(&clean, 80));
+        assert_hint(&git_stashes_empty_message(80));
+        assert_hint(&git_stash_details_empty_message(&clean, 80));
+    }
+
+    #[test]
+    fn test_git_search_hint_compacts_for_narrow_widths() {
+        assert_eq!(git_search_hint(1), None);
+        assert_eq!(git_search_hint(2), Some("/:"));
+        assert_eq!(git_search_hint(9), Some("/: Search"));
+        assert_eq!(git_search_hint(20), Some("/: Search  |  : Cmds"));
+        assert_eq!(git_search_hint(24), Some("/: Search  |  : Commands"));
+        assert_eq!(git_search_hint(80), Some(GIT_SEARCH_HINT));
+    }
+
+    #[test]
+    fn test_git_empty_messages_omit_search_hint_when_too_narrow() {
+        let mut state = PluginState::new();
+        state.branch = "main".to_string();
+        let message = git_diff_empty_message(&state, 1);
+
+        assert!(message.contains("Working tree clean"));
+        assert!(!message.contains("Global search"));
+        assert!(!message.contains("/:"));
+        assert!(message.contains("?: Toggle help"));
+    }
+
+    #[test]
+    fn test_git_file_no_diff_message_truncates_long_paths() {
+        let file = FileChange::new(
+            "src/very/long/path/that/would/otherwise/fill/the/entire/diff/panel/main.rs",
+            FileStatus::Modified,
+        );
+        let message = git_file_no_diff_message(&file, 80);
+        let truncated = truncate_display(&file.path, 48);
+
+        assert!(message.contains(&format!("Diff not loaded yet for {truncated}")));
+        assert!(truncated.ends_with("..."));
+        assert!(!message.contains("entire/diff/panel/main.rs"));
     }
 
     #[test]
@@ -1740,7 +1960,7 @@ mod tests {
         let mut state = PluginState::new();
         state.branch = "main".to_string();
 
-        let message = git_changes_empty_message(&state);
+        let message = git_changes_empty_message(&state, 80);
 
         assert!(message.contains("Working tree clean"));
         assert!(message.contains("B: Branches"));
@@ -1754,7 +1974,7 @@ mod tests {
     #[test]
     fn test_git_changes_empty_message_handles_unloaded_repo() {
         let state = PluginState::new();
-        let message = git_changes_empty_message(&state);
+        let message = git_changes_empty_message(&state, 80);
 
         assert!(message.contains("Git status not loaded yet"));
         assert!(message.contains("r: Refresh git status"));
@@ -1768,7 +1988,7 @@ mod tests {
     fn test_git_diff_empty_message_reflects_clean_tree() {
         let mut state = PluginState::new();
         state.branch = "main".to_string();
-        let message = git_diff_empty_message(&state);
+        let message = git_diff_empty_message(&state, 80);
 
         assert!(message.contains("Working tree clean"));
         assert!(message.contains("H: History"));
@@ -1782,7 +2002,7 @@ mod tests {
     #[test]
     fn test_git_diff_empty_message_handles_unloaded_repo() {
         let state = PluginState::new();
-        let message = git_diff_empty_message(&state);
+        let message = git_diff_empty_message(&state, 80);
 
         assert!(message.contains("Git status not loaded yet"));
         assert!(message.contains("r: Refresh git status"));
@@ -1801,7 +2021,7 @@ mod tests {
             .files
             .push(FileChange::new("src/main.rs", FileStatus::Modified));
 
-        let message = git_diff_empty_message(&state);
+        let message = git_diff_empty_message(&state, 80);
 
         assert!(message.contains("No file selected"));
         assert!(message.contains("j/k: Navigate files"));
@@ -1892,7 +2112,7 @@ mod tests {
     #[test]
     fn test_git_sidebar_empty_message_points_to_next_actions() {
         let state = PluginState::new();
-        let unloaded = git_sidebar_empty_message(&state);
+        let unloaded = git_sidebar_empty_message(&state, 80);
         assert!(unloaded.contains("Git status not loaded yet"));
         assert!(unloaded.contains("r: Refresh git status"));
         assert!(unloaded.contains("/: Global search"));
@@ -1902,7 +2122,7 @@ mod tests {
 
         let mut clean_state = PluginState::new();
         clean_state.branch = "main".to_string();
-        let clean = git_sidebar_empty_message(&clean_state);
+        let clean = git_sidebar_empty_message(&clean_state, 80);
         assert!(clean.contains("Working tree clean"));
         assert!(!clean.contains("No changes or commits"));
         assert!(clean.contains("B: Branches"));
@@ -1936,19 +2156,19 @@ mod tests {
 
     #[test]
     fn test_git_subview_empty_messages_point_to_next_actions() {
-        let commits = git_commits_empty_message();
+        let commits = git_commits_empty_message(80);
         assert!(commits.contains("No commits"));
         assert!(commits.contains("S: Status"));
         assert!(commits.contains("B: Branches"));
         assert!(commits.contains("r: Refresh git status"));
 
-        let branches = git_branches_empty_message();
+        let branches = git_branches_empty_message(80);
         assert!(branches.contains("No branches"));
         assert!(branches.contains("S: Status"));
         assert!(branches.contains("H: History"));
         assert!(branches.contains("r: Refresh git status"));
 
-        let stashes = git_stashes_empty_message();
+        let stashes = git_stashes_empty_message(80);
         assert!(stashes.contains("No stashes"));
         assert!(stashes.contains("s: Save stash"));
         assert!(stashes.contains("S: Status"));
@@ -1984,7 +2204,7 @@ mod tests {
             branch: Some("main".to_string()),
         });
 
-        let commit = git_commit_details_empty_message(&state);
+        let commit = git_commit_details_empty_message(&state, 80);
         assert!(commit.contains("No commit selected"));
         assert!(commit.contains("j/k: Navigate commits"));
         assert!(commit.contains("Tab/Shift+Tab: Switch pane"));
@@ -1993,7 +2213,7 @@ mod tests {
         assert!(commit.contains(": Command search"));
         assert!(commit.contains("?: Toggle help"));
 
-        let branch = git_branch_details_empty_message(&state);
+        let branch = git_branch_details_empty_message(&state, 80);
         assert!(branch.contains("No branch selected"));
         assert!(branch.contains("j/k: Navigate branches"));
         assert!(branch.contains("Tab/Shift+Tab: Switch pane"));
@@ -2002,7 +2222,7 @@ mod tests {
         assert!(branch.contains(": Command search"));
         assert!(branch.contains("?: Toggle help"));
 
-        let stash = git_stash_details_empty_message(&state);
+        let stash = git_stash_details_empty_message(&state, 80);
         assert!(stash.contains("No stash selected"));
         assert!(stash.contains("j/k: Navigate stashes"));
         assert!(stash.contains("Tab/Shift+Tab: Switch pane"));
