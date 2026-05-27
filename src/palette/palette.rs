@@ -702,7 +702,10 @@ fn palette_empty_state_message(
         )
     } else {
         let input = truncate_query(input, 40);
-        format!("No command matches \"{}\"\n\n{}", input, hint)
+        format!(
+            "No command, shortcut, or id matches \"{}\"\n\n{}",
+            input, hint
+        )
     }
 }
 
@@ -1329,7 +1332,7 @@ mod tests {
         assert!(all_contexts_empty.contains("Tab/Shift+Tab: Current context"));
 
         let no_match = palette_empty_state_message("deploy", 80, true, false);
-        assert!(no_match.contains("No command matches \"deploy\""));
+        assert!(no_match.contains("No command, shortcut, or id matches \"deploy\""));
         assert!(no_match.contains(PALETTE_NO_MATCH_ACTION_HINT_SCOPED));
         assert!(!no_match.contains("Backspace  Edit search"));
         assert!(!no_match.contains("Ctrl+U  Clear search"));
@@ -1346,9 +1349,9 @@ mod tests {
             true,
             false,
         );
-        assert!(
-            truncated.contains("No command matches \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
-        );
+        assert!(truncated.contains(
+            "No command, shortcut, or id matches \"abcdefghijklmnopqrstuvwxyz0123456789a...\""
+        ));
     }
 
     #[test]
