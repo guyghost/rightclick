@@ -85,7 +85,7 @@ impl Command {
     /// ```
     /// use rightclick::keymap::{Command, Action};
     ///
-    /// let cmd = Command::new("app.refresh", "Refresh", || Action::Refresh);
+    /// let cmd = Command::new("app.refresh", "Refresh current view", || Action::Refresh);
     /// let action = cmd.execute();
     /// assert!(matches!(action, Action::Refresh));
     /// ```
@@ -517,7 +517,7 @@ impl Registry {
                 .with_description("Exit the application"),
         );
         self.register_command(
-            Command::new("app.refresh", "Refresh", || Action::Refresh)
+            Command::new("app.refresh", "Refresh current view", || Action::Refresh)
                 .with_description("Refresh the current view"),
         );
         self.register_command(
@@ -841,7 +841,9 @@ mod tests {
     fn registry_handle_user_override() {
         let mut registry = Registry::new();
         registry.register_command(Command::new("app.quit", "Quit", || Action::Quit));
-        registry.register_command(Command::new("app.refresh", "Refresh", || Action::Refresh));
+        registry.register_command(Command::new("app.refresh", "Refresh current view", || {
+            Action::Refresh
+        }));
         registry.register_binding(Binding::new("q", "app.quit", FocusContext::Global));
         registry.set_user_override("q".to_string(), "app.refresh".to_string());
 
@@ -862,7 +864,14 @@ mod tests {
         let registry = Registry::with_defaults();
         assert!(!registry.commands().is_empty());
         assert!(registry.get_command("app.quit").is_some());
-        assert!(registry.get_command("app.refresh").is_some());
+        let refresh = registry
+            .get_command("app.refresh")
+            .expect("refresh command");
+        assert_eq!(refresh.name, "Refresh current view");
+        assert_eq!(
+            refresh.description.as_deref(),
+            Some("Refresh the current view")
+        );
         let search = registry
             .get_command("app.search")
             .expect("global search command");
