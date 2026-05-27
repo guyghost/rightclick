@@ -1336,7 +1336,9 @@ fn git_changes_empty_message(state: &PluginState) -> &'static str {
 }
 
 fn git_diff_empty_message(state: &PluginState) -> &'static str {
-    if state.files.is_empty() {
+    if state.branch.is_empty() {
+        "No repository data loaded\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+    } else if state.files.is_empty() {
         "Working tree clean\n\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     } else {
         "No file selected\n\nj/k: Navigate files\nTab/Shift+Tab: Switch pane\nS: Status\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
@@ -1762,7 +1764,8 @@ mod tests {
 
     #[test]
     fn test_git_diff_empty_message_reflects_clean_tree() {
-        let state = PluginState::new();
+        let mut state = PluginState::new();
+        state.branch = "main".to_string();
         let message = git_diff_empty_message(&state);
 
         assert!(message.contains("Working tree clean"));
@@ -1775,8 +1778,22 @@ mod tests {
     }
 
     #[test]
+    fn test_git_diff_empty_message_handles_unloaded_repo() {
+        let state = PluginState::new();
+        let message = git_diff_empty_message(&state);
+
+        assert!(message.contains("No repository data loaded"));
+        assert!(message.contains("r: Refresh git status"));
+        assert!(message.contains("/: Global search"));
+        assert!(message.contains(": Command search"));
+        assert!(message.contains("?: Toggle help"));
+        assert!(!message.contains("Working tree clean"));
+    }
+
+    #[test]
     fn test_git_diff_empty_message_points_to_file_navigation() {
         let mut state = PluginState::new();
+        state.branch = "main".to_string();
         state
             .files
             .push(FileChange::new("src/main.rs", FileStatus::Modified));
@@ -1891,7 +1908,8 @@ mod tests {
 
     #[test]
     fn test_render_git_status_clean_diff_includes_next_actions() {
-        let state = PluginState::new();
+        let mut state = PluginState::new();
+        state.branch = "main".to_string();
         let theme = Theme::default();
         let area = Rect::new(0, 0, 120, 30);
         let mut buf = Buffer::empty(area);
