@@ -1390,7 +1390,7 @@ fn file_tree_empty_message(state: &PluginState) -> String {
 fn file_preview_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No preview available\n\nNo files match \"{}\"\nf: Change or clear filter\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help",
+            "No matching file to preview\n\nNo files match \"{}\"\nf: Change or clear filter\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help",
             query
         )
     } else if state.tree.entries.is_empty() {
@@ -1821,13 +1821,14 @@ mod tests {
 
         let message = file_preview_empty_message(&state);
 
-        assert!(message.contains("No preview available"));
+        assert!(message.contains("No matching file to preview"));
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f: Change or clear filter"));
         assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/: Global search"));
         assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
+        assert!(!message.contains("No preview available"));
     }
 
     #[test]
