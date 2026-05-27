@@ -12,6 +12,9 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Tabs, Widget};
 use unicode_width::UnicodeWidthStr;
 
+const FOOTER_HINT_SEPARATOR: &str = "  |  ";
+const FOOTER_HINT_OVERFLOW: &str = "...";
+
 /// A key hint displayed in the footer
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyHint {
@@ -413,7 +416,7 @@ impl Footer {
             let visible_hints = visible_hints(&self.hints, hints_width as usize);
             for (i, hint) in visible_hints.iter().enumerate() {
                 if i > 0 {
-                    hint_spans.push(Span::styled(" | ", text_style));
+                    hint_spans.push(Span::styled(FOOTER_HINT_SEPARATOR, text_style));
                 }
                 hint_spans.push(Span::styled(
                     &hint.key,
@@ -423,9 +426,9 @@ impl Footer {
             }
             if visible_hints.len() < self.hints.len() && hints_width >= 3 {
                 if !hint_spans.is_empty() {
-                    hint_spans.push(Span::styled(" | ", text_style));
+                    hint_spans.push(Span::styled(FOOTER_HINT_SEPARATOR, text_style));
                 }
-                hint_spans.push(Span::styled("...", text_style));
+                hint_spans.push(Span::styled(FOOTER_HINT_OVERFLOW, text_style));
             }
 
             let hints_line = Line::from(hint_spans);
@@ -515,9 +518,17 @@ fn visible_hints(hints: &[KeyHint], max_width: usize) -> Vec<&KeyHint> {
         let item_width = UnicodeWidthStr::width(hint.key.as_str())
             + 2
             + UnicodeWidthStr::width(hint.description.as_str());
-        let separator_width = if visible.is_empty() { 0 } else { 3 };
+        let separator_width = if visible.is_empty() {
+            0
+        } else {
+            FOOTER_HINT_SEPARATOR.width()
+        };
         let hidden_after_this = idx + 1 < hints.len();
-        let overflow_marker_width = if hidden_after_this { 6 } else { 0 };
+        let overflow_marker_width = if hidden_after_this {
+            FOOTER_HINT_SEPARATOR.width() + FOOTER_HINT_OVERFLOW.width()
+        } else {
+            0
+        };
         if used + separator_width + item_width + overflow_marker_width > max_width {
             break;
         }
@@ -621,6 +632,22 @@ mod tests {
     }
 
     #[test]
+    fn test_footer_render_uses_spacious_hint_separator() {
+        let footer = Footer::new("Ready").with_hints(vec![("q", "Quit"), ("?", "Help")]);
+        let area = ratatui::layout::Rect::new(0, 0, 80, 1);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+
+        footer.render(area, &mut buf, &Theme::default());
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("q: Quit  |  ?: Help"));
+    }
+
+    #[test]
     fn test_header_render_offset_area_near_u16_max() {
         let header = Header::new("RightClick").with_tabs(vec!["A", "B"], 0);
         let area = ratatui::layout::Rect::new(u16::MAX - 4, 10, 4, 3);
@@ -670,6 +697,14 @@ mod tests {
         let visible = visible_hints(&hints, 11);
 
         assert!(visible.is_empty());
+    }
+
+    #[test]
+    fn test_visible_hints_accounts_for_spacious_separator_before_overflow() {
+        let hints = vec![KeyHint::new("q", "Quit"), KeyHint::new("?", "Help")];
+
+        assert!(visible_hints(&hints, 14).is_empty());
+        assert_eq!(visible_hints(&hints, 15), vec![&hints[0]]);
     }
 
     #[test]
