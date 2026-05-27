@@ -345,7 +345,9 @@ impl ConversationsPlugin {
             }
 
             // Enter conversation view
-            (KeyCode::Enter, KeyModifiers::NONE) | (KeyCode::Char('l'), KeyModifiers::NONE) => {
+            (KeyCode::Enter, KeyModifiers::NONE)
+            | (KeyCode::Char('l'), KeyModifiers::NONE)
+            | (KeyCode::Char('o'), KeyModifiers::NONE) => {
                 if self.state.selected_session.is_some() {
                     // We'll need to load messages async, so signal this
                     return false; // Let caller handle async
@@ -1134,6 +1136,35 @@ mod tests {
 
         assert_eq!(plugin.state().view, ConversationView::Search);
         assert_eq!(plugin.state().search_query, Some(String::new()));
+    }
+
+    #[test]
+    fn test_open_shortcut_o_matches_sessions_key_hint() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
+        let mut plugin = ConversationsPlugin::new(registry);
+
+        assert!(
+            plugin.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::NONE)),
+            "o should be handled as an open shortcut even when no session is selected"
+        );
+
+        plugin.state_mut().set_sessions(vec![SessionInfo::new(
+            crate::core::models::conversation::Session::new(
+                "session-1",
+                "Shortcut parity",
+                "test-adapter",
+            ),
+            &adapter,
+        )]);
+        plugin.state_mut().select_session(0);
+
+        assert!(
+            !plugin.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::NONE)),
+            "o should request the async open path when a session is selected"
+        );
     }
 
     #[test]
