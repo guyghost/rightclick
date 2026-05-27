@@ -933,6 +933,7 @@ fn build_footer_hints(
 
     let mut global_hints = vec![
         ("Tab", tab_label),
+        ("Enter", "Select"),
         ("/", "Global search"),
         (":", "Command search"),
         ("?", "Toggle help"),
@@ -1383,10 +1384,11 @@ mod tests {
         let hints = build_footer_hints("workspace", &commands);
 
         assert_eq!(
-            &hints[..6],
+            &hints[..7],
             &[
                 ("Tab".to_string(), "Pane".to_string()),
                 ("Ctrl+Tab".to_string(), "Plugin".to_string()),
+                ("Enter".to_string(), "Select".to_string()),
                 ("/".to_string(), "Global search".to_string()),
                 (":".to_string(), "Command search".to_string()),
                 ("?".to_string(), "Toggle help".to_string()),
@@ -1420,7 +1422,7 @@ mod tests {
 
         let hints = build_footer_hints("workspace", &commands);
 
-        let plugin_hints = &hints[7..];
+        let plugin_hints = &hints[8..];
         assert_eq!(plugin_hints[0], ("p".to_string(), "Primary".to_string()));
         assert_eq!(plugin_hints[1], ("s".to_string(), "Secondary".to_string()));
     }
@@ -1450,7 +1452,7 @@ mod tests {
 
         let hints = build_footer_hints("workspace", &commands);
 
-        let plugin_hints = &hints[7..];
+        let plugin_hints = &hints[8..];
         assert_eq!(plugin_hints[0], ("h".to_string(), "High".to_string()));
         assert_eq!(plugin_hints[1], ("l".to_string(), "Low".to_string()));
     }
