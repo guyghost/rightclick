@@ -737,15 +737,27 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
         } else {
             "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab/Shift+Tab: All"
         };
+        let detailed_short_context_hint = if show_all_contexts {
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current"
+        } else {
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All"
+        };
+        let edit_short_context_hint = if show_all_contexts {
+            "Edit/Clear | Tab: Current | Esc"
+        } else {
+            "Edit/Clear | Tab: All | Esc"
+        };
 
         [
             full_hint,
             detailed_context_hint,
+            detailed_short_context_hint,
             "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab",
             "Backspace: Edit | Ctrl+U: Clear | Esc: Close",
+            edit_context_hint,
+            edit_short_context_hint,
             "Edit/Clear | Esc/Tab",
             "Esc/Tab",
-            edit_context_hint,
             context_hint,
             short_context_hint,
             "Esc",
@@ -769,6 +781,11 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
         } else {
             "Esc: Close | Tab/Shift+Tab: All"
         };
+        let close_short_context_hint = if show_all_contexts {
+            "Esc: Close | Tab: Current"
+        } else {
+            "Esc: Close | Tab: All"
+        };
         let short_context_hint = if show_all_contexts {
             "Tab: Current"
         } else {
@@ -783,8 +800,9 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
         [
             full_hint,
             close_context_hint,
-            "Esc: Close | Tab",
+            close_short_context_hint,
             short_close_context_hint,
+            "Esc: Close | Tab",
             "Esc/Tab",
             context_hint,
             short_context_hint,
@@ -1361,15 +1379,15 @@ mod tests {
         assert_eq!(palette_empty_action_hint(9, false, false), "Esc/Tab");
         assert_eq!(
             palette_empty_action_hint(17, false, false),
-            "Esc: Close | Tab"
+            "Esc | Tab: All"
         );
         assert_eq!(
             palette_empty_action_hint(21, false, false),
-            "Esc: Close | Tab"
+            "Esc: Close | Tab: All"
         );
         assert_eq!(
             palette_empty_action_hint(28, false, false),
-            "Esc: Close | Tab"
+            "Esc: Close | Tab: All"
         );
         assert_eq!(
             palette_empty_action_hint(17, false, true),
@@ -1377,11 +1395,11 @@ mod tests {
         );
         assert_eq!(
             palette_empty_action_hint(18, false, true),
-            "Esc: Close | Tab"
+            "Esc | Tab: Current"
         );
         assert_eq!(
             palette_empty_action_hint(25, false, true),
-            "Esc: Close | Tab"
+            "Esc: Close | Tab: Current"
         );
         assert_eq!(
             palette_empty_action_hint(80, false, false),
@@ -1397,15 +1415,15 @@ mod tests {
         assert_eq!(palette_empty_action_hint(18, true, false), "Esc/Tab");
         assert_eq!(
             palette_empty_action_hint(27, true, false),
-            "Edit/Clear | Esc/Tab"
+            "Edit/Clear | Tab: All | Esc"
         );
         assert_eq!(
             palette_empty_action_hint(55, true, false),
-            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab"
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All"
         );
         assert_eq!(
             palette_empty_action_hint(59, true, true),
-            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab"
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current"
         );
         assert_eq!(
             palette_empty_action_hint(80, true, false),
