@@ -69,15 +69,24 @@ run_step() {
   "$@"
 }
 
-run_checks() {
+run_script_checks() {
   run_step bash -n scripts/dev.sh
+  if command -v just >/dev/null 2>&1; then
+    run_step just --summary >/dev/null
+  else
+    printf '\n==> skip just --summary (just not installed)\n' >&2
+  fi
+}
+
+run_checks() {
+  run_script_checks
   run_step cargo fmt --check
   run_step cargo clippy --all-targets -- -D warnings
   run_step cargo test
 }
 
 run_quick_checks() {
-  run_step bash -n scripts/dev.sh
+  run_script_checks
   run_step cargo fmt --check
   run_step cargo clippy --all-targets -- -D warnings
 }
@@ -255,12 +264,7 @@ case "$cmd" in
     run_quick_checks
     ;;
   script-check)
-    run_step bash -n scripts/dev.sh
-    if command -v just >/dev/null 2>&1; then
-      run_step just --summary >/dev/null
-    else
-      printf '\n==> skip just --summary (just not installed)\n' >&2
-    fi
+    run_script_checks
     ;;
   fmt-check)
     run_step cargo fmt --check
