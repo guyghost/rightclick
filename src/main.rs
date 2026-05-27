@@ -832,6 +832,16 @@ fn build_help_lines(
         plugin_name.to_string(),
         status.to_string(),
         String::new(),
+        "Global shortcuts:".to_string(),
+        "  /        Global search".to_string(),
+        "  :        Command search".to_string(),
+        "  ?        Toggle help".to_string(),
+        "  Tab      Switch plugin/pane".to_string(),
+        "  Shift+Tab  Previous plugin/pane".to_string(),
+        "  1-9      Jump to plugin".to_string(),
+        "  Esc      Back/close".to_string(),
+        "  q/Ctrl+C  Quit".to_string(),
+        String::new(),
         "Plugin commands:".to_string(),
     ];
 
@@ -845,19 +855,6 @@ fn build_help_lines(
     if seen.is_empty() {
         lines.push("  No plugin commands available in this view".to_string());
     }
-
-    lines.extend([
-        String::new(),
-        "Global shortcuts:".to_string(),
-        "  /        Global search".to_string(),
-        "  :        Command search".to_string(),
-        "  ?        Toggle help".to_string(),
-        "  Tab      Switch plugin/pane".to_string(),
-        "  Shift+Tab  Previous plugin/pane".to_string(),
-        "  1-9      Jump to plugin".to_string(),
-        "  Esc      Back/close".to_string(),
-        "  q/Ctrl+C  Quit".to_string(),
-    ]);
 
     lines
 }
@@ -1125,6 +1122,16 @@ mod tests {
         );
         assert!(lines.contains(&"  q/Ctrl+C  Quit".to_string()));
         assert!(lines.iter().any(|line| line.contains("3 files changed")));
+
+        let global_index = lines
+            .iter()
+            .position(|line| line == "Global shortcuts:")
+            .expect("global shortcuts section should be present");
+        let plugin_index = lines
+            .iter()
+            .position(|line| line == "Plugin commands:")
+            .expect("plugin commands section should be present");
+        assert!(global_index < plugin_index);
     }
 
     #[test]
