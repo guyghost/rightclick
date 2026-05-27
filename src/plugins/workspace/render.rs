@@ -297,7 +297,7 @@ fn no_linked_task_message() -> &'static str {
 
 fn task_details_missing_message(task_id: &str) -> String {
     format!(
-        "Task: {}\n\nNo details loaded\n\nT: Relink task\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help",
+        "Task: {}\n\nNo task details loaded\n\nT: Relink task\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help",
         task_id
     )
 }
@@ -1314,12 +1314,13 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Task: TASK-123"));
-        assert!(content.contains("No details loaded"));
+        assert!(content.contains("No task details loaded"));
         assert!(content.contains("T: Relink task"));
         assert!(content.contains("r: Refresh worktrees"));
         assert!(content.contains("/: Global search"));
         assert!(content.contains(": Command search"));
         assert!(content.contains("?: Toggle help"));
+        assert!(!content.contains("No details loaded"));
         assert!(!content.contains("No details available"));
     }
 
