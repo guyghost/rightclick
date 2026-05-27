@@ -69,3 +69,26 @@ fn dev_script_unknown_command_suggests_match_case_insensitively() {
         "dev script should suggest the command for uppercase typos"
     );
 }
+
+#[test]
+fn dev_script_test_many_explains_missing_filters_before_cargo_args() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "test-many", "--", "--nocapture"])
+        .output()
+        .expect("dev script test-many usage path should run");
+
+    assert!(
+        !output.status.success(),
+        "test-many should fail when no filters are provided"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("At least one test filter is required before --."),
+        "dev script should explain that filters must come before cargo test args"
+    );
+    assert!(
+        stderr.contains("Usage: bash scripts/dev.sh test-many <test-filter>..."),
+        "dev script should still print test-many usage"
+    );
+}
