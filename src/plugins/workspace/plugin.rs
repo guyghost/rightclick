@@ -1067,13 +1067,20 @@ fn workspace_status_line(state: &PluginState) -> String {
         .filter(|worktree| worktree.linked_task.is_some())
         .count();
 
-    format!(
-        "{} | {} dirty | {} | {} linked",
-        workspace_count_label(state.worktrees.len(), "worktree"),
-        dirty,
-        workspace_count_label(agents, "agent"),
-        linked
-    )
+    let mut parts = vec![workspace_count_label(state.worktrees.len(), "worktree")];
+    if dirty > 0 {
+        parts.push(format!("{} dirty", dirty));
+    } else {
+        parts.push("clean".to_string());
+    }
+    if agents > 0 {
+        parts.push(workspace_count_label(agents, "agent"));
+    }
+    if linked > 0 {
+        parts.push(format!("{} linked", linked));
+    }
+
+    parts.join(" | ")
 }
 
 fn workspace_count_label(count: usize, label: &str) -> String {
@@ -1547,7 +1554,7 @@ mod tests {
     }
 
     #[test]
-    fn test_status_line_uses_singular_worktree_count() {
+    fn test_status_line_omits_zero_workspace_counts() {
         let mut plugin = WorkspacePlugin::new();
         plugin.state.worktrees.push(Worktree::new(
             "clean",
@@ -1555,10 +1562,7 @@ mod tests {
             "clean-branch",
         ));
 
-        assert_eq!(
-            plugin.status_line(),
-            Some("1 worktree | 0 dirty | 0 agents | 0 linked".to_string())
-        );
+        assert_eq!(plugin.status_line(), Some("1 worktree | clean".to_string()));
     }
 
     #[test]
