@@ -1326,7 +1326,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
     let filter = state
         .filter_query
         .as_ref()
-        .map(|query| format!(" | filter: {}", query))
+        .map(|query| format!(" | filter: {}", truncate_display(query, 40)))
         .unwrap_or_default();
 
     if visible == 0 && state.filter_query.is_some() {
@@ -1766,6 +1766,25 @@ mod tests {
                     .to_string()
             )
         );
+    }
+
+    #[test]
+    fn test_file_browser_status_line_truncates_long_filter_query() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.refresh();
+        plugin.state.selected_path = None;
+        plugin.state.set_filter(Some(
+            "abcdefghijklmnopqrstuvwxyz0123456789abcdef".to_string(),
+        ));
+
+        let status = plugin.status_line().expect("status line");
+
+        assert!(status.contains("filter: abcdefghijklmnopqrstuvwxyz0123456789a..."));
+        assert!(!status.contains("abcdef |"));
+        assert!(status.contains("f: Change filter"));
+        assert!(status.contains("r: Refresh files"));
     }
 
     #[test]
