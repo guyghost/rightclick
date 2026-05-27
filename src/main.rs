@@ -880,8 +880,9 @@ fn compact_help_overlay_text(width: u16) -> &'static str {
         8..=12 => "? Toggle",
         13..=22 => "? Toggle help",
         23..=34 => "? Toggle help  / Search",
-        35..=42 => "? Toggle help  / Search  : Commands",
-        _ => "? Toggle help  / Search  : Commands  q Quit",
+        35..=40 => "? Toggle help  / Search  : Commands",
+        41..=55 => "? Toggle help  / Search  : Command search",
+        _ => "? Toggle help  / Global search  : Command search  q Quit",
     }
 }
 
@@ -1216,8 +1217,12 @@ mod tests {
             "? Toggle help  / Search  : Commands"
         );
         assert_eq!(
-            compact_help_overlay_text(43),
-            "? Toggle help  / Search  : Commands  q Quit"
+            compact_help_overlay_text(41),
+            "? Toggle help  / Search  : Command search"
+        );
+        assert_eq!(
+            compact_help_overlay_text(56),
+            "? Toggle help  / Global search  : Command search  q Quit"
         );
     }
 
