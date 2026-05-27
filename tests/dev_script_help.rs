@@ -115,6 +115,10 @@ fn dev_script_unknown_command_suggests_hyphenated_match_for_underscore() {
         "dev script should echo the unknown command"
     );
     assert!(
+        stderr.contains("Did you mean this command?"),
+        "dev script should use singular wording for one suggestion"
+    );
+    assert!(
         stderr.contains("bash scripts/dev.sh test-many"),
         "dev script should suggest the hyphenated command for underscore typos"
     );
@@ -136,6 +140,10 @@ fn dev_script_unknown_command_suggests_match_case_insensitively() {
     assert!(
         stderr.contains("Unknown command: TEST_MANY"),
         "dev script should echo the unknown command"
+    );
+    assert!(
+        stderr.contains("Did you mean this command?"),
+        "dev script should use singular wording for one case-insensitive suggestion"
     );
     assert!(
         stderr.contains("bash scripts/dev.sh test-many"),
@@ -161,8 +169,43 @@ fn dev_script_unknown_command_suggests_prefix_match_case_insensitively() {
         "dev script should echo the unknown command"
     );
     assert!(
+        stderr.contains("Did you mean this command?"),
+        "dev script should use singular wording for one prefix suggestion"
+    );
+    assert!(
         stderr.contains("bash scripts/dev.sh quick"),
         "dev script should suggest prefix matches case-insensitively"
+    );
+}
+
+#[test]
+fn dev_script_unknown_command_uses_plural_wording_for_multiple_suggestions() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "te"])
+        .output()
+        .expect("dev script unknown command path should run");
+
+    assert!(
+        !output.status.success(),
+        "unknown command should fail so callers notice the typo"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Unknown command: te"),
+        "dev script should echo the unknown command"
+    );
+    assert!(
+        stderr.contains("Did you mean one of these commands?"),
+        "dev script should use plural wording for multiple suggestions"
+    );
+    assert!(
+        stderr.contains("bash scripts/dev.sh test"),
+        "dev script should include the direct test command suggestion"
+    );
+    assert!(
+        stderr.contains("bash scripts/dev.sh test-many"),
+        "dev script should include related test command suggestions"
     );
 }
 

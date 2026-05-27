@@ -132,7 +132,11 @@ print_unknown_command() {
 
   echo "Unknown command: $unknown" >&2
   if [ "${#suggestions[@]}" -ne 0 ]; then
-    echo "Did you mean:" >&2
+    if [ "${#suggestions[@]}" -eq 1 ]; then
+      echo "Did you mean this command?" >&2
+    else
+      echo "Did you mean one of these commands?" >&2
+    fi
     for command in "${suggestions[@]:0:5}"; do
       echo "  bash scripts/dev.sh $command" >&2
     done
