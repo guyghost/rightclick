@@ -947,9 +947,6 @@ fn build_footer_hints(
         if seen.insert(key.clone()) {
             hints.push((key, command.name.clone()));
         }
-        if hints.len() >= 9 {
-            break;
-        }
     }
 
     hints
@@ -1399,6 +1396,36 @@ mod tests {
         let plugin_hints = &hints[7..];
         assert_eq!(plugin_hints[0], ("p".to_string(), "Primary".to_string()));
         assert_eq!(plugin_hints[1], ("s".to_string(), "Secondary".to_string()));
+    }
+
+    #[test]
+    fn test_build_footer_hints_keeps_all_unique_plugin_actions() {
+        let commands = vec![
+            rightclick::plugin::PluginCommand::with_context(
+                "one",
+                "One",
+                'a',
+                rightclick::keymap::FocusContext::Global,
+            ),
+            rightclick::plugin::PluginCommand::with_context(
+                "two",
+                "Two",
+                'b',
+                rightclick::keymap::FocusContext::Global,
+            ),
+            rightclick::plugin::PluginCommand::with_context(
+                "three",
+                "Three",
+                'c',
+                rightclick::keymap::FocusContext::Global,
+            ),
+        ];
+
+        let hints = build_footer_hints("workspace", &commands);
+
+        assert!(hints.contains(&("a".to_string(), "One".to_string())));
+        assert!(hints.contains(&("b".to_string(), "Two".to_string())));
+        assert!(hints.contains(&("c".to_string(), "Three".to_string())));
     }
 
     #[test]
