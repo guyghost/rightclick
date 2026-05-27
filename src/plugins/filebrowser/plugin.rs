@@ -890,7 +890,7 @@ impl FileBrowserPlugin {
         let primary_style = style_for_ui_element(&self.theme, UiElement::Primary);
         let text_style = style_for_ui_element(&self.theme, UiElement::Text);
 
-        let Some(popup_area) = centered_overlay_area(area, 50, 30) else {
+        let Some(popup_area) = centered_overlay_area(area, 52, 34) else {
             return;
         };
 
@@ -957,6 +957,20 @@ impl FileBrowserPlugin {
             Line::from(vec![
                 Span::styled("?      ", primary_style),
                 Span::styled("Help", text_style),
+            ]),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "Global",
+                primary_style.add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("/      ", primary_style),
+                Span::styled("Global search", text_style),
+            ]),
+            Line::from(vec![
+                Span::styled(":      ", primary_style),
+                Span::styled("Command search", text_style),
             ]),
             Line::from(""),
             Line::from(vec![Span::styled(
@@ -1460,6 +1474,8 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("?      Help"));
+        assert!(content.contains("/      Global search"));
+        assert!(content.contains(":      Command search"));
         assert!(!content.contains("Toggle this help"));
     }
 
