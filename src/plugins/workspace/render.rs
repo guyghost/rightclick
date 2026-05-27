@@ -10,6 +10,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Tabs, Widget},
 };
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
@@ -21,6 +22,7 @@ const DELETE_WORKTREE_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const LINK_TASK_MODAL_HINT: &str = "Enter: Link  |  Esc: Cancel";
 const MERGE_WORKFLOW_MODAL_HINT: &str = "1-3: Select  |  Esc: Cancel";
 const INTERACTIVE_MODE_HINT: &str = "q: Return";
+const WORKSPACE_SEARCH_HINT: &str = "/: Global search  |  : Command search";
 const MIN_WORKSPACE_MODAL_WIDTH: u16 = 30;
 const MIN_WORKSPACE_MODAL_HEIGHT: u16 = 8;
 
@@ -112,7 +114,7 @@ fn render_worktree_list(
     block.render(area, buf);
 
     if state.worktrees.is_empty() {
-        let empty_text = Paragraph::new(empty_worktrees_message())
+        let empty_text = Paragraph::new(empty_worktrees_message(inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty_text.render(inner, buf);
@@ -208,7 +210,7 @@ fn render_output_content(state: &PluginState, area: Rect, buf: &mut Buffer, them
     block.render(area, buf);
 
     if state.output_text.is_empty() {
-        let empty = Paragraph::new(output_empty_message(state))
+        let empty = Paragraph::new(output_empty_message(state, inner.width))
             .alignment(Alignment::Center)
             .style(style_for_ui_element(theme, UiElement::MutedText));
         empty.render(inner, buf);
@@ -234,7 +236,7 @@ fn render_diff_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
 
     let diff_text = match &state.diff_content {
         Some(diff) => diff.clone(),
-        None => diff_empty_message(state),
+        None => diff_empty_message(state, inner.width),
     };
 
     // Parse and colorize diff
@@ -264,21 +266,21 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
         text.render(inner, buf);
     } else if let Some(worktree) = state.selected_worktree() {
         if let Some(task_id) = &worktree.linked_task {
-            let text = Paragraph::new(task_details_missing_message(task_id))
+            let text = Paragraph::new(task_details_missing_message(task_id, inner.width))
                 .alignment(Alignment::Center)
                 .style(style_for_ui_element(theme, UiElement::MutedText));
             text.render(inner, buf);
         } else {
-            let empty = Paragraph::new(no_linked_task_message())
+            let empty = Paragraph::new(no_linked_task_message(inner.width))
                 .alignment(Alignment::Center)
                 .style(style_for_ui_element(theme, UiElement::MutedText));
             empty.render(inner, buf);
         }
     } else {
         let message = if state.worktrees.is_empty() {
-            create_worktree_for_task_message()
+            create_worktree_for_task_message(inner.width)
         } else {
-            select_worktree_message()
+            select_worktree_message(inner.width)
         };
         let empty = Paragraph::new(message)
             .alignment(Alignment::Center)
@@ -287,57 +289,153 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
     }
 }
 
-fn empty_worktrees_message() -> &'static str {
-    "No worktrees yet\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
+fn empty_worktrees_message(width: u16) -> String {
+    let mut message = workspace_empty_message(
+        vec![
+            "No worktrees yet".to_string(),
+            String::new(),
+            "n: Create worktree".to_string(),
+            "r: Refresh worktrees".to_string(),
+        ],
+        width,
+    );
+    message.push_str(
+        "\n\nUse worktrees to run agents in parallel without blocking the main checkout.",
+    );
+    message
 }
 
-fn no_linked_task_message() -> &'static str {
-    "No linked task\n\nT: Link task\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
-}
-
-fn task_details_missing_message(task_id: &str) -> String {
-    format!(
-        "Task: {}\n\nNo task details loaded\n\nT: Relink task\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help",
-        task_id
+fn no_linked_task_message(width: u16) -> String {
+    workspace_empty_message(
+        vec![
+            "No linked task".to_string(),
+            String::new(),
+            "T: Link task".to_string(),
+            "r: Refresh worktrees".to_string(),
+        ],
+        width,
     )
 }
 
-fn create_worktree_for_task_message() -> &'static str {
-    "No worktrees yet\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+fn task_details_missing_message(task_id: &str, width: u16) -> String {
+    workspace_empty_message(
+        vec![
+            format!("Task: {}", truncate_display(task_id, 40)),
+            String::new(),
+            "No task details loaded".to_string(),
+            String::new(),
+            "T: Relink task".to_string(),
+            "r: Refresh worktrees".to_string(),
+        ],
+        width,
+    )
 }
 
-fn select_worktree_message() -> &'static str {
-    "No worktree selected\n\nj/k: Navigate | Enter/o: Open\nTab/Shift+Tab: Switch pane\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+fn create_worktree_for_task_message(width: u16) -> String {
+    workspace_empty_message(
+        vec![
+            "No worktrees yet".to_string(),
+            String::new(),
+            "n: Create worktree".to_string(),
+            "r: Refresh worktrees".to_string(),
+        ],
+        width,
+    )
 }
 
-fn output_empty_message(state: &PluginState) -> &'static str {
+fn select_worktree_message(width: u16) -> String {
+    workspace_empty_message(
+        vec![
+            "No worktree selected".to_string(),
+            String::new(),
+            "j/k: Navigate | Enter/o: Open".to_string(),
+            "Tab/Shift+Tab: Switch pane".to_string(),
+            "r: Refresh worktrees".to_string(),
+        ],
+        width,
+    )
+}
+
+fn output_empty_message(state: &PluginState, width: u16) -> String {
     if state.worktrees.is_empty() {
-        "No output yet\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+        workspace_empty_message(
+            vec![
+                "No output yet".to_string(),
+                String::new(),
+                "n: Create worktree".to_string(),
+                "r: Refresh worktrees".to_string(),
+            ],
+            width,
+        )
     } else if state.selected_worktree().is_none() {
-        "No worktree selected\n\nj/k: Navigate worktrees\nEnter/o: Open worktree\nTab/Shift+Tab: Switch pane\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+        workspace_empty_message(
+            vec![
+                "No worktree selected".to_string(),
+                String::new(),
+                "j/k: Navigate worktrees".to_string(),
+                "Enter/o: Open worktree".to_string(),
+                "Tab/Shift+Tab: Switch pane".to_string(),
+                "r: Refresh worktrees".to_string(),
+            ],
+            width,
+        )
     } else {
-        "No output yet\n\na: Launch agent\nEnter/o: Open interactive shell\nT: Link task\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+        workspace_empty_message(
+            vec![
+                "No output yet".to_string(),
+                String::new(),
+                "a: Launch agent".to_string(),
+                "Enter/o: Open interactive shell".to_string(),
+                "T: Link task".to_string(),
+                "r: Refresh worktrees".to_string(),
+            ],
+            width,
+        )
     }
 }
 
-fn diff_empty_message(state: &PluginState) -> String {
+fn diff_empty_message(state: &PluginState, width: u16) -> String {
     if let Some(worktree) = state.selected_worktree() {
         if worktree.is_dirty {
-            format!(
-                "Diff not loaded yet for {}\n\nr: Refresh worktrees\nj/k: Navigate worktrees\n/: Global search  |  : Command search\n?: Toggle help",
-                worktree.name
+            workspace_empty_message(
+                vec![
+                    format!(
+                        "Diff not loaded yet for {}",
+                        truncate_display(&worktree.name, 48)
+                    ),
+                    String::new(),
+                    "r: Refresh worktrees".to_string(),
+                    "j/k: Navigate worktrees".to_string(),
+                ],
+                width,
             )
         } else {
-            format!(
-                "Working tree clean: {}\n\nj/k: Navigate worktrees\nT: Link task\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help",
-                worktree.name
+            workspace_empty_message(
+                vec![
+                    format!(
+                        "Working tree clean: {}",
+                        truncate_display(&worktree.name, 48)
+                    ),
+                    String::new(),
+                    "j/k: Navigate worktrees".to_string(),
+                    "T: Link task".to_string(),
+                    "r: Refresh worktrees".to_string(),
+                ],
+                width,
             )
         }
     } else if state.worktrees.is_empty() {
-        "No worktree diff yet\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
-            .to_string()
+        workspace_empty_message(
+            vec![
+                "No worktree diff yet".to_string(),
+                String::new(),
+                "n: Create worktree".to_string(),
+                "r: Refresh worktrees".to_string(),
+            ],
+            width,
+        )
     } else {
-        select_worktree_message().to_string()
+        select_worktree_message(width)
     }
 }
 
@@ -435,7 +533,7 @@ fn render_kanban_column(
 
     if lines.is_empty() {
         lines.extend(
-            kanban_empty_column_message(state, title)
+            kanban_empty_column_message(state, title, inner.width)
                 .lines()
                 .map(|line| {
                     Line::styled(
@@ -450,17 +548,79 @@ fn render_kanban_column(
     text.render(inner, buf);
 }
 
-fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
+fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> String {
     let status = title.to_lowercase();
     if state.worktrees.is_empty() {
-        format!(
-            "No {status} worktrees\n\nn: Create worktree\nr: Refresh worktrees\nv: Switch view\n/: Global search  |  : Command search\n?: Toggle help"
+        workspace_empty_message(
+            vec![
+                format!("No {status} worktrees"),
+                String::new(),
+                "n: Create worktree".to_string(),
+                "r: Refresh worktrees".to_string(),
+                "v: Switch view".to_string(),
+            ],
+            width,
         )
     } else {
-        format!(
-            "No {status} worktrees\n\nj/k: Navigate worktrees\nv: Switch view\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+        workspace_empty_message(
+            vec![
+                format!("No {status} worktrees"),
+                String::new(),
+                "j/k: Navigate worktrees".to_string(),
+                "v: Switch view".to_string(),
+                "r: Refresh worktrees".to_string(),
+            ],
+            width,
         )
     }
+}
+
+fn workspace_empty_message(mut lines: Vec<String>, width: u16) -> String {
+    if let Some(hint) = workspace_search_hint(width) {
+        lines.push(hint.to_string());
+    }
+    lines.push("?: Toggle help".to_string());
+    lines.join("\n")
+}
+
+fn workspace_search_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [
+        WORKSPACE_SEARCH_HINT,
+        "/: Search  |  : Commands",
+        "/: Search  |  : Cmds",
+        "/: Search",
+        "/:",
+    ]
+    .into_iter()
+    .find(|hint| hint.width() <= width)
+}
+
+fn truncate_display(text: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+
+    if text.width() <= max_width {
+        return text.to_string();
+    }
+
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let mut output = String::new();
+    let mut width = 0;
+    for ch in text.chars() {
+        let ch_width = ch.width().unwrap_or(0);
+        if width + ch_width + 3 > max_width {
+            break;
+        }
+        output.push(ch);
+        width += ch_width;
+    }
+    output.push_str("...");
+    output
 }
 
 /// Render interactive mode
@@ -489,7 +649,7 @@ fn render_interactive_mode(
             INTERACTIVE_MODE_HINT
         )
     } else {
-        select_worktree_message().to_string()
+        select_worktree_message(inner.width)
     };
 
     let paragraph = Paragraph::new(text)
@@ -938,7 +1098,7 @@ mod tests {
 
     #[test]
     fn test_empty_worktrees_message_points_to_next_actions() {
-        let message = empty_worktrees_message();
+        let message = empty_worktrees_message(80);
 
         assert!(message.contains("No worktrees yet"));
         assert!(message.contains("n: Create worktree"));
@@ -956,15 +1116,15 @@ mod tests {
             assert!(message.contains(": Command search"), "{message}");
         };
 
-        assert_hint(empty_worktrees_message());
-        assert_hint(no_linked_task_message());
-        assert_hint(&task_details_missing_message("TASK-123"));
-        assert_hint(create_worktree_for_task_message());
-        assert_hint(select_worktree_message());
+        assert_hint(&empty_worktrees_message(80));
+        assert_hint(&no_linked_task_message(80));
+        assert_hint(&task_details_missing_message("TASK-123", 80));
+        assert_hint(&create_worktree_for_task_message(80));
+        assert_hint(&select_worktree_message(80));
 
         let empty_state = PluginState::new();
-        assert_hint(output_empty_message(&empty_state));
-        assert_hint(&diff_empty_message(&empty_state));
+        assert_hint(&output_empty_message(&empty_state, 80));
+        assert_hint(&diff_empty_message(&empty_state, 80));
 
         let mut unselected_state = PluginState::new();
         unselected_state.worktrees.push(Worktree::new(
@@ -973,8 +1133,8 @@ mod tests {
             "feature-branch",
         ));
         unselected_state.selected = None;
-        assert_hint(output_empty_message(&unselected_state));
-        assert_hint(&diff_empty_message(&unselected_state));
+        assert_hint(&output_empty_message(&unselected_state, 80));
+        assert_hint(&diff_empty_message(&unselected_state, 80));
 
         let mut clean_state = PluginState::new();
         clean_state.worktrees.push(Worktree::new(
@@ -983,15 +1143,55 @@ mod tests {
             "clean-branch",
         ));
         clean_state.selected = Some(0);
-        assert_hint(output_empty_message(&clean_state));
-        assert_hint(&diff_empty_message(&clean_state));
+        assert_hint(&output_empty_message(&clean_state, 80));
+        assert_hint(&diff_empty_message(&clean_state, 80));
 
         let mut dirty_state = PluginState::new();
         let mut dirty = Worktree::new("dirty", PathBuf::from("/repo/dirty"), "dirty-branch");
         dirty.is_dirty = true;
         dirty_state.worktrees.push(dirty);
         dirty_state.selected = Some(0);
-        assert_hint(&diff_empty_message(&dirty_state));
+        assert_hint(&diff_empty_message(&dirty_state, 80));
+    }
+
+    #[test]
+    fn test_workspace_search_hint_compacts_for_narrow_widths() {
+        assert_eq!(workspace_search_hint(1), None);
+        assert_eq!(workspace_search_hint(2), Some("/:"));
+        assert_eq!(workspace_search_hint(9), Some("/: Search"));
+        assert_eq!(workspace_search_hint(20), Some("/: Search  |  : Cmds"));
+        assert_eq!(workspace_search_hint(24), Some("/: Search  |  : Commands"));
+        assert_eq!(workspace_search_hint(80), Some(WORKSPACE_SEARCH_HINT));
+    }
+
+    #[test]
+    fn test_workspace_empty_messages_omit_search_hint_when_too_narrow() {
+        let message = select_worktree_message(1);
+
+        assert!(message.contains("No worktree selected"));
+        assert!(!message.contains("Global search"));
+        assert!(!message.contains("/:"));
+        assert!(message.contains("?: Toggle help"));
+    }
+
+    #[test]
+    fn test_workspace_diff_empty_message_truncates_long_worktree_names() {
+        let mut state = PluginState::new();
+        let mut worktree = Worktree::new(
+            "feature/some-extremely-long-worktree-name-that-fills-the-preview-panel",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        );
+        worktree.is_dirty = true;
+        state.worktrees.push(worktree);
+        state.selected = Some(0);
+
+        let message = diff_empty_message(&state, 80);
+        let truncated = truncate_display(&state.worktrees[0].name, 48);
+
+        assert!(message.contains(&format!("Diff not loaded yet for {truncated}")));
+        assert!(truncated.ends_with("..."));
+        assert!(!message.contains("fills-the-preview-panel"));
     }
 
     #[test]
