@@ -24,6 +24,7 @@ const FILTER_OVERLAY_WIDTH: u16 = 50;
 const FILTER_OVERLAY_HEIGHT: u16 = 3;
 const MIN_FILTER_OVERLAY_WIDTH: u16 = 20;
 const MIN_FILTER_OVERLAY_HEIGHT: u16 = 3;
+const SEARCH_HINT: &str = "/: Global search  |  : Command search";
 
 /// Renderer for the Conversations plugin UI
 #[derive(Clone, Debug, Default)]
@@ -875,20 +876,28 @@ fn empty_sessions_message(state: &PluginState) -> String {
         .filter(|query| !query.is_empty())
     {
         Some(query) => format!(
-            "No sessions match \"{}\"\n\nBackspace: Edit filter\nEsc: Clear filter\nr: Refresh sessions\n/: Global search\n: Command search\n?: Toggle help",
-            query
+            "No sessions match \"{}\"\n\nBackspace: Edit filter\nEsc: Clear filter\nr: Refresh sessions\n{}\n?: Toggle help",
+            query, SEARCH_HINT
         ),
-        None => "No sessions found\n\nr: Refresh sessions\nf: Filter sessions\n/: Global search\n: Command search\n?: Toggle help\n\nSessions appear after supported adapters are detected."
-            .to_string(),
+        None => format!(
+            "No sessions found\n\nr: Refresh sessions\nf: Filter sessions\n{}\n?: Toggle help\n\nSessions appear after supported adapters are detected.",
+            SEARCH_HINT
+        ),
     }
 }
 
-fn empty_messages_message() -> &'static str {
-    "No messages in this session\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n/: Global search\n: Command search\n?: Toggle help"
+fn empty_messages_message() -> String {
+    format!(
+        "No messages in this session\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n{}\n?: Toggle help",
+        SEARCH_HINT
+    )
 }
 
-fn loading_messages_message() -> &'static str {
-    "Loading messages\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n/: Global search\n: Command search\n?: Toggle help"
+fn loading_messages_message() -> String {
+    format!(
+        "Loading messages\n\nr: Refresh messages\nf: Filter sessions\nEsc/h: Back to sessions\n{}\n?: Toggle help",
+        SEARCH_HINT
+    )
 }
 
 fn compact_message_count(count: usize) -> String {
@@ -1040,8 +1049,8 @@ mod tests {
         assert!(message.contains("No sessions found"));
         assert!(message.contains("r: Refresh sessions"));
         assert!(message.contains("f: Filter sessions"));
-        assert!(message.contains("/: Global search"));
-        assert!(message.contains(": Command search"));
+        assert!(message.contains(SEARCH_HINT));
+        assert!(!message.contains("/: Global search\n: Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(message.contains("Sessions appear after supported adapters are detected"));
     }
@@ -1057,8 +1066,8 @@ mod tests {
         assert!(message.contains("r: Refresh sessions"));
         assert!(!message.contains("f  Reset filter"));
         assert!(message.contains("Esc: Clear filter"));
-        assert!(message.contains("/: Global search"));
-        assert!(message.contains(": Command search"));
+        assert!(message.contains(SEARCH_HINT));
+        assert!(!message.contains("/: Global search\n: Command search"));
         assert!(!message.contains("Esc  Clear search"));
         assert!(message.contains("?: Toggle help"));
     }
@@ -1071,8 +1080,8 @@ mod tests {
         assert!(message.contains("r: Refresh messages"));
         assert!(message.contains("f: Filter sessions"));
         assert!(message.contains("Esc/h: Back to sessions"));
-        assert!(message.contains("/: Global search"));
-        assert!(message.contains(": Command search"));
+        assert!(message.contains(SEARCH_HINT));
+        assert!(!message.contains("/: Global search\n: Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(!message.contains("Then r"));
     }
@@ -1085,8 +1094,8 @@ mod tests {
         assert!(message.contains("r: Refresh messages"));
         assert!(message.contains("f: Filter sessions"));
         assert!(message.contains("Esc/h: Back to sessions"));
-        assert!(message.contains("/: Global search"));
-        assert!(message.contains(": Command search"));
+        assert!(message.contains(SEARCH_HINT));
+        assert!(!message.contains("/: Global search\n: Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(!message.contains("r: Refresh sessions"));
     }
