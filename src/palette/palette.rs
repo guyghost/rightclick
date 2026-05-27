@@ -689,7 +689,7 @@ fn palette_empty_state_message(
     if input.is_empty() {
         if has_commands {
             let heading = if show_all_contexts {
-                "No commands available"
+                "No commands in any context"
             } else {
                 "No commands in this context"
             };
@@ -1375,7 +1375,8 @@ mod tests {
         assert!(!context_empty.contains("Commands appear after plugins finish loading"));
 
         let all_contexts_empty = palette_empty_state_message("", 80, true, true);
-        assert!(all_contexts_empty.contains("No commands available"));
+        assert!(all_contexts_empty.contains("No commands in any context"));
+        assert!(!all_contexts_empty.contains("No commands available"));
         assert!(all_contexts_empty.contains("Tab/Shift+Tab: Current context"));
 
         let no_match = palette_empty_state_message("deploy", 80, true, false);
