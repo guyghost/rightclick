@@ -1349,14 +1349,14 @@ fn visible_file_count_label(count: usize) -> String {
 fn file_tree_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No files match \"{}\"\n\nf  Change or clear filter\nr  Refresh files\n?  Help",
+            "No files match \"{}\"\n\nf  Change or clear filter\nr  Refresh files\n/  Global search\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
         "No files found\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search\n?  Help"
             .to_string()
     } else {
-        "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
+        "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n/  Global search\n?  Help"
             .to_string()
     }
 }
@@ -1364,14 +1364,14 @@ fn file_tree_empty_message(state: &PluginState) -> String {
 fn file_preview_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No preview available\n\nNo files match \"{}\"\nf  Change or clear filter\nr  Refresh files\n?  Help",
+            "No preview available\n\nNo files match \"{}\"\nf  Change or clear filter\nr  Refresh files\n/  Global search\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
         "No preview available\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search\n?  Help"
             .to_string()
     } else if state.visible_indices().is_empty() {
-        "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n?  Help"
+        "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n/  Global search\n?  Help"
             .to_string()
     } else {
         "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter\nr  Refresh files\n/  Global search\n?  Help"
@@ -1706,6 +1706,7 @@ mod tests {
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f  Change or clear filter"));
         assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("/  Global search"));
         assert!(!message.contains("Esc  Close dialogs"));
         assert!(message.contains("?  Help"));
     }
@@ -1722,6 +1723,7 @@ mod tests {
         assert!(message.contains("No files match \"missing\""));
         assert!(message.contains("f  Change or clear filter"));
         assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("/  Global search"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1740,6 +1742,7 @@ mod tests {
         assert!(message.contains("i  Toggle ignored"));
         assert!(message.contains("f  Filter"));
         assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("/  Global search"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1758,6 +1761,7 @@ mod tests {
         assert!(message.contains("i  Toggle ignored"));
         assert!(message.contains("f  Filter"));
         assert!(message.contains("r  Refresh files"));
+        assert!(message.contains("/  Global search"));
         assert!(message.contains("?  Help"));
     }
 
