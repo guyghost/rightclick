@@ -1000,7 +1000,7 @@ fn plugin_uses_tab_for_panes(plugin_id: &str) -> bool {
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?: Toggle help\n/: Global search  |  : Command search\nq/Ctrl+C: Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug bash scripts/dev.sh run\nCheck configuration if this persists."
+    "No plugins loaded\n\nRightClick is running without an active plugin.\n\n?: Toggle help\n/: Global search  |  : Command search\nq/Ctrl+C: Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug bash scripts/dev.sh run\nCheck configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -1735,6 +1735,7 @@ mod tests {
         let hints = no_plugins_footer_hints();
 
         assert!(message.contains("No plugins loaded"));
+        assert!(message.contains("RightClick is running without an active plugin."));
         assert!(message.contains("?: Toggle help"));
         assert!(message.contains("/: Global search  |  : Command search"));
         assert!(!message.contains("/: Global search\n: Command search"));
