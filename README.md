@@ -88,21 +88,21 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 
 | Key | Action |
 |-----|--------|
-| `q`, `ctrl+c` | Quit |
-| `tab` / `shift+tab` | Navigate plugins |
+| `q`, `Ctrl+C` | Quit |
+| `Tab` / `Shift+Tab` | Navigate plugins |
 | `1-9` | Focus plugin by number |
 | `/` | Search files, commands, sessions, worktrees, and intents |
 | `:` | Command search |
 | `j/k`, `↓/↑` | Navigate items |
-| `enter` | Select |
-| `esc` | Back/close |
+| `Enter` | Select |
+| `Esc` | Back/close |
 | `r` | Refresh current view |
 | `?` | Toggle help |
 
 ## Search
 
 Press `/` to open global search, or `:` to open command search directly. Use
-`tab` inside the overlay to switch scope:
+`Tab` inside the overlay to switch scope:
 
 - **All**: search files, commands, sessions, worktrees, and intents together
 - **Files**: search file contents with `rg`

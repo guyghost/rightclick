@@ -25,6 +25,26 @@ fn keyboard_shortcuts_include_command_search() {
 }
 
 #[test]
+fn keyboard_shortcuts_use_display_key_casing() {
+    for row in [
+        "| `q`, `Ctrl+C` | Quit |",
+        "| `Tab` / `Shift+Tab` | Navigate plugins |",
+        "| `Enter` | Select |",
+        "| `Esc` | Back/close |",
+    ] {
+        assert!(
+            README.contains(row),
+            "README keyboard shortcuts should match UI key casing: {row}"
+        );
+    }
+
+    assert!(
+        README.contains("Use\n`Tab` inside the overlay to switch scope:"),
+        "README search docs should match UI key casing for Tab"
+    );
+}
+
+#[test]
 fn developer_commands_include_diff_check() {
     assert!(
         README.contains("bash scripts/dev.sh diff-check"),
