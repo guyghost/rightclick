@@ -23,12 +23,12 @@ use crate::palette::fuzzy::{FuzzyMatcher, MatchResult};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
 
-const PALETTE_EMPTY_ACTION_HINT_SCOPED: &str = "Esc: Close | Tab: All contexts";
-const PALETTE_EMPTY_ACTION_HINT_ALL: &str = "Esc: Close | Tab: Current context";
+const PALETTE_EMPTY_ACTION_HINT_SCOPED: &str = "Esc: Close | Tab/Shift+Tab: All contexts";
+const PALETTE_EMPTY_ACTION_HINT_ALL: &str = "Esc: Close | Tab/Shift+Tab: Current context";
 const PALETTE_NO_MATCH_ACTION_HINT_SCOPED: &str =
-    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All";
+    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab/Shift+Tab: All";
 const PALETTE_NO_MATCH_ACTION_HINT_ALL: &str =
-    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current";
+    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab/Shift+Tab: Current";
 const MIN_VISIBLE_RESULTS: usize = 1;
 const MAX_RENDERABLE_VISIBLE_RESULTS: usize = u16::MAX as usize - 4;
 
@@ -262,7 +262,7 @@ impl Palette {
                 self.selected = self.filtered.len().saturating_sub(1);
                 self.adjust_scroll();
             }
-            KeyCode::Tab => {
+            KeyCode::Tab | KeyCode::BackTab => {
                 self.toggle_context_mode();
                 return Some(PaletteAction::ToggleContextMode);
             }
@@ -715,9 +715,9 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
             PALETTE_NO_MATCH_ACTION_HINT_SCOPED
         };
         let context_hint = if show_all_contexts {
-            "Tab: Current context"
+            "Tab/Shift+Tab: Current context"
         } else {
-            "Tab: All contexts"
+            "Tab/Shift+Tab: All contexts"
         };
         let short_context_hint = if show_all_contexts {
             "Tab: Current"
@@ -725,14 +725,14 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
             "Tab: All"
         };
         let edit_context_hint = if show_all_contexts {
-            "Edit/Clear | Tab: Current"
+            "Edit/Clear | Tab/Shift+Tab: Current"
         } else {
-            "Edit/Clear | Tab: All"
+            "Edit/Clear | Tab/Shift+Tab: All"
         };
         let detailed_context_hint = if show_all_contexts {
-            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current"
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab/Shift+Tab: Current"
         } else {
-            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All"
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab/Shift+Tab: All"
         };
 
         [
@@ -757,14 +757,14 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
             PALETTE_EMPTY_ACTION_HINT_SCOPED
         };
         let context_hint = if show_all_contexts {
-            "Tab: Current context"
+            "Tab/Shift+Tab: Current context"
         } else {
-            "Tab: All contexts"
+            "Tab/Shift+Tab: All contexts"
         };
         let close_context_hint = if show_all_contexts {
-            "Esc: Close | Tab: Current"
+            "Esc: Close | Tab/Shift+Tab: Current"
         } else {
-            "Esc: Close | Tab: All"
+            "Esc: Close | Tab/Shift+Tab: All"
         };
         let short_context_hint = if show_all_contexts {
             "Tab: Current"
@@ -780,8 +780,8 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
         [
             full_hint,
             close_context_hint,
-            short_close_context_hint,
             "Esc: Close | Tab",
+            short_close_context_hint,
             "Esc/Tab",
             context_hint,
             short_context_hint,
@@ -803,6 +803,7 @@ fn palette_title_context_and_hint(
 
     if show_all_contexts {
         [
+            (" (all contexts)", " (Tab/Shift+Tab: contexts)"),
             (" (all contexts)", " (Tab: contexts)"),
             (" (all contexts)", ""),
             (" (all)", ""),
@@ -810,6 +811,8 @@ fn palette_title_context_and_hint(
         .into_iter()
         .find(|(context, hint)| base.width() + context.width() + hint.width() <= width)
         .unwrap_or(("", ""))
+    } else if base.width() + " (Tab/Shift+Tab: contexts)".width() <= width {
+        ("", " (Tab/Shift+Tab: contexts)")
     } else if base.width() + " (Tab: contexts)".width() <= width {
         ("", " (Tab: contexts)")
     } else {
@@ -1140,6 +1143,16 @@ mod tests {
     }
 
     #[test]
+    fn test_handle_key_backtab_toggles_context_mode() {
+        let mut palette = test_palette();
+
+        let action = palette.handle_key(KeyEvent::from(KeyCode::BackTab));
+
+        assert_eq!(action, Some(PaletteAction::ToggleContextMode));
+        assert!(palette.show_all_contexts);
+    }
+
+    #[test]
     fn test_toggle_context_mode() {
         let mut palette = test_palette();
 
@@ -1238,12 +1251,12 @@ mod tests {
     fn test_palette_title_hint_compacts_for_narrow_widths() {
         assert_eq!(
             palette_title_context_and_hint(false, 80),
-            ("", " (Tab: contexts)")
+            ("", " (Tab/Shift+Tab: contexts)")
         );
         assert_eq!(palette_title_context_and_hint(false, 26), ("", ""));
         assert_eq!(
             palette_title_context_and_hint(true, 80),
-            (" (all contexts)", " (Tab: contexts)")
+            (" (all contexts)", " (Tab/Shift+Tab: contexts)")
         );
         assert_eq!(
             palette_title_context_and_hint(true, 40),
@@ -1291,12 +1304,12 @@ mod tests {
 
         let context_empty = palette_empty_state_message("", 80, true, false);
         assert!(context_empty.contains("No commands in this context"));
-        assert!(context_empty.contains("Tab: All contexts"));
+        assert!(context_empty.contains("Tab/Shift+Tab: All contexts"));
         assert!(!context_empty.contains("Commands appear after plugins finish loading"));
 
         let all_contexts_empty = palette_empty_state_message("", 80, true, true);
         assert!(all_contexts_empty.contains("No commands available"));
-        assert!(all_contexts_empty.contains("Tab: Current context"));
+        assert!(all_contexts_empty.contains("Tab/Shift+Tab: Current context"));
 
         let no_match = palette_empty_state_message("deploy", 80, true, false);
         assert!(no_match.contains("No command matches \"deploy\""));
@@ -1328,15 +1341,15 @@ mod tests {
         assert_eq!(palette_empty_action_hint(9, false, false), "Esc/Tab");
         assert_eq!(
             palette_empty_action_hint(17, false, false),
-            "Esc | Tab: All"
+            "Esc: Close | Tab"
         );
         assert_eq!(
             palette_empty_action_hint(21, false, false),
-            "Esc: Close | Tab: All"
+            "Esc: Close | Tab"
         );
         assert_eq!(
             palette_empty_action_hint(28, false, false),
-            "Esc: Close | Tab: All"
+            "Esc: Close | Tab"
         );
         assert_eq!(
             palette_empty_action_hint(17, false, true),
@@ -1344,11 +1357,11 @@ mod tests {
         );
         assert_eq!(
             palette_empty_action_hint(18, false, true),
-            "Esc | Tab: Current"
+            "Esc: Close | Tab"
         );
         assert_eq!(
             palette_empty_action_hint(25, false, true),
-            "Esc: Close | Tab: Current"
+            "Esc: Close | Tab"
         );
         assert_eq!(
             palette_empty_action_hint(80, false, false),
@@ -1368,11 +1381,11 @@ mod tests {
         );
         assert_eq!(
             palette_empty_action_hint(55, true, false),
-            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All"
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab"
         );
         assert_eq!(
             palette_empty_action_hint(59, true, true),
-            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current"
+            "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab"
         );
         assert_eq!(
             palette_empty_action_hint(80, true, false),
