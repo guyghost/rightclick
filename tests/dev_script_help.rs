@@ -144,6 +144,35 @@ fn dev_script_test_list_explains_unsupported_cargo_args() {
 }
 
 #[test]
+fn dev_script_test_list_rejects_cargo_args_before_listing_filters() {
+    let output = Command::new("bash")
+        .args([
+            "scripts/dev.sh",
+            "test-list",
+            "dev_script_help",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .expect("dev script test-list usage path should run");
+
+    assert!(
+        !output.status.success(),
+        "test-list should fail before listing filters when -- is present"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("test-list does not accept cargo test args; pass filters without --."),
+        "dev script should explain that test-list does not accept cargo test args"
+    );
+    assert!(
+        !stderr.contains("==> cargo test dev_script_help -- --list"),
+        "dev script should validate all test-list args before listing any filter"
+    );
+}
+
+#[test]
 fn dev_script_test_one_explains_missing_filter_before_cargo_args() {
     let output = Command::new("bash")
         .args(["scripts/dev.sh", "test-one", "--", "--nocapture"])

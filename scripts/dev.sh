@@ -435,6 +435,8 @@ case "$cmd" in
     else
       for filter in "$@"; do
         ensure_test_filter_arg "test-list" "[<test-filter>...]" "$filter"
+      done
+      for filter in "$@"; do
         list_tests_for_filter "$filter"
       done
     fi
