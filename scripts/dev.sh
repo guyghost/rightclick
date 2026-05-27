@@ -101,6 +101,17 @@ print_test_filter_hint() {
   echo "List every test with: bash scripts/dev.sh test-list" >&2
 }
 
+ensure_test_filter_arg() {
+  local command_name="$1"
+  local usage="$2"
+  local filter="$3"
+
+  if [ "$filter" = "--" ]; then
+    echo "Usage: bash scripts/dev.sh $command_name $usage" >&2
+    exit 2
+  fi
+}
+
 ensure_test_filter_matches() {
   local filter="$1"
   local output
@@ -293,16 +304,18 @@ case "$cmd" in
       run_step cargo test -- --list
     else
       for filter in "$@"; do
+        ensure_test_filter_arg "test-list" "[<test-filter>...]" "$filter"
         list_tests_for_filter "$filter"
       done
     fi
     ;;
   test-one)
     shift
-    if [ "$#" -eq 0 ] || [ "$1" = "--" ]; then
+    if [ "$#" -eq 0 ]; then
       echo "Usage: bash scripts/dev.sh test-one <test-filter> [-- <cargo-test-args>]" >&2
       exit 2
     fi
+    ensure_test_filter_arg "test-one" "<test-filter> [-- <cargo-test-args>]" "$1"
     ensure_test_filter_matches "$1"
     run_step cargo test "$@"
     ;;
