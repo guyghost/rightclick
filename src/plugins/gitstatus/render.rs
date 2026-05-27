@@ -1356,7 +1356,7 @@ fn git_sidebar_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
         "No repository data loaded\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     } else {
-        "No changes or commits\n\nB: Branches\nH: History\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        "Working tree clean\n\nB: Branches\nH: History\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     }
 }
 
@@ -1897,7 +1897,8 @@ mod tests {
         let mut clean_state = PluginState::new();
         clean_state.branch = "main".to_string();
         let clean = git_sidebar_empty_message(&clean_state);
-        assert!(clean.contains("No changes or commits"));
+        assert!(clean.contains("Working tree clean"));
+        assert!(!clean.contains("No changes or commits"));
         assert!(clean.contains("B: Branches"));
         assert!(clean.contains("H: History"));
         assert!(clean.contains("r: Refresh git status"));
