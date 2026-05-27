@@ -392,8 +392,7 @@ impl Footer {
             }
         }
 
-        let status_width = area.width / 2;
-        let hints_width = area.width.saturating_sub(status_width).saturating_sub(1);
+        let (status_width, hints_width) = footer_layout_widths(area.width, &self.hints);
         let display_status =
             truncate_display(&self.status, status_width.saturating_sub(1) as usize);
 
@@ -543,6 +542,39 @@ fn visible_hints(hints: &[KeyHint], max_width: usize) -> Vec<&KeyHint> {
     visible
 }
 
+fn footer_layout_widths(area_width: u16, hints: &[KeyHint]) -> (u16, u16) {
+    if hints.is_empty() {
+        return (area_width, 0);
+    }
+
+    let default_status_width = area_width / 2;
+    let default_hints_width = area_width
+        .saturating_sub(default_status_width)
+        .saturating_sub(1);
+    let desired_hints_width =
+        footer_hints_full_width(hints).min(default_hints_width as usize) as u16;
+    let status_width = area_width
+        .saturating_sub(desired_hints_width)
+        .saturating_sub(1);
+
+    (status_width, desired_hints_width)
+}
+
+fn footer_hints_full_width(hints: &[KeyHint]) -> usize {
+    hints
+        .iter()
+        .enumerate()
+        .map(|(idx, hint)| {
+            let separator_width = if idx == 0 {
+                0
+            } else {
+                FOOTER_HINT_SEPARATOR.width()
+            };
+            separator_width + hint.key.width() + 2 + hint.description.width()
+        })
+        .sum()
+}
+
 fn footer_hint_overflow_label(hidden_hint_count: usize, max_width: usize) -> Option<String> {
     if hidden_hint_count == 0 {
         return None;
@@ -686,6 +718,43 @@ mod tests {
             .collect();
         assert!(content.contains("+3"));
         assert!(!content.contains("..."));
+    }
+
+    #[test]
+    fn test_footer_layout_gives_status_extra_room_for_short_hints() {
+        let hints = vec![KeyHint::new("q", "Quit")];
+
+        assert_eq!(footer_layout_widths(80, &hints), (72, 7));
+    }
+
+    #[test]
+    fn test_footer_layout_keeps_half_width_cap_for_many_hints() {
+        let hints = vec![
+            KeyHint::new("q", "Quit"),
+            KeyHint::new("?", "Help"),
+            KeyHint::new("/", "Global search"),
+            KeyHint::new(":", "Command search"),
+        ];
+
+        assert_eq!(footer_layout_widths(40, &hints), (20, 19));
+    }
+
+    #[test]
+    fn test_footer_render_preserves_more_status_with_short_hints() {
+        let footer = Footer::new("No worktrees yet | n: Create worktree | r: Refresh worktrees")
+            .with_hint("q", "Quit");
+        let area = ratatui::layout::Rect::new(0, 0, 80, 1);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+
+        footer.render(area, &mut buf, &Theme::default());
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("r: Refresh worktrees"));
+        assert!(content.contains("q: Quit"));
     }
 
     #[test]
