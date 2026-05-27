@@ -5,13 +5,12 @@
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_ui_element};
-use crate::ui::text::truncate_display;
+use crate::ui::text::{display_width, truncate_display};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Tabs, Widget};
-use unicode_width::UnicodeWidthStr;
 
 const FOOTER_HINT_SEPARATOR: &str = "  |  ";
 const FOOTER_HINT_OVERFLOW: &str = "...";
@@ -474,7 +473,7 @@ fn header_title_parts(
         return (String::new(), None);
     }
 
-    let title_width = UnicodeWidthStr::width(title);
+    let title_width = display_width(title);
     if title_width >= max_width || subtitle.is_none() {
         return (truncate_display(title, max_width), None);
     }
@@ -502,12 +501,13 @@ fn visible_tab_window(tabs: &[String], active: usize, max_width: usize) -> (Vec<
 
     let mut start = active;
     let mut end = active + 1;
-    let mut used = tabs[active].width();
+    let mut used = display_width(&tabs[active]);
 
     loop {
         let mut added = false;
         if start > 0 {
-            let candidate = used + HEADER_TAB_SEPARATOR.width() + tabs[start - 1].width();
+            let candidate =
+                used + display_width(HEADER_TAB_SEPARATOR) + display_width(&tabs[start - 1]);
             if candidate <= max_width {
                 start -= 1;
                 used = candidate;
@@ -516,7 +516,7 @@ fn visible_tab_window(tabs: &[String], active: usize, max_width: usize) -> (Vec<
         }
 
         if end < tabs.len() {
-            let candidate = used + HEADER_TAB_SEPARATOR.width() + tabs[end].width();
+            let candidate = used + display_width(HEADER_TAB_SEPARATOR) + display_width(&tabs[end]);
             if candidate <= max_width {
                 end += 1;
                 used = candidate;
@@ -539,9 +539,9 @@ fn tab_window_width(tabs: &[String]) -> usize {
             let separator_width = if idx == 0 {
                 0
             } else {
-                HEADER_TAB_SEPARATOR.width()
+                display_width(HEADER_TAB_SEPARATOR)
             };
-            separator_width + tab.width()
+            separator_width + display_width(tab)
         })
         .sum()
 }
@@ -551,18 +551,16 @@ fn visible_hints(hints: &[KeyHint], max_width: usize) -> Vec<&KeyHint> {
     let mut used = 0;
 
     for (idx, hint) in hints.iter().enumerate() {
-        let item_width = UnicodeWidthStr::width(hint.key.as_str())
-            + 2
-            + UnicodeWidthStr::width(hint.description.as_str());
+        let item_width = display_width(&hint.key) + 2 + display_width(&hint.description);
         let separator_width = if visible.is_empty() {
             0
         } else {
-            FOOTER_HINT_SEPARATOR.width()
+            display_width(FOOTER_HINT_SEPARATOR)
         };
         let hidden_hint_count = hints.len().saturating_sub(idx + 1);
         let overflow_marker_width =
             if let Some(label) = footer_hint_overflow_label(hidden_hint_count, max_width) {
-                FOOTER_HINT_SEPARATOR.width() + label.width()
+                display_width(FOOTER_HINT_SEPARATOR) + display_width(&label)
             } else {
                 0
             };
@@ -602,9 +600,9 @@ fn footer_hints_full_width(hints: &[KeyHint]) -> usize {
             let separator_width = if idx == 0 {
                 0
             } else {
-                FOOTER_HINT_SEPARATOR.width()
+                display_width(FOOTER_HINT_SEPARATOR)
             };
-            separator_width + hint.key.width() + 2 + hint.description.width()
+            separator_width + display_width(&hint.key) + 2 + display_width(&hint.description)
         })
         .sum()
 }
@@ -615,9 +613,9 @@ fn footer_hint_overflow_label(hidden_hint_count: usize, max_width: usize) -> Opt
     }
 
     let counted = format!("+{hidden_hint_count}");
-    if counted.width() <= max_width {
+    if display_width(&counted) <= max_width {
         Some(counted)
-    } else if FOOTER_HINT_OVERFLOW.width() <= max_width {
+    } else if display_width(FOOTER_HINT_OVERFLOW) <= max_width {
         Some(FOOTER_HINT_OVERFLOW.to_string())
     } else {
         None

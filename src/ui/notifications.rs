@@ -13,10 +13,9 @@ use ratatui::{
 use std::collections::VecDeque;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
-use unicode_width::UnicodeWidthStr;
 
 use crate::core::models::Theme;
-use crate::ui::text::truncate_display;
+use crate::ui::text::{display_width, truncate_display};
 
 /// Notification severity level
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,7 +258,7 @@ fn render_toast(area: Rect, buf: &mut Buffer, notification: &Notification, theme
     // Render icon + message
     if inner.width > 0 && inner.height > 0 {
         let icon = notification.level.icon();
-        let max_msg_width = (inner.width as usize).saturating_sub(UnicodeWidthStr::width(icon) + 1);
+        let max_msg_width = (inner.width as usize).saturating_sub(display_width(icon) + 1);
         let msg = truncate_display(&notification.message, max_msg_width);
 
         let line = Line::from(vec![

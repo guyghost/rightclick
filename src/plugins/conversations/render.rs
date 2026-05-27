@@ -10,8 +10,8 @@ use crate::plugins::conversations::state::{ConversationView, PluginState};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
 use crate::ui::{
-    GLOBAL_SEARCH_HINT, append_global_hint_lines, display_width_u16, global_hint_message,
-    truncate_display,
+    GLOBAL_SEARCH_HINT, append_global_hint_lines, char_display_width, display_width,
+    display_width_u16, global_hint_message, truncate_display,
 };
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
@@ -22,7 +22,6 @@ use ratatui::widgets::{
     Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
     StatefulWidget, Widget, Wrap,
 };
-use unicode_width::UnicodeWidthStr;
 
 const FILTER_OVERLAY_WIDTH: u16 = 50;
 const FILTER_OVERLAY_HEIGHT: u16 = 3;
@@ -809,7 +808,7 @@ fn wrap_text(text: &str, width: usize) -> Vec<String> {
 
         let mut remaining = paragraph;
         while !remaining.is_empty() {
-            if remaining.width() <= width {
+            if display_width(remaining) <= width {
                 lines.push(remaining.to_string());
                 break;
             }
@@ -829,7 +828,7 @@ fn wrap_break_index(text: &str, width: usize) -> usize {
     let mut last_space = None;
 
     for (idx, ch) in text.char_indices() {
-        let ch_width = ch.to_string().width();
+        let ch_width = char_display_width(ch);
         if current_width + ch_width > width {
             if let Some(space_idx) = last_space {
                 return space_idx;
@@ -1009,7 +1008,7 @@ mod tests {
         let lines = wrap_text(long_text, 10);
         assert!(!lines.is_empty());
         for line in &lines {
-            assert!(line.width() <= 10);
+            assert!(display_width(line) <= 10);
         }
 
         let unicode_text = "検索 query";
@@ -1026,7 +1025,7 @@ mod tests {
         let lines = wrap_text("content that cannot fit", 0);
 
         assert_eq!(lines, vec![String::new()]);
-        assert!(lines.iter().all(|line| line.width() == 0));
+        assert!(lines.iter().all(|line| display_width(line) == 0));
     }
 
     #[test]

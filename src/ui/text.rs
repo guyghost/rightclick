@@ -2,9 +2,19 @@
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+/// Return the terminal display width of text.
+pub fn display_width(text: &str) -> usize {
+    text.width()
+}
+
 /// Return the display width of text, saturated to `u16::MAX`.
 pub fn display_width_u16(text: &str) -> u16 {
-    text.width().min(u16::MAX as usize) as u16
+    display_width(text).min(u16::MAX as usize) as u16
+}
+
+/// Return the terminal display width of a single character.
+pub fn char_display_width(ch: char) -> usize {
+    ch.width().unwrap_or(0)
 }
 
 /// Truncate text to fit within `max_width` display columns.
@@ -18,11 +28,11 @@ pub fn truncate_display_with_suffix(text: &str, max_width: usize, suffix: &str) 
         return String::new();
     }
 
-    if text.width() <= max_width {
+    if display_width(text) <= max_width {
         return text.to_string();
     }
 
-    let suffix_width = suffix.width();
+    let suffix_width = display_width(suffix);
     if max_width <= suffix_width {
         return ".".repeat(max_width);
     }
@@ -30,7 +40,7 @@ pub fn truncate_display_with_suffix(text: &str, max_width: usize, suffix: &str) 
     let mut output = String::new();
     let mut width = 0;
     for ch in text.chars() {
-        let ch_width = ch.width().unwrap_or(0);
+        let ch_width = char_display_width(ch);
         if width + ch_width + suffix_width > max_width {
             break;
         }
@@ -47,14 +57,14 @@ pub fn clip_display(text: &str, max_width: usize) -> String {
         return String::new();
     }
 
-    if text.width() <= max_width {
+    if display_width(text) <= max_width {
         return text.to_string();
     }
 
     let mut output = String::new();
     let mut width = 0;
     for ch in text.chars() {
-        let ch_width = ch.width().unwrap_or(0);
+        let ch_width = char_display_width(ch);
         if width + ch_width > max_width {
             break;
         }
@@ -108,5 +118,12 @@ mod tests {
             display_width_u16(&"x".repeat(u16::MAX as usize + 1)),
             u16::MAX
         );
+    }
+
+    #[test]
+    fn display_width_helpers_handle_text_and_chars() {
+        assert_eq!(display_width("検索a"), 5);
+        assert_eq!(char_display_width('検'), 2);
+        assert_eq!(char_display_width('\u{200d}'), 0);
     }
 }

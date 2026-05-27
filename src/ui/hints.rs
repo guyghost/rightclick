@@ -1,7 +1,6 @@
 //! Shared hint formatting helpers.
 
-use super::text::display_width_u16;
-use unicode_width::UnicodeWidthStr;
+use super::text::{display_width, display_width_u16};
 
 /// Full help hint label used when enough horizontal space is available.
 pub const HELP_HINT: &str = "?: Toggle help";
@@ -17,7 +16,7 @@ pub fn compact_help_hint(width: u16) -> Option<&'static str> {
     let width = width as usize;
     [HELP_HINT, "?: Help", "?"]
         .into_iter()
-        .find(|hint| hint.width() <= width)
+        .find(|hint| display_width(hint) <= width)
 }
 
 /// Return the most descriptive single-line global search hint that fits.
@@ -109,7 +108,7 @@ fn compact_hint(
     let width = width as usize;
     candidates
         .into_iter()
-        .find(|hint| hint.lines().all(|line| line.width() <= width))
+        .find(|hint| hint.lines().all(|line| display_width(line) <= width))
 }
 
 #[cfg(test)]
@@ -126,7 +125,7 @@ mod tests {
         for width in 0..=30 {
             if let Some(hint) = compact_help_hint(width) {
                 assert!(
-                    hint.width() <= width as usize,
+                    display_width(hint) <= width as usize,
                     "hint {hint:?} overflowed width {width}"
                 );
             }
@@ -166,7 +165,8 @@ mod tests {
         for width in 0..=80 {
             if let Some(hint) = compact_global_search_hint_with_stacked(width) {
                 assert!(
-                    hint.lines().all(|line| line.width() <= width as usize),
+                    hint.lines()
+                        .all(|line| display_width(line) <= width as usize),
                     "hint {hint:?} overflowed width {width}"
                 );
             }
@@ -209,7 +209,7 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .all(|line| line.width() <= 22 && line.starts_with("  "))
+                .all(|line| display_width(line) <= 22 && line.starts_with("  "))
         );
     }
 
