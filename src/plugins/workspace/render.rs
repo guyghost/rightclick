@@ -288,7 +288,7 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
 }
 
 fn empty_worktrees_message() -> &'static str {
-    "No worktrees found\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
+    "No worktrees yet\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
 }
 
 fn no_linked_task_message() -> &'static str {
@@ -940,12 +940,13 @@ mod tests {
     fn test_empty_worktrees_message_points_to_next_actions() {
         let message = empty_worktrees_message();
 
-        assert!(message.contains("No worktrees found"));
+        assert!(message.contains("No worktrees yet"));
         assert!(message.contains("n: Create worktree"));
         assert!(message.contains("r: Refresh worktrees"));
         assert!(message.contains("/: Global search"));
         assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
+        assert!(!message.contains("No worktrees found"));
     }
 
     #[test]
@@ -1007,11 +1008,12 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("No worktrees found"));
+        assert!(content.contains("No worktrees yet"));
         assert!(content.contains("Create worktree"));
         assert!(content.contains("Refresh worktrees"));
         assert!(content.contains("Global search"));
         assert!(content.contains("Command search"));
+        assert!(!content.contains("No worktrees found"));
     }
 
     #[test]
