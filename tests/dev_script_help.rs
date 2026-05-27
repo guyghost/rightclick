@@ -188,6 +188,45 @@ fn dev_script_test_list_lists_multiple_filters_from_single_test_list() {
 }
 
 #[test]
+fn dev_script_test_list_validates_all_filters_before_printing_matches() {
+    let output = Command::new("bash")
+        .args([
+            "scripts/dev.sh",
+            "test-list",
+            "dev_script_help_explains_test_many",
+            "missing_filter_for_partial_output",
+        ])
+        .output()
+        .expect("dev script test-list should run");
+
+    assert!(
+        !output.status.success(),
+        "test-list should fail when any filter does not match"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("==> cargo test -- --list").count(),
+        1,
+        "test-list should still list tests once for multiple filters: {stderr}"
+    );
+    assert!(
+        stderr.contains("No tests matched filter: missing_filter_for_partial_output"),
+        "test-list should report the missing filter"
+    );
+    assert!(
+        !stderr.contains("Listed 1 test for filter: dev_script_help_explains_test_many"),
+        "test-list should not print successful filter counts before all filters validate"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !stdout.contains("dev_script_help_explains_test_many: test"),
+        "test-list should not print partial matches when a later filter is invalid"
+    );
+}
+
+#[test]
 fn dev_script_test_list_reports_unfiltered_match_count() {
     let output = Command::new("bash")
         .args(["scripts/dev.sh", "test-list"])

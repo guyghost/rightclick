@@ -368,7 +368,10 @@ list_tests_for_filters() {
       print_test_filter_hint "$filter"
       exit 2
     fi
+  done
 
+  for filter in "$@"; do
+    matches="$(test_filter_match_count "$output" "$filter")"
     if [ "$matches" -eq 1 ]; then
       echo "Listed 1 test for filter: $filter" >&2
     else
