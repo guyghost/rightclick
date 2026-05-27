@@ -19,7 +19,7 @@ use ratatui::{
 use std::str::FromStr;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear | Tab/Shift+Tab: Scope | Esc: Close";
+const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab/Shift+Tab: Scope  |  Esc: Close";
 const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
 const MIN_SEARCH_OVERLAY_HEIGHT: u16 = 8;
 const SEARCH_RESULT_SCROLL_WINDOW: usize = 10;
@@ -744,9 +744,9 @@ fn search_empty_action_hint(width: u16) -> &'static str {
     let width = width as usize;
     [
         SEARCH_EMPTY_ACTION_HINT,
-        "Ctrl+U: Clear | Tab: Scope | Esc",
-        "Clear | Tab: Scope | Esc",
-        "Clear | Tab | Esc",
+        "Ctrl+U: Clear  |  Tab: Scope  |  Esc",
+        "Clear  |  Tab: Scope  |  Esc",
+        "Clear  |  Tab  |  Esc",
         "Ctrl+U/Tab/Esc",
         "Tab/Esc",
         "Esc",
@@ -1301,15 +1301,16 @@ mod tests {
         assert_eq!(search_empty_action_hint(3), "Esc");
         assert_eq!(search_empty_action_hint(7), "Tab/Esc");
         assert_eq!(search_empty_action_hint(14), "Ctrl+U/Tab/Esc");
-        assert_eq!(search_empty_action_hint(17), "Clear | Tab | Esc");
-        assert_eq!(search_empty_action_hint(24), "Clear | Tab: Scope | Esc");
+        assert_eq!(search_empty_action_hint(17), "Ctrl+U/Tab/Esc");
+        assert_eq!(search_empty_action_hint(21), "Clear  |  Tab  |  Esc");
+        assert_eq!(search_empty_action_hint(28), "Clear  |  Tab: Scope  |  Esc");
         assert_eq!(
-            search_empty_action_hint(32),
-            "Ctrl+U: Clear | Tab: Scope | Esc"
+            search_empty_action_hint(36),
+            "Ctrl+U: Clear  |  Tab: Scope  |  Esc"
         );
         assert_eq!(
             search_empty_action_hint(80),
-            "Ctrl+U: Clear | Tab/Shift+Tab: Scope | Esc: Close"
+            "Ctrl+U: Clear  |  Tab/Shift+Tab: Scope  |  Esc: Close"
         );
         assert_eq!(search_empty_action_hint(80), SEARCH_EMPTY_ACTION_HINT);
     }
