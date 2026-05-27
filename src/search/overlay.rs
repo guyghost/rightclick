@@ -725,7 +725,7 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
 fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
     let query = truncate_str(query, 40);
     let message = match scope {
-        SearchScope::All => format!("No results match \"{}\"", query),
+        SearchScope::All => format!("No search results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
         SearchScope::Items => format!("No session, worktree, or intent matches \"{}\"", query),
         SearchScope::Commands => {
@@ -1361,7 +1361,8 @@ mod tests {
             80,
         );
         assert!(
-            truncated.contains("No results match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
+            truncated
+                .contains("No search results match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
         );
         assert!(truncated.contains(SEARCH_EMPTY_ACTION_HINT));
     }
