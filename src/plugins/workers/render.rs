@@ -20,6 +20,7 @@ const CREATE_INTENT_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
 const DELETE_INTENT_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const SEARCH_HINT_INLINE: &str = "/: Global search  |  : Command search";
 const SEARCH_HINT_STACKED: &str = "/: Global search\n: Command search";
+const HELP_HINT: &str = "?: Toggle help";
 const MIN_WORKERS_MODAL_WIDTH: u16 = 24;
 const MIN_WORKERS_MODAL_HEIGHT: u16 = 7;
 
@@ -789,24 +790,27 @@ fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> 
     let search_hint = workers_search_hint(width)
         .map(|hint| format!("{hint}\n"))
         .unwrap_or_default();
+    let help_hint = workers_help_hint(width)
+        .map(|hint| format!("\n{hint}"))
+        .unwrap_or_default();
 
     if state.workers.is_empty() {
         if state.selected_intent().is_some() {
             format!(
-                "No {status} workers\n\nr: Run workers\nf: Reload intents\n{search_hint}v: Switch view\n?: Toggle help"
+                "No {status} workers\n\nr: Run workers\nf: Reload intents\n{search_hint}v: Switch view{help_hint}"
             )
         } else if state.intents.is_empty() {
             format!(
-                "No {status} workers\n\nn: New intent\nf: Reload intents\n{search_hint}v: Switch view\n?: Toggle help"
+                "No {status} workers\n\nn: New intent\nf: Reload intents\n{search_hint}v: Switch view{help_hint}"
             )
         } else {
             format!(
-                "No {status} workers\n\nj/k: Navigate intents\no: Open intent\nf: Reload intents\n{search_hint}v: Switch view\n?: Toggle help"
+                "No {status} workers\n\nj/k: Navigate intents\no: Open intent\nf: Reload intents\n{search_hint}v: Switch view{help_hint}"
             )
         }
     } else {
         format!(
-            "No {status} workers\n\nh/l: Move columns\nf: Reload intents\n{search_hint}v: Switch view\n?: Toggle help"
+            "No {status} workers\n\nh/l: Move columns\nf: Reload intents\n{search_hint}v: Switch view{help_hint}"
         )
     }
 }
@@ -816,7 +820,9 @@ fn workers_empty_message(mut lines: Vec<String>, width: u16, hint_prefix: &str) 
     if let Some(hint) = workers_search_hint(hint_width) {
         lines.extend(hint.lines().map(|line| format!("{hint_prefix}{line}")));
     }
-    lines.push(format!("{hint_prefix}?: Toggle help"));
+    if let Some(hint) = workers_help_hint(hint_width) {
+        lines.push(format!("{hint_prefix}{hint}"));
+    }
     lines.join("\n")
 }
 
@@ -832,6 +838,13 @@ fn workers_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.lines().all(|line| line.width() <= width))
+}
+
+fn workers_help_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [HELP_HINT, "?: Help", "?"]
+        .into_iter()
+        .find(|hint| hint.width() <= width)
 }
 
 fn specs_path_line(path: &str, width: u16) -> String {
@@ -1253,13 +1266,45 @@ mod tests {
     }
 
     #[test]
+    fn test_workers_help_hint_compacts_for_narrow_widths() {
+        assert_eq!(workers_help_hint(0), None);
+        assert_eq!(workers_help_hint(1), Some("?"));
+        assert_eq!(workers_help_hint(7), Some("?: Help"));
+        assert_eq!(workers_help_hint(14), Some(HELP_HINT));
+
+        for width in 0..=30 {
+            if let Some(hint) = workers_help_hint(width) {
+                assert!(
+                    hint.width() <= width as usize,
+                    "hint {hint:?} overflowed width {width}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_workers_empty_messages_omit_search_hint_when_too_narrow() {
         let message = select_intent_details_message(1);
 
         assert!(message.contains("No intent selected"));
         assert!(!message.contains("Global search"));
         assert!(!message.contains("/:"));
-        assert!(message.contains("?: Toggle help"));
+        assert!(message.contains("?"));
+        assert!(!message.contains("?: Toggle help"));
+    }
+
+    #[test]
+    fn test_kanban_empty_message_compacts_help_when_narrow() {
+        use std::path::PathBuf;
+
+        let state = PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
+        let message = kanban_empty_column_message(&state, "Pending", 1);
+
+        assert!(message.contains("No pending workers"));
+        assert!(!message.contains("Global search"));
+        assert!(!message.contains("/:"));
+        assert!(message.contains("?"));
+        assert!(!message.contains("?: Toggle help"));
     }
 
     #[test]
