@@ -851,7 +851,7 @@ fn build_help_lines(
         "Global shortcuts:".to_string(),
         "  /        Global search".to_string(),
         "  :        Command search".to_string(),
-        "  ?        Help".to_string(),
+        "  ?        Toggle help".to_string(),
         "  Tab      Switch plugin/pane".to_string(),
         "  Shift+Tab  Previous plugin/pane".to_string(),
         "  1-9      Jump to plugin".to_string(),
@@ -895,7 +895,7 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         "Global shortcuts:".to_string(),
         "  /        Global search".to_string(),
         "  :        Command search".to_string(),
-        "  ?        Help".to_string(),
+        "  ?        Toggle help".to_string(),
         "  q/Ctrl+C  Quit".to_string(),
         String::new(),
         "Diagnostics:".to_string(),
@@ -921,7 +921,7 @@ fn build_footer_hints(
         ("Tab", tab_label),
         ("/", "Global search"),
         (":", "Command search"),
-        ("?", "Help"),
+        ("?", "Toggle help"),
         ("q/Ctrl+C", "Quit"),
         ("1-9", "Plugin"),
     ] {
@@ -951,7 +951,7 @@ fn build_footer_hints(
 }
 
 fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\n?  Help\n/  Global search\n:  Command search\nq/Ctrl+C  Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug rightclick\nCheck configuration if this persists."
+    "No plugins loaded\n\n?  Toggle help\n/  Global search\n:  Command search\nq/Ctrl+C  Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug rightclick\nCheck configuration if this persists."
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -960,7 +960,7 @@ fn no_plugins_footer_status() -> &'static str {
 
 fn no_plugins_footer_hints() -> Vec<(String, String)> {
     vec![
-        ("?".to_string(), "Help".to_string()),
+        ("?".to_string(), "Toggle help".to_string()),
         ("/".to_string(), "Global search".to_string()),
         (":".to_string(), "Command search".to_string()),
         ("q/Ctrl+C".to_string(), "Quit".to_string()),
@@ -1103,7 +1103,7 @@ mod tests {
                 .any(|line| line.contains("/") && line.contains("Global search"))
         );
         assert!(lines.contains(&"  :        Command search".to_string()));
-        assert!(lines.iter().any(|line| line == "  ?        Help"));
+        assert!(lines.iter().any(|line| line == "  ?        Toggle help"));
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
         assert!(lines.contains(&"  Tab      Switch plugin/pane".to_string()));
         assert!(lines.contains(&"  Shift+Tab  Previous plugin/pane".to_string()));
@@ -1267,7 +1267,7 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|line| line.contains("?") && line.contains("Help"))
+                .any(|line| line.contains("?") && line.contains("Toggle help"))
         );
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
         assert!(
@@ -1338,7 +1338,7 @@ mod tests {
                 ("Tab".to_string(), "Switch".to_string()),
                 ("/".to_string(), "Global search".to_string()),
                 (":".to_string(), "Command search".to_string()),
-                ("?".to_string(), "Help".to_string()),
+                ("?".to_string(), "Toggle help".to_string()),
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
             ]
         );
@@ -1386,7 +1386,7 @@ mod tests {
         let hints = no_plugins_footer_hints();
 
         assert!(message.contains("No plugins loaded"));
-        assert!(message.contains("?  Help"));
+        assert!(message.contains("?  Toggle help"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains(":  Command search"));
         assert!(message.contains("q/Ctrl+C  Quit"));
@@ -1398,7 +1398,7 @@ mod tests {
         assert_eq!(
             hints,
             vec![
-                ("?".to_string(), "Help".to_string()),
+                ("?".to_string(), "Toggle help".to_string()),
                 ("/".to_string(), "Global search".to_string()),
                 (":".to_string(), "Command search".to_string()),
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
