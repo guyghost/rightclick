@@ -419,6 +419,21 @@ fn render_scope_tabs(
     primary: Color,
     muted: Color,
 ) {
+    if area.width == 0 {
+        return;
+    }
+
+    if area.width < full_scope_tabs_width(state.results.len()) as u16 {
+        Paragraph::new(compact_scope_tabs_text(
+            state.scope,
+            state.results.len(),
+            area.width,
+        ))
+        .style(Style::default().fg(muted))
+        .render(area, buf);
+        return;
+    }
+
     let scopes = [
         SearchScope::All,
         SearchScope::Files,
@@ -448,6 +463,48 @@ fn render_scope_tabs(
     ));
 
     Paragraph::new(Line::from(spans)).render(area, buf);
+}
+
+fn full_scope_tabs_width(result_count: usize) -> usize {
+    [
+        SearchScope::All,
+        SearchScope::Files,
+        SearchScope::Items,
+        SearchScope::Commands,
+    ]
+    .iter()
+    .enumerate()
+    .map(|(index, scope)| scope.label().width() + if index == 0 { 0 } else { " | ".width() })
+    .sum::<usize>()
+        + "  ".width()
+        + result_count_label(result_count).width()
+}
+
+fn compact_scope_tabs_text(scope: SearchScope, result_count: usize, width: u16) -> String {
+    let width = width as usize;
+    let count = result_count_label(result_count);
+    let label = scope.label();
+    let short_label = compact_scope_label(scope);
+
+    [
+        format!("Scope: {label} | {count}"),
+        format!("{label} | {count}"),
+        format!("Scope: {label}"),
+        label.to_string(),
+        short_label.to_string(),
+    ]
+    .into_iter()
+    .find(|text| text.width() <= width)
+    .unwrap_or_default()
+}
+
+fn compact_scope_label(scope: SearchScope) -> &'static str {
+    match scope {
+        SearchScope::All => "All",
+        SearchScope::Files => "File",
+        SearchScope::Items => "Proj",
+        SearchScope::Commands => "Cmd",
+    }
 }
 
 fn render_results(
@@ -1065,6 +1122,47 @@ mod tests {
         assert_eq!(result_count_label(0), "No results");
         assert_eq!(result_count_label(1), "1 result");
         assert_eq!(result_count_label(2), "2 results");
+    }
+
+    #[test]
+    fn test_scope_tabs_width_accounts_for_result_count() {
+        assert_eq!(full_scope_tabs_width(0), 44);
+        assert_eq!(full_scope_tabs_width(1), 42);
+        assert_eq!(full_scope_tabs_width(2), 43);
+    }
+
+    #[test]
+    fn test_compact_scope_tabs_keep_active_scope_visible() {
+        assert_eq!(
+            compact_scope_tabs_text(SearchScope::Commands, 0, 28),
+            "Scope: Commands | No results"
+        );
+        assert_eq!(
+            compact_scope_tabs_text(SearchScope::Commands, 0, 20),
+            "Scope: Commands"
+        );
+        assert_eq!(
+            compact_scope_tabs_text(SearchScope::Commands, 0, 8),
+            "Commands"
+        );
+        assert_eq!(compact_scope_tabs_text(SearchScope::Commands, 0, 3), "Cmd");
+        assert_eq!(compact_scope_tabs_text(SearchScope::Commands, 0, 2), "");
+    }
+
+    #[test]
+    fn test_render_scope_tabs_compacts_when_narrow() {
+        let mut state = SearchOverlayState::new();
+        state.open_with_scope(SearchScope::Commands);
+        let area = Rect::new(0, 0, 8, 1);
+        let mut buf = Buffer::empty(area);
+
+        render_scope_tabs(&state, area, &mut buf, Color::Blue, Color::DarkGray);
+
+        let content: String = (0..area.width)
+            .map(|x| buf.cell((x, 0)).unwrap().symbol().to_string())
+            .collect();
+        assert!(content.contains("Commands"));
+        assert!(!content.contains("All"));
     }
 
     #[test]
