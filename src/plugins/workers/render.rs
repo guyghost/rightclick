@@ -132,7 +132,7 @@ fn render_sidebar(
     block.render(area, buf);
 
     if state.intents.is_empty() {
-        let text = Paragraph::new(empty_intents_message(state))
+        let text = Paragraph::new(empty_intents_message(state, inner.width))
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme_comment(theme)));
         text.render(inner, buf);
@@ -340,7 +340,7 @@ fn render_spec_preview(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
         let workers = state.get_intent_workers(&intent.id);
         if workers.is_empty() {
             lines.push(Line::from(Span::styled(
-                no_workers_for_intent_message(),
+                no_workers_for_intent_message(area.width),
                 Style::default().fg(theme_comment(theme)),
             )));
         } else {
@@ -371,7 +371,7 @@ fn render_spec_preview(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
 
         content.render(area, buf);
     } else {
-        let text = Paragraph::new(select_intent_details_message())
+        let text = Paragraph::new(select_intent_details_message(area.width))
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme_comment(theme)));
         text.render(area, buf);
@@ -431,7 +431,7 @@ fn render_output_preview(state: &PluginState, area: Rect, buf: &mut Buffer, them
     }
 
     if lines.is_empty() {
-        lines.extend(output_empty_message(state).lines().map(|line| {
+        lines.extend(output_empty_message(state, area.width).lines().map(|line| {
             Line::from(Span::styled(
                 line.to_string(),
                 Style::default().fg(theme_comment(theme)),
@@ -460,7 +460,7 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
 
         if intent.acceptance_criteria.is_empty() {
             lines.extend(
-                selected_intent_empty_criteria_message()
+                selected_intent_empty_criteria_message(area.width)
                     .lines()
                     .map(|line| {
                         Line::from(Span::styled(
@@ -506,9 +506,9 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
         content.render(area, buf);
     } else {
         let message = if state.intents.is_empty() {
-            empty_criteria_message()
+            empty_criteria_message(area.width)
         } else {
-            select_intent_criteria_message()
+            select_intent_criteria_message(area.width)
         };
         let text = Paragraph::new(message)
             .alignment(Alignment::Center)
@@ -517,41 +517,121 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
     }
 }
 
-fn empty_intents_message(state: &PluginState) -> String {
-    format!(
-        "No intents yet\n\nn: New intent\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help\n\nSpecs: {}",
-        state.intents_dir.display()
+fn empty_intents_message(state: &PluginState, width: u16) -> String {
+    let mut message = workers_empty_message(
+        vec![
+            "No intents yet".to_string(),
+            String::new(),
+            "n: New intent".to_string(),
+            "f: Reload intents".to_string(),
+        ],
+        width,
+        "",
+    );
+    message.push_str("\n\n");
+    message.push_str(&specs_path_line(
+        &state.intents_dir.display().to_string(),
+        width,
+    ));
+    message
+}
+
+fn no_workers_for_intent_message(width: u16) -> String {
+    workers_empty_message(
+        vec![
+            "  No workers yet".to_string(),
+            "  r: Run workers".to_string(),
+            "  f: Reload intents".to_string(),
+        ],
+        width,
+        "  ",
     )
 }
 
-fn no_workers_for_intent_message() -> &'static str {
-    "  No workers yet\n  r: Run workers\n  f: Reload intents\n  /: Global search  |  : Command search\n  ?: Toggle help"
-}
-
-fn output_empty_message(state: &PluginState) -> &'static str {
+fn output_empty_message(state: &PluginState, width: u16) -> String {
     if state.intents.is_empty() {
-        "No output yet\n\nn: New intent\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+        workers_empty_message(
+            vec![
+                "No output yet".to_string(),
+                String::new(),
+                "n: New intent".to_string(),
+                "f: Reload intents".to_string(),
+            ],
+            width,
+            "",
+        )
     } else if state.selected_intent().is_none() {
-        "No intent selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+        workers_empty_message(
+            vec![
+                "No intent selected".to_string(),
+                String::new(),
+                "j/k: Navigate intents".to_string(),
+                "Enter/o: Open intent".to_string(),
+                "Tab/Shift+Tab: Switch pane".to_string(),
+                "f: Reload intents".to_string(),
+            ],
+            width,
+            "",
+        )
     } else {
-        "No output yet\n\nr: Run workers\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+        workers_empty_message(
+            vec![
+                "No output yet".to_string(),
+                String::new(),
+                "r: Run workers".to_string(),
+                "f: Reload intents".to_string(),
+            ],
+            width,
+            "",
+        )
     }
 }
 
-fn select_intent_details_message() -> &'static str {
-    "No intent selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+fn select_intent_details_message(width: u16) -> String {
+    workers_empty_message(
+        vec![
+            "No intent selected".to_string(),
+            String::new(),
+            "j/k: Navigate intents".to_string(),
+            "Enter/o: Open intent".to_string(),
+            "Tab/Shift+Tab: Switch pane".to_string(),
+            "f: Reload intents".to_string(),
+        ],
+        width,
+        "",
+    )
 }
 
-fn select_intent_criteria_message() -> &'static str {
-    "No intent selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+fn select_intent_criteria_message(width: u16) -> String {
+    select_intent_details_message(width)
 }
 
-fn empty_criteria_message() -> &'static str {
-    "No criteria yet\n\nn: New intent\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+fn empty_criteria_message(width: u16) -> String {
+    workers_empty_message(
+        vec![
+            "No criteria yet".to_string(),
+            String::new(),
+            "n: New intent".to_string(),
+            "f: Reload intents".to_string(),
+        ],
+        width,
+        "",
+    )
 }
 
-fn selected_intent_empty_criteria_message() -> &'static str {
-    "No criteria yet\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+fn selected_intent_empty_criteria_message(width: u16) -> String {
+    workers_empty_message(
+        vec![
+            "No criteria yet".to_string(),
+            String::new(),
+            "j/k: Navigate intents".to_string(),
+            "Enter/o: Open intent".to_string(),
+            "Tab/Shift+Tab: Switch pane".to_string(),
+            "f: Reload intents".to_string(),
+        ],
+        width,
+        "",
+    )
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -706,35 +786,63 @@ fn first_chars(value: &str, max_chars: usize) -> String {
 
 fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> String {
     let status = title.to_lowercase();
-    let search_hint = kanban_search_hint(width);
+    let search_hint = workers_search_hint(width)
+        .map(|hint| format!("{hint}\n"))
+        .unwrap_or_default();
 
     if state.workers.is_empty() {
         if state.selected_intent().is_some() {
             format!(
-                "No {status} workers\n\nr: Run workers\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
+                "No {status} workers\n\nr: Run workers\nf: Reload intents\n{search_hint}v: Switch view\n?: Toggle help"
             )
         } else if state.intents.is_empty() {
             format!(
-                "No {status} workers\n\nn: New intent\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
+                "No {status} workers\n\nn: New intent\nf: Reload intents\n{search_hint}v: Switch view\n?: Toggle help"
             )
         } else {
             format!(
-                "No {status} workers\n\nj/k: Navigate intents\no: Open intent\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
+                "No {status} workers\n\nj/k: Navigate intents\no: Open intent\nf: Reload intents\n{search_hint}v: Switch view\n?: Toggle help"
             )
         }
     } else {
         format!(
-            "No {status} workers\n\nh/l: Move columns\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
+            "No {status} workers\n\nh/l: Move columns\nf: Reload intents\n{search_hint}v: Switch view\n?: Toggle help"
         )
     }
 }
 
-fn kanban_search_hint(width: u16) -> &'static str {
-    if width as usize >= SEARCH_HINT_INLINE.width() {
-        SEARCH_HINT_INLINE
-    } else {
-        SEARCH_HINT_STACKED
+fn workers_empty_message(mut lines: Vec<String>, width: u16, hint_prefix: &str) -> String {
+    let hint_width = width.saturating_sub(hint_prefix.width() as u16);
+    if let Some(hint) = workers_search_hint(hint_width) {
+        lines.extend(hint.lines().map(|line| format!("{hint_prefix}{line}")));
     }
+    lines.push(format!("{hint_prefix}?: Toggle help"));
+    lines.join("\n")
+}
+
+fn workers_search_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [
+        SEARCH_HINT_INLINE,
+        SEARCH_HINT_STACKED,
+        "/: Search  |  : Commands",
+        "/: Search  |  : Cmds",
+        "/: Search",
+        "/:",
+    ]
+    .into_iter()
+    .find(|hint| hint.lines().all(|line| line.width() <= width))
+}
+
+fn specs_path_line(path: &str, width: u16) -> String {
+    const PREFIX: &str = "Specs: ";
+    let max_width = width as usize;
+    if max_width <= PREFIX.width() {
+        return truncate_with_suffix(&format!("{PREFIX}{path}"), max_width);
+    }
+
+    let path_width = max_width - PREFIX.width();
+    format!("{PREFIX}{}", truncate_with_suffix(path, path_width))
 }
 
 /// Render modal dialogs
@@ -1078,7 +1186,7 @@ mod tests {
         use std::path::PathBuf;
 
         let state = PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
-        let message = empty_intents_message(&state);
+        let message = empty_intents_message(&state, 80);
 
         assert!(message.contains("No intents yet"));
         assert!(message.contains("n: New intent"));
@@ -1104,13 +1212,13 @@ mod tests {
         };
         let mut empty_state =
             PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
-        assert_hint(&empty_intents_message(&empty_state));
-        assert_hint(no_workers_for_intent_message());
-        assert_hint(output_empty_message(&empty_state));
-        assert_hint(select_intent_details_message());
-        assert_hint(select_intent_criteria_message());
-        assert_hint(empty_criteria_message());
-        assert_hint(selected_intent_empty_criteria_message());
+        assert_hint(&empty_intents_message(&empty_state, 80));
+        assert_hint(&no_workers_for_intent_message(80));
+        assert_hint(&output_empty_message(&empty_state, 80));
+        assert_hint(&select_intent_details_message(80));
+        assert_hint(&select_intent_criteria_message(80));
+        assert_hint(&empty_criteria_message(80));
+        assert_hint(&selected_intent_empty_criteria_message(80));
         assert_kanban_hint(&kanban_empty_column_message(&empty_state, "Pending", 28));
         assert_hint(&kanban_empty_column_message(&empty_state, "Pending", 80));
 
@@ -1120,7 +1228,7 @@ mod tests {
             "2026-02-14T10:00:00Z",
         ));
         empty_state.selected_intent = None;
-        assert_hint(output_empty_message(&empty_state));
+        assert_hint(&output_empty_message(&empty_state, 80));
         let unselected_kanban = kanban_empty_column_message(&empty_state, "Pending", 80);
         assert_hint(&unselected_kanban);
         assert!(unselected_kanban.contains("j/k: Navigate intents"));
@@ -1130,8 +1238,47 @@ mod tests {
         assert!(!unselected_kanban.contains("r: Run workers"));
 
         empty_state.selected_intent = Some(0);
-        assert_hint(output_empty_message(&empty_state));
+        assert_hint(&output_empty_message(&empty_state, 80));
         assert_kanban_hint(&kanban_empty_column_message(&empty_state, "Running", 28));
+    }
+
+    #[test]
+    fn test_workers_search_hint_compacts_for_narrow_widths() {
+        assert_eq!(workers_search_hint(1), None);
+        assert_eq!(workers_search_hint(2), Some("/:"));
+        assert_eq!(workers_search_hint(9), Some("/: Search"));
+        assert_eq!(workers_search_hint(20), Some(SEARCH_HINT_STACKED));
+        assert_eq!(workers_search_hint(28), Some(SEARCH_HINT_STACKED));
+        assert_eq!(workers_search_hint(80), Some(SEARCH_HINT_INLINE));
+    }
+
+    #[test]
+    fn test_workers_empty_messages_omit_search_hint_when_too_narrow() {
+        let message = select_intent_details_message(1);
+
+        assert!(message.contains("No intent selected"));
+        assert!(!message.contains("Global search"));
+        assert!(!message.contains("/:"));
+        assert!(message.contains("?: Toggle help"));
+    }
+
+    #[test]
+    fn test_empty_intents_message_truncates_specs_path() {
+        use std::path::PathBuf;
+
+        let state = PluginState::new(
+            PathBuf::from(".rightclick/intents/very-long-directory-name-for-agent-specs"),
+            PathBuf::from("logs"),
+        );
+        let message = empty_intents_message(&state, 30);
+        let specs_line = message
+            .lines()
+            .find(|line| line.starts_with("Specs:"))
+            .expect("specs path line should be present");
+
+        assert!(specs_line.width() <= 30, "{specs_line}");
+        assert!(specs_line.ends_with(".."), "{specs_line}");
+        assert!(!message.contains("very-long-directory-name"));
     }
 
     #[test]
