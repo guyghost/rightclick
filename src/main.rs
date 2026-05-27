@@ -633,7 +633,7 @@ impl App {
                 results.push(SearchResult {
                     kind: SearchResultKind::Command { id: full_id },
                     title,
-                    preview: format_command_search_preview(&command),
+                    preview: format_command_search_preview(plugin.id(), &command),
                     score,
                 });
             }
@@ -1032,20 +1032,24 @@ fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginComma
     }
 }
 
-fn format_command_search_preview(command: &rightclick::plugin::PluginCommand) -> String {
+fn format_command_search_preview(
+    plugin_id: &str,
+    command: &rightclick::plugin::PluginCommand,
+) -> String {
+    let full_id = format!("{}:{}", plugin_id, command.id);
     if command.description.is_empty() {
         format!(
             "Shortcut: {} | Category: {} | ID: {}",
             command.key,
             command.category.display_name(),
-            command.id
+            full_id
         )
     } else {
         format!(
             "Shortcut: {} | Category: {} | ID: {} | {}",
             command.key,
             command.category.display_name(),
-            command.id,
+            full_id,
             command.description
         )
     }
@@ -1415,8 +1419,8 @@ mod tests {
         );
 
         assert_eq!(
-            format_command_search_preview(&command),
-            "Shortcut: r | Category: System | ID: refresh | Reload repository state"
+            format_command_search_preview("git-status", &command),
+            "Shortcut: r | Category: System | ID: git-status:refresh | Reload repository state"
         );
     }
 
@@ -1430,8 +1434,8 @@ mod tests {
         );
 
         assert_eq!(
-            format_command_search_preview(&command),
-            "Shortcut: r | Category: System | ID: refresh"
+            format_command_search_preview("git-status", &command),
+            "Shortcut: r | Category: System | ID: git-status:refresh"
         );
     }
 
@@ -1846,7 +1850,7 @@ mod tests {
         assert_eq!(results[0].title, "Builder: Build Project");
         assert_eq!(
             results[0].preview,
-            "Shortcut: z | Category: System | ID: rebuild | Compile workspace"
+            "Shortcut: z | Category: System | ID: builder:rebuild | Compile workspace"
         );
     }
 
@@ -1877,7 +1881,7 @@ mod tests {
         assert_eq!(results[0].title, "Repository: Sync Changes");
         assert_eq!(
             results[0].preview,
-            "Shortcut: s | Category: Git | ID: sync | Fetch remote updates"
+            "Shortcut: s | Category: Git | ID: repository:sync | Fetch remote updates"
         );
     }
 
@@ -1907,6 +1911,10 @@ mod tests {
             &results[0].kind,
             rightclick::search::SearchResultKind::Command { id } if id == "repo_tools:open-pr"
         ));
+        assert_eq!(
+            results[0].preview,
+            "Shortcut: o | Category: System | ID: repo_tools:open-pr | Open review in browser"
+        );
     }
 
     #[test]
@@ -1938,16 +1946,17 @@ mod tests {
         ];
         let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
 
-        app.search
-            .set_results(vec![rightclick::search::SearchResult {
-                kind: rightclick::search::SearchResultKind::Command {
-                    id: "target:refresh".to_string(),
-                },
-                title: "Target: Refresh Target".to_string(),
-                preview: "Shortcut: r | Category: System | ID: refresh | Reload target plugin data"
+        let search_result = rightclick::search::SearchResult {
+            kind: rightclick::search::SearchResultKind::Command {
+                id: "target:refresh".to_string(),
+            },
+            title: "Target: Refresh Target".to_string(),
+            preview:
+                "Shortcut: r | Category: System | ID: target:refresh | Reload target plugin data"
                     .to_string(),
-                score: 100,
-            }]);
+            score: 100,
+        };
+        app.search.set_results(vec![search_result]);
 
         app.activate_selected_search_result();
 
