@@ -151,4 +151,8 @@ fn developer_commands_explain_test_many() {
         README.contains("with an isolated build cache"),
         "README should explain why to set CARGO_TARGET_DIR"
     );
+    assert!(
+        README.contains("Cargo steps echo that target directory"),
+        "README should explain that target-dir progress lines are reproducible"
+    );
 }

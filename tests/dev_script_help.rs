@@ -212,6 +212,10 @@ fn dev_script_help_explains_test_many() {
         stdout.contains("with an isolated build cache"),
         "dev script help should explain why to set CARGO_TARGET_DIR"
     );
+    assert!(
+        stdout.contains("Cargo steps echo that target directory"),
+        "dev script help should explain that target-dir logs are reproducible"
+    );
 }
 
 #[test]

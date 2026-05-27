@@ -65,7 +65,8 @@ visible and confirm the filter scope before the test run starts. test-many
 validates all filters from one test list before running each filter separately.
 When another Cargo job is using the default target directory, set
 CARGO_TARGET_DIR=/tmp/rightclick-target-verify before a command to run checks
-with an isolated build cache.
+with an isolated build cache. Cargo steps echo that target directory in their
+progress lines so the logged commands stay reproducible.
 
 If you use just:
   just help
