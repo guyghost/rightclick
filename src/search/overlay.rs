@@ -728,15 +728,30 @@ fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
         SearchScope::All => format!("No search results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
         SearchScope::Items => format!("No session, worktree, or intent matches \"{}\"", query),
-        SearchScope::Commands => {
-            format!(
-                "No command name, plugin, category, description, shortcut, or command ID matches \"{}\"",
-                query
-            )
-        }
+        SearchScope::Commands => format!("No commands match \"{}\"", query),
     };
 
-    format!("{}\n\n{}", message, search_empty_action_hint(width))
+    let action_hint = search_empty_action_hint(width);
+    if let Some(detail) = no_results_detail(scope, width) {
+        format!("{}\n{}\n\n{}", message, detail, action_hint)
+    } else {
+        format!("{}\n\n{}", message, action_hint)
+    }
+}
+
+fn no_results_detail(scope: SearchScope, width: u16) -> Option<&'static str> {
+    if scope != SearchScope::Commands {
+        return None;
+    }
+
+    let width = width as usize;
+    [
+        "Searches plugin, category, name, description, shortcut, and command ID",
+        "Searches plugin, category, name, shortcut, and ID",
+        "Searches command metadata and IDs",
+    ]
+    .into_iter()
+    .find(|detail| detail.width() <= width)
 }
 
 fn search_empty_action_hint(width: u16) -> &'static str {
@@ -1365,15 +1380,42 @@ mod tests {
                 .contains("No search results match \"abcdefghijklmnopqrstuvwxyz0123456789a...\"")
         );
         assert!(truncated.contains(SEARCH_EMPTY_ACTION_HINT));
+
+        let commands = no_results_message("deploy", SearchScope::Commands, 80);
+        assert!(commands.contains("No commands match \"deploy\""));
+        assert!(
+            commands
+                .contains("Searches plugin, category, name, description, shortcut, and command ID")
+        );
+        assert!(!commands.contains("No command name, plugin, category"));
     }
 
     #[test]
     fn test_no_results_message_uses_compact_hint_when_narrow() {
         let message = no_results_message("deploy", SearchScope::Commands, 14);
 
-        assert!(message.contains("No command name, plugin, category, description, shortcut, or command ID matches \"deploy\""));
+        assert!(message.contains("No commands match \"deploy\""));
         assert!(message.contains("Ctrl+U/Tab/Esc"));
         assert!(!message.contains(SEARCH_EMPTY_ACTION_HINT));
+        assert!(!message.contains("Searches plugin"));
+    }
+
+    #[test]
+    fn test_no_results_detail_compacts_for_command_search() {
+        assert_eq!(
+            no_results_detail(SearchScope::Commands, 80),
+            Some("Searches plugin, category, name, description, shortcut, and command ID")
+        );
+        assert_eq!(
+            no_results_detail(SearchScope::Commands, 49),
+            Some("Searches plugin, category, name, shortcut, and ID")
+        );
+        assert_eq!(
+            no_results_detail(SearchScope::Commands, 34),
+            Some("Searches command metadata and IDs")
+        );
+        assert_eq!(no_results_detail(SearchScope::Commands, 12), None);
+        assert_eq!(no_results_detail(SearchScope::Files, 80), None);
     }
 
     #[test]
