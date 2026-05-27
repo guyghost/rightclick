@@ -1320,8 +1320,7 @@ impl Default for FileBrowserPlugin {
 fn file_browser_status_line(state: &PluginState) -> String {
     let visible = state.visible_indices().len();
     if state.tree.entries.is_empty() {
-        return "No files yet | a: New file | A: New directory | r: Refresh files | /: Global search  |  : Command search | ?: Toggle help"
-            .to_string();
+        return "No files yet | a: New file | A: New directory | r: Refresh files".to_string();
     }
 
     let filter = state
@@ -1332,7 +1331,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 
     if visible == 0 && state.filter_query.is_some() {
         return format!(
-            "No matching files{} | f: Change filter | r: Refresh files | /: Global search  |  : Command search | ?: Toggle help",
+            "No matching files{} | f: Change filter | r: Refresh files",
             filter
         );
     }
@@ -1351,7 +1350,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 
     if state.selected_path.is_none() && visible > 0 {
         return format!(
-            "{} | {}{} | j/k: Navigate | Enter/Space: Toggle directory | /: Global search  |  : Command search | ?: Toggle help",
+            "{} | {}{} | j/k: Navigate | Enter/Space: Toggle directory",
             selected,
             visible_file_count_label(visible),
             filter
@@ -1799,10 +1798,7 @@ mod tests {
 
         assert_eq!(
             plugin.status_line(),
-            Some(
-                "No files yet | a: New file | A: New directory | r: Refresh files | /: Global search  |  : Command search | ?: Toggle help"
-                    .to_string()
-            )
+            Some("No files yet | a: New file | A: New directory | r: Refresh files".to_string())
         );
     }
 
@@ -1818,7 +1814,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No matching files | filter: missing | f: Change filter | r: Refresh files | /: Global search  |  : Command search | ?: Toggle help"
+                "No matching files | filter: missing | f: Change filter | r: Refresh files"
                     .to_string()
             )
         );
@@ -1841,7 +1837,7 @@ mod tests {
 
         assert_eq!(
             file_browser_status_line(&state),
-            "No file selected | 1 visible file | j/k: Navigate | Enter/Space: Toggle directory | /: Global search  |  : Command search | ?: Toggle help"
+            "No file selected | 1 visible file | j/k: Navigate | Enter/Space: Toggle directory"
         );
 
         let beta = temp_dir.path().join("beta.txt");
@@ -1853,7 +1849,7 @@ mod tests {
 
         assert_eq!(
             file_browser_status_line(&state),
-            "No file selected | 2 visible files | j/k: Navigate | Enter/Space: Toggle directory | /: Global search  |  : Command search | ?: Toggle help"
+            "No file selected | 2 visible files | j/k: Navigate | Enter/Space: Toggle directory"
         );
     }
 

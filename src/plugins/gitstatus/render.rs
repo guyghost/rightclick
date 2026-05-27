@@ -1277,8 +1277,7 @@ pub fn render_status_info(state: &PluginState) -> String {
     let mut parts = Vec::new();
 
     if state.branch.is_empty() && state.files.is_empty() && state.commits.is_empty() {
-        return "Git status not loaded yet | r: Refresh git status | /: Global search  |  : Command search | ?: Toggle help"
-            .to_string();
+        return "Git status not loaded yet | r: Refresh git status".to_string();
     }
 
     // Branch status
@@ -1807,10 +1806,10 @@ mod tests {
         let state = PluginState::new();
         let info = render_status_info(&state);
 
-        assert_eq!(
-            info,
-            "Git status not loaded yet | r: Refresh git status | /: Global search  |  : Command search | ?: Toggle help"
-        );
+        assert_eq!(info, "Git status not loaded yet | r: Refresh git status");
+        assert!(!info.contains("Global search"));
+        assert!(!info.contains("Command search"));
+        assert!(!info.contains("Toggle help"));
         assert!(!info.contains("No repository data loaded"));
     }
 
@@ -1825,7 +1824,7 @@ mod tests {
         assert_hint(&git_changes_empty_message(&unloaded, 80));
         assert_hint(&git_diff_empty_message(&unloaded, 80));
         assert_hint(&git_sidebar_empty_message(&unloaded, 80));
-        assert!(render_status_info(&unloaded).contains(": Command search"));
+        assert!(!render_status_info(&unloaded).contains(": Command search"));
 
         let mut clean = PluginState::new();
         clean.branch = "main".to_string();
