@@ -23,12 +23,12 @@ use crate::palette::fuzzy::{FuzzyMatcher, MatchResult};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
 
-const PALETTE_EMPTY_ACTION_HINT_SCOPED: &str = "Esc: Close | Tab: All contexts | ?: Help";
-const PALETTE_EMPTY_ACTION_HINT_ALL: &str = "Esc: Close | Tab: Current context | ?: Help";
+const PALETTE_EMPTY_ACTION_HINT_SCOPED: &str = "Esc: Close | Tab: All contexts | ?: Toggle help";
+const PALETTE_EMPTY_ACTION_HINT_ALL: &str = "Esc: Close | Tab: Current context | ?: Toggle help";
 const PALETTE_NO_MATCH_ACTION_HINT_SCOPED: &str =
-    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All contexts | ?: Help";
+    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All | ?: Toggle help";
 const PALETTE_NO_MATCH_ACTION_HINT_ALL: &str =
-    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current context | ?: Help";
+    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current | ?: Toggle help";
 const MIN_VISIBLE_RESULTS: usize = 1;
 const MAX_RENDERABLE_VISIBLE_RESULTS: usize = u16::MAX as usize - 4;
 
