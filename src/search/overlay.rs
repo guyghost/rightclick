@@ -19,7 +19,7 @@ use ratatui::{
 use std::str::FromStr;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab: Scope";
+const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab: Scope  |  Esc: Close";
 const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
 const MIN_SEARCH_OVERLAY_HEIGHT: u16 = 8;
 const SEARCH_RESULT_SCROLL_WINDOW: usize = 10;
@@ -1077,6 +1077,7 @@ mod tests {
         assert!(items.contains(SEARCH_EMPTY_ACTION_HINT));
         assert!(!items.contains("Ctrl+U  Clear search"));
         assert!(!items.contains("Tab  Change scope"));
+        assert!(items.contains("Esc: Close"));
 
         let truncated = no_results_message(
             "abcdefghijklmnopqrstuvwxyz0123456789abcdef",
