@@ -28,7 +28,7 @@ use super::tree::FileTreeWidget;
 const CREATE_ENTRY_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
 const DELETE_ENTRY_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const RENAME_ENTRY_MODAL_HINT: &str = "Enter: Rename  |  Esc: Cancel";
-const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty: Clear  |  Esc: Cancel";
+const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty input: Clear  |  Esc: Cancel";
 const ERROR_MODAL_HINT: &str = "Enter/Esc: Close";
 const HELP_OVERLAY_HINT: &str = "?: Toggle help";
 const FILE_INFO_OVERLAY_HINT: &str = "I: Close";
@@ -1446,7 +1446,8 @@ mod tests {
         assert!(hints.iter().all(|hint| !hint.contains(": create")));
         assert!(hints.iter().all(|hint| !hint.contains(": cancel")));
         assert!(DELETE_ENTRY_MODAL_HINT.contains("Enter/D: Delete"));
-        assert!(FILTER_FILES_MODAL_HINT.contains("Empty: Clear"));
+        assert!(FILTER_FILES_MODAL_HINT.contains("Empty input: Clear"));
+        assert!(!FILTER_FILES_MODAL_HINT.contains("Empty: Clear"));
     }
 
     #[test]
