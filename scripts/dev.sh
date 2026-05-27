@@ -280,6 +280,24 @@ ensure_test_filter_arg() {
   fi
 }
 
+ensure_single_test_filter() {
+  local filter_count=0
+  local arg
+
+  for arg in "$@"; do
+    if [ "$arg" = "--" ]; then
+      break
+    fi
+    filter_count=$((filter_count + 1))
+  done
+
+  if [ "$filter_count" -gt 1 ]; then
+    echo "test-one accepts exactly one test filter; use test-many for multiple filters." >&2
+    echo "Usage: bash scripts/dev.sh test-one <test-filter> [-- <cargo-test-args>]" >&2
+    exit 2
+  fi
+}
+
 test_filter_match_count() {
   local output="$1"
   local filter="$2"
@@ -565,6 +583,7 @@ case "$cmd" in
       exit 2
     fi
     ensure_test_filter_arg "test-one" "<test-filter> [-- <cargo-test-args>]" "$1"
+    ensure_single_test_filter "$@"
     ensure_test_filters_match "$1"
     run_step cargo test "$@"
     ;;

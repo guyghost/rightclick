@@ -624,6 +624,40 @@ fn dev_script_test_one_explains_missing_filter() {
 }
 
 #[test]
+fn dev_script_test_one_rejects_multiple_filters() {
+    let output = Command::new("bash")
+        .args([
+            "scripts/dev.sh",
+            "test-one",
+            "dev_script_help",
+            "dev_script_run_step",
+        ])
+        .output()
+        .expect("dev script test-one usage path should run");
+
+    assert!(
+        !output.status.success(),
+        "test-one should fail before Cargo when multiple filters are provided"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(
+            "test-one accepts exactly one test filter; use test-many for multiple filters."
+        ),
+        "dev script should explain how to run multiple filters"
+    );
+    assert!(
+        stderr.contains("Usage: bash scripts/dev.sh test-one <test-filter>"),
+        "dev script should still print test-one usage"
+    );
+    assert!(
+        !stderr.contains("==> cargo test"),
+        "dev script should reject multiple filters before invoking Cargo"
+    );
+}
+
+#[test]
 fn dev_script_test_many_explains_missing_filters() {
     let output = Command::new("bash")
         .args(["scripts/dev.sh", "test-many"])
