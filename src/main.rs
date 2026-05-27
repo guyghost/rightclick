@@ -836,6 +836,7 @@ fn build_help_lines(
         "  /: Global search".to_string(),
         "  :: Command search".to_string(),
         "  ?: Toggle help".to_string(),
+        "  j/k or ↑/↓: Navigate items".to_string(),
     ];
     if plugin_uses_tab_for_panes(plugin_id) {
         lines.extend([
@@ -1122,6 +1123,7 @@ mod tests {
         );
         assert!(lines.contains(&"  :: Command search".to_string()));
         assert!(lines.iter().any(|line| line == "  ?: Toggle help"));
+        assert!(lines.contains(&"  j/k or ↑/↓: Navigate items".to_string()));
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
         assert!(lines.contains(&"  Tab: Switch pane".to_string()));
         assert!(lines.contains(&"  Shift+Tab: Previous pane".to_string()));
