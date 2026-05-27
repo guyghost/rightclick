@@ -329,6 +329,8 @@ impl Modal {
         bg_color: ratatui::style::Color,
     ) {
         let style = Style::default().fg(border_color).bg(bg_color);
+        let right = area.right().saturating_sub(1);
+        let bottom = area.bottom().saturating_sub(1);
 
         // Top border with title
         buf.set_string(
@@ -337,48 +339,24 @@ impl Modal {
             format!("{}╭", self.variant.top_left()),
             style,
         );
-        for x in 1..area.width - 1 {
-            buf.set_string(area.x + x, area.y, self.variant.horizontal(), style);
+        for x in area.x.saturating_add(1)..right {
+            buf.set_string(x, area.y, self.variant.horizontal(), style);
         }
-        buf.set_string(
-            area.x + area.width - 1,
-            area.y,
-            self.variant.top_right(),
-            style,
-        );
+        buf.set_string(right, area.y, self.variant.top_right(), style);
 
         // Side borders
         for y in 1..area.height - 1 {
-            buf.set_string(area.x, area.y + y, self.variant.vertical(), style);
-            buf.set_string(
-                area.x + area.width - 1,
-                area.y + y,
-                self.variant.vertical(),
-                style,
-            );
+            let y = area.y.saturating_add(y);
+            buf.set_string(area.x, y, self.variant.vertical(), style);
+            buf.set_string(right, y, self.variant.vertical(), style);
         }
 
         // Bottom border
-        buf.set_string(
-            area.x,
-            area.y + area.height - 1,
-            self.variant.bottom_left(),
-            style,
-        );
-        for x in 1..area.width - 1 {
-            buf.set_string(
-                area.x + x,
-                area.y + area.height - 1,
-                self.variant.horizontal(),
-                style,
-            );
+        buf.set_string(area.x, bottom, self.variant.bottom_left(), style);
+        for x in area.x.saturating_add(1)..right {
+            buf.set_string(x, bottom, self.variant.horizontal(), style);
         }
-        buf.set_string(
-            area.x + area.width - 1,
-            area.y + area.height - 1,
-            self.variant.bottom_right(),
-            style,
-        );
+        buf.set_string(right, bottom, self.variant.bottom_right(), style);
     }
 
     /// Renders the modal title
@@ -392,30 +370,33 @@ impl Modal {
         let title_style = Style::default().fg(fg_color).add_modifier(Modifier::BOLD);
 
         // Title on second line
-        let title_x = area.x + 2;
+        let title_x = area.x.saturating_add(2);
         let title_text = truncate_display_width(
             &format!(" {} ", self.title),
             area.width.saturating_sub(4) as usize,
         );
-        buf.set_string(title_x, area.y + 1, &title_text, title_style);
+        buf.set_string(title_x, area.y.saturating_add(1), &title_text, title_style);
 
         // Separator line
         let sep_style = Style::default().fg(border_color);
-        buf.set_string(area.x + 1, area.y + 2, "─", sep_style);
-        for x in 2..area.width - 1 {
-            buf.set_string(area.x + x, area.y + 2, "─", sep_style);
+        let sep_y = area.y.saturating_add(2);
+        let sep_start = area.x.saturating_add(1);
+        let sep_end = area.right().saturating_sub(1);
+        buf.set_string(sep_start, sep_y, "─", sep_style);
+        for x in area.x.saturating_add(2)..sep_end {
+            buf.set_string(x, sep_y, "─", sep_style);
         }
-        buf.set_string(area.x + area.width - 1, area.y + 2, "─", sep_style);
+        buf.set_string(sep_end, sep_y, "─", sep_style);
     }
 
     /// Renders the content sections
     fn render_content(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
-        let content_start_y = area.y + 3;
+        let content_start_y = area.y.saturating_add(3);
         let content_width = area.width.saturating_sub(4); // 2 padding each side
         let content_end_y = if self.show_hints {
-            area.y + area.height.saturating_sub(2)
+            area.bottom().saturating_sub(2)
         } else {
-            area.y + area.height.saturating_sub(1)
+            area.bottom().saturating_sub(1)
         };
         let mut current_y = content_start_y;
 
@@ -433,20 +414,20 @@ impl Modal {
             }
 
             let section_area = Rect {
-                x: area.x + 2,
+                x: area.x.saturating_add(2),
                 y: current_y,
                 width: content_width,
                 height: section_height,
             };
 
             section.render(section_area, buf, theme, focus_id, self.hover_id.as_deref());
-            current_y += section_height;
+            current_y = current_y.saturating_add(section_height);
         }
     }
 
     /// Renders keyboard hints at the bottom
     fn render_hints(&self, area: Rect, buf: &mut Buffer, theme: &Theme) {
-        let hint_y = area.y + area.height - 2;
+        let hint_y = area.bottom().saturating_sub(2);
         let muted_color = ratatui::style::Color::from_str(&theme.colors.muted)
             .unwrap_or(ratatui::style::Color::Gray);
         let hint_style = Style::default().fg(muted_color);
@@ -462,7 +443,10 @@ impl Modal {
 
         // Center the hints
         let hint_width = unicode_width::UnicodeWidthStr::width(hint_text.as_str()) as u16;
-        let hint_x = area.x + 1 + (area.width.saturating_sub(2).saturating_sub(hint_width) / 2);
+        let hint_x = area
+            .x
+            .saturating_add(1)
+            .saturating_add(area.width.saturating_sub(2).saturating_sub(hint_width) / 2);
 
         buf.set_string(hint_x, hint_y, hint_text, hint_style);
 
@@ -477,11 +461,14 @@ impl Modal {
         let sep_style = Style::default()
             .fg(ratatui::style::Color::from_str(border_color)
                 .unwrap_or(ratatui::style::Color::Gray));
-        buf.set_string(area.x + 1, hint_y - 1, "─", sep_style);
-        for x in 2..area.width - 1 {
-            buf.set_string(area.x + x, hint_y - 1, "─", sep_style);
+        let sep_y = hint_y.saturating_sub(1);
+        let sep_start = area.x.saturating_add(1);
+        let sep_end = area.right().saturating_sub(1);
+        buf.set_string(sep_start, sep_y, "─", sep_style);
+        for x in area.x.saturating_add(2)..sep_end {
+            buf.set_string(x, sep_y, "─", sep_style);
         }
-        buf.set_string(area.x + area.width - 1, hint_y - 1, "─", sep_style);
+        buf.set_string(sep_end, sep_y, "─", sep_style);
     }
 
     /// Helper to center a rectangle within another
@@ -842,6 +829,19 @@ mod tests {
 
         assert_eq!(buf.cell((2, 0)).unwrap().symbol(), "╭");
         assert_eq!(buf.cell((7, 8)).unwrap().symbol(), "╯");
+    }
+
+    #[test]
+    fn modal_render_handles_offset_area_near_u16_max() {
+        use crate::modal::section::TextSection;
+
+        let mut modal = Modal::new("Offset modal").with_primary_action("Confirm offset rendering");
+        modal.add_section(Box::new(TextSection::new("Modal content")));
+        let theme = Theme::default();
+        let area = Rect::new(u16::MAX - 80, u16::MAX - 20, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        modal.render(area, &mut buf, &theme);
     }
 
     #[test]
