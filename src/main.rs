@@ -833,14 +833,14 @@ fn build_help_lines(
         status.to_string(),
         String::new(),
         "Global shortcuts:".to_string(),
-        "  /        Global search".to_string(),
-        "  :        Command search".to_string(),
-        "  ?        Toggle help".to_string(),
-        "  Tab      Switch plugin/pane".to_string(),
-        "  Shift+Tab  Previous plugin/pane".to_string(),
-        "  1-9      Jump to plugin".to_string(),
-        "  Esc      Back/close".to_string(),
-        "  q/Ctrl+C  Quit".to_string(),
+        "  /: Global search".to_string(),
+        "  :: Command search".to_string(),
+        "  ?: Toggle help".to_string(),
+        "  Tab: Switch plugin/pane".to_string(),
+        "  Shift+Tab: Previous plugin/pane".to_string(),
+        "  1-9: Jump to plugin".to_string(),
+        "  Esc: Back/close".to_string(),
+        "  q/Ctrl+C: Quit".to_string(),
         String::new(),
         "Plugin commands:".to_string(),
     ];
@@ -891,10 +891,10 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         "RightClick is running without an active plugin.".to_string(),
         String::new(),
         "Global shortcuts:".to_string(),
-        "  /        Global search".to_string(),
-        "  :        Command search".to_string(),
-        "  ?        Toggle help".to_string(),
-        "  q/Ctrl+C  Quit".to_string(),
+        "  /: Global search".to_string(),
+        "  :: Command search".to_string(),
+        "  ?: Toggle help".to_string(),
+        "  q/Ctrl+C: Quit".to_string(),
         String::new(),
         "Diagnostics:".to_string(),
         "  bash scripts/dev.sh doctor".to_string(),
@@ -967,9 +967,9 @@ fn no_plugins_footer_hints() -> Vec<(String, String)> {
 
 fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginCommand) -> String {
     if command.description.is_empty() {
-        format!("  {:<8} {}", key, command.name)
+        format!("  {}: {}", key, command.name)
     } else {
-        format!("  {:<8} {} - {}", key, command.name, command.description)
+        format!("  {}: {} - {}", key, command.name, command.description)
     }
 }
 
@@ -1100,12 +1100,12 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("/") && line.contains("Global search"))
         );
-        assert!(lines.contains(&"  :        Command search".to_string()));
-        assert!(lines.iter().any(|line| line == "  ?        Toggle help"));
+        assert!(lines.contains(&"  :: Command search".to_string()));
+        assert!(lines.iter().any(|line| line == "  ?: Toggle help"));
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
-        assert!(lines.contains(&"  Tab      Switch plugin/pane".to_string()));
-        assert!(lines.contains(&"  Shift+Tab  Previous plugin/pane".to_string()));
-        assert!(lines.contains(&"  Esc      Back/close".to_string()));
+        assert!(lines.contains(&"  Tab: Switch plugin/pane".to_string()));
+        assert!(lines.contains(&"  Shift+Tab: Previous plugin/pane".to_string()));
+        assert!(lines.contains(&"  Esc: Back/close".to_string()));
         assert!(
             !lines
                 .iter()
@@ -1121,7 +1121,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("q/Ctrl+C") && line.contains("Quit"))
         );
-        assert!(lines.contains(&"  q/Ctrl+C  Quit".to_string()));
+        assert!(lines.contains(&"  q/Ctrl+C: Quit".to_string()));
         assert!(lines.iter().any(|line| line.contains("3 files changed")));
 
         let global_index = lines
@@ -1150,7 +1150,7 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|line| line.contains("Refresh - Reload repository state"))
+                .any(|line| line == "  r: Refresh - Reload repository state")
         );
     }
 
@@ -1180,7 +1180,7 @@ mod tests {
         let lines = vec![
             "Help".to_string(),
             "Plugin commands:".to_string(),
-            "  r  Refresh".to_string(),
+            "  r: Refresh".to_string(),
             "Global shortcuts:".to_string(),
         ];
 
@@ -1272,7 +1272,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("/") && line.contains("Global search"))
         );
-        assert!(lines.contains(&"  :        Command search".to_string()));
+        assert!(lines.contains(&"  :: Command search".to_string()));
         assert!(
             lines
                 .iter()
@@ -1284,7 +1284,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("q/Ctrl+C") && line.contains("Quit"))
         );
-        assert!(lines.contains(&"  q/Ctrl+C  Quit".to_string()));
+        assert!(lines.contains(&"  q/Ctrl+C: Quit".to_string()));
         assert!(
             lines
                 .iter()
