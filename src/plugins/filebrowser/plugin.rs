@@ -1400,7 +1400,7 @@ fn file_preview_empty_message(state: &PluginState) -> String {
         "No visible file to preview\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     } else {
-        "No preview selected\n\nj/k: Navigate files\nEnter/Space: Toggle directory\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
+        "No file selected\n\nj/k: Navigate files\nEnter/Space: Toggle directory\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     }
 }
@@ -1908,7 +1908,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("No preview selected"));
+        assert!(content.contains("No file selected"));
+        assert!(!content.contains("No preview selected"));
         assert!(content.contains("j/k: Navigate files"));
         assert!(content.contains("Enter/Space: Toggle directory"));
         assert!(content.contains("f: Filter files"));
