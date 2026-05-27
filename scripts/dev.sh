@@ -18,7 +18,7 @@ Commands:
   rust-version   print the required Rust version from Cargo.toml
   check          fmt check, clippy with warnings denied, and tests
   quick          fmt check and clippy with warnings denied
-  script-check   validate shell helper script syntax
+  script-check   validate shell helper script and justfile syntax when available
   fmt-check      run cargo fmt --check
   fmt            run cargo fmt
   clippy         run cargo clippy --all-targets -- -D warnings
@@ -256,6 +256,11 @@ case "$cmd" in
     ;;
   script-check)
     run_step bash -n scripts/dev.sh
+    if command -v just >/dev/null 2>&1; then
+      run_step just --summary >/dev/null
+    else
+      printf '\n==> skip just --summary (just not installed)\n' >&2
+    fi
     ;;
   fmt-check)
     run_step cargo fmt --check
