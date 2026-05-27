@@ -5,13 +5,13 @@
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_ui_element};
+use crate::ui::display_width_u16;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Widget};
 use std::time::{Duration, Instant};
-use unicode_width::UnicodeWidthStr;
 
 /// Loading spinner with animated frames
 ///
@@ -446,7 +446,7 @@ impl Spinner {
             frame.to_string()
         };
 
-        let text_width = text.width().min(u16::MAX as usize) as u16;
+        let text_width = display_width_u16(&text);
         let x = area
             .x
             .saturating_add((area.width.saturating_sub(text_width)) / 2);

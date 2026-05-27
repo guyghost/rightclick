@@ -55,5 +55,5 @@ pub use progress::ProgressBar;
 pub use scroll::ScrollState;
 pub use selection::Selection;
 pub use spinner::Spinner;
-pub use text::{clip_display, truncate_display, truncate_display_with_suffix};
+pub use text::{clip_display, display_width_u16, truncate_display, truncate_display_with_suffix};
 pub use text_input::TextInputWidget;

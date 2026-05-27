@@ -10,7 +10,8 @@ use crate::plugins::conversations::state::{ConversationView, PluginState};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
 use crate::ui::{
-    GLOBAL_SEARCH_HINT, append_global_hint_lines, global_hint_message, truncate_display,
+    GLOBAL_SEARCH_HINT, append_global_hint_lines, display_width_u16, global_hint_message,
+    truncate_display,
 };
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
@@ -721,9 +722,7 @@ impl ConversationsRenderer {
 
         // Render cursor
         if !query.is_empty() {
-            let cursor_x = inner_area
-                .x
-                .saturating_add(query.width().min(u16::MAX as usize) as u16);
+            let cursor_x = inner_area.x.saturating_add(display_width_u16(query));
             let cursor_y = inner_area.y;
             if let Some(cell) = buf.cell_mut((cursor_x, cursor_y)) {
                 let cursor_style = style_for_ui_element(theme, UiElement::Primary);
@@ -1362,7 +1361,7 @@ mod tests {
 
         let popup = filter_overlay_area(area).unwrap();
         let inner_area = Rect::new(popup.x + 1, popup.y + 1, popup.width - 2, popup.height - 2);
-        let cursor_x = inner_area.x + "検索a".width() as u16;
+        let cursor_x = inner_area.x + display_width_u16("検索a");
         let byte_offset_x = inner_area.x + "検索a".len() as u16;
         let cursor_style = style_for_ui_element(&theme, UiElement::Primary);
 

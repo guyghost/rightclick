@@ -2,6 +2,11 @@
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+/// Return the display width of text, saturated to `u16::MAX`.
+pub fn display_width_u16(text: &str) -> u16 {
+    text.width().min(u16::MAX as usize) as u16
+}
+
 /// Truncate text to fit within `max_width` display columns.
 pub fn truncate_display(text: &str, max_width: usize) -> String {
     truncate_display_with_suffix(text, max_width, "...")
@@ -93,5 +98,15 @@ mod tests {
         assert_eq!(clip_display("éclair", 4), "écla");
         assert_eq!(clip_display("éclair", 0), "");
         assert_eq!(clip_display("abc", 5), "abc");
+    }
+
+    #[test]
+    fn display_width_u16_handles_unicode_and_saturates() {
+        assert_eq!(display_width_u16("abc"), 3);
+        assert_eq!(display_width_u16("検索a"), 5);
+        assert_eq!(
+            display_width_u16(&"x".repeat(u16::MAX as usize + 1)),
+            u16::MAX
+        );
     }
 }

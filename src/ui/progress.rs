@@ -10,9 +10,10 @@ use ratatui::{
     widgets::Widget,
 };
 use std::str::FromStr;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthChar;
 
 use crate::core::models::Theme;
+use crate::ui::display_width_u16;
 
 /// A progress bar widget
 pub struct ProgressBar<'a> {
@@ -65,7 +66,7 @@ impl Widget for ProgressBar<'_> {
         let fg = Color::from_str(&self.theme.colors.foreground).unwrap_or(Color::White);
 
         let bar_width = if let Some(ref label) = self.label {
-            let label_width = label.width().saturating_add(1).min(u16::MAX as usize) as u16;
+            let label_width = display_width_u16(label).saturating_add(1);
             area.width.saturating_sub(label_width)
         } else {
             area.width
@@ -92,9 +93,7 @@ impl Widget for ProgressBar<'_> {
                     .set_style(Style::default().fg(fg));
                 label_x = label_x.saturating_add(ch_width);
             }
-            x = x
-                .saturating_add(label.width().min(u16::MAX as usize) as u16)
-                .saturating_add(1);
+            x = x.saturating_add(display_width_u16(label)).saturating_add(1);
         }
 
         // Render filled portion

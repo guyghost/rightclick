@@ -1,5 +1,6 @@
 //! Shared hint formatting helpers.
 
+use super::text::display_width_u16;
 use unicode_width::UnicodeWidthStr;
 
 /// Full help hint label used when enough horizontal space is available.
@@ -84,7 +85,7 @@ fn compact_prefixed_global_hint_lines(
     prefix: &str,
     allow_stacked_search: bool,
 ) -> Vec<String> {
-    let hint_width = width.saturating_sub(prefix.width() as u16);
+    let hint_width = width.saturating_sub(display_width_u16(prefix));
     let search_hint = if allow_stacked_search {
         compact_global_search_hint_with_stacked(hint_width)
     } else {
