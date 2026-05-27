@@ -877,10 +877,11 @@ fn compact_help_overlay_text(width: u16) -> &'static str {
     match width {
         0 => "",
         1..=7 => "?",
-        8..=18 => "? Help",
-        19..=27 => "? Help  / Search",
-        28..=35 => "? Help  / Search  : Commands",
-        _ => "? Help  / Search  : Commands  q Quit",
+        8..=12 => "? Toggle",
+        13..=22 => "? Toggle help",
+        23..=34 => "? Toggle help  / Search",
+        35..=42 => "? Toggle help  / Search  : Commands",
+        _ => "? Toggle help  / Search  : Commands  q Quit",
     }
 }
 
@@ -1202,20 +1203,21 @@ mod tests {
 
     #[test]
     fn test_compact_help_overlay_text_fits_width() {
-        for width in 0..=40 {
+        for width in 0..=48 {
             assert!(compact_help_overlay_text(width).len() <= width as usize);
         }
         assert_eq!(compact_help_overlay_text(0), "");
         assert_eq!(compact_help_overlay_text(7), "?");
-        assert_eq!(compact_help_overlay_text(18), "? Help");
-        assert_eq!(compact_help_overlay_text(25), "? Help  / Search");
+        assert_eq!(compact_help_overlay_text(12), "? Toggle");
+        assert_eq!(compact_help_overlay_text(18), "? Toggle help");
+        assert_eq!(compact_help_overlay_text(25), "? Toggle help  / Search");
         assert_eq!(
-            compact_help_overlay_text(30),
-            "? Help  / Search  : Commands"
+            compact_help_overlay_text(35),
+            "? Toggle help  / Search  : Commands"
         );
         assert_eq!(
-            compact_help_overlay_text(36),
-            "? Help  / Search  : Commands  q Quit"
+            compact_help_overlay_text(43),
+            "? Toggle help  / Search  : Commands  q Quit"
         );
     }
 
@@ -1236,7 +1238,7 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("? Help"));
+        assert!(content.contains("? Toggle help"));
         assert!(content.contains("/ Search"));
     }
 
