@@ -919,7 +919,7 @@ fn visible_help_lines(lines: Vec<String>, max_height: u16) -> Vec<String> {
         return Vec::new();
     }
 
-    let hidden_count = lines.len().saturating_sub(max_lines);
+    let hidden_count = lines.len().saturating_sub(max_lines.saturating_sub(1));
     let mut visible: Vec<String> = lines.into_iter().take(max_lines).collect();
     visible[max_lines - 1] = hidden_help_line_label(hidden_count);
     visible
@@ -1330,7 +1330,7 @@ mod tests {
             vec![
                 "Help".to_string(),
                 "Plugin commands:".to_string(),
-                "  ... 1 more help line".to_string()
+                "  ... 2 more help lines".to_string()
             ]
         );
     }
@@ -1351,7 +1351,7 @@ mod tests {
             vec![
                 "Help".to_string(),
                 "Plugin commands:".to_string(),
-                "  ... 3 more help lines".to_string()
+                "  ... 4 more help lines".to_string()
             ]
         );
     }
