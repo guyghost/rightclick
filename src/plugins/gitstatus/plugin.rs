@@ -1294,7 +1294,7 @@ impl Plugin for GitStatusPlugin {
         commands.extend(vec![
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
-                "Refresh",
+                "Refresh git status",
                 "Reload git status",
                 'r',
                 FocusContext::GitStatus,
@@ -1475,7 +1475,9 @@ mod tests {
         let has_nav = commands
             .iter()
             .any(|c| matches!(c.id.as_str(), "nav-down" | "nav-up"));
-        let has_refresh = commands.iter().any(|c| c.id == "refresh");
+        let has_refresh = commands
+            .iter()
+            .any(|c| c.id == "refresh" && c.name == "Refresh git status");
 
         assert!(has_nav);
         assert!(has_refresh);
