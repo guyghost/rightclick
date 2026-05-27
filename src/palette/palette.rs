@@ -401,7 +401,7 @@ impl Palette {
 
         // Draw the input text or placeholder
         let display_text = if self.input.is_empty() {
-            "Search commands..."
+            "Search commands by name, shortcut, or category..."
         } else {
             &self.input
         };
@@ -1068,6 +1068,23 @@ mod tests {
         let cursor_color = Color::from_str(&theme.colors.cursor).unwrap_or(Color::White);
         assert_eq!(buf.cell((3, 1)).unwrap().style().bg, Some(cursor_color));
         assert_ne!(buf.cell((4, 1)).unwrap().style().bg, Some(cursor_color));
+    }
+
+    #[test]
+    fn test_render_input_placeholder_names_supported_queries() {
+        let palette = Palette::new();
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 60, 3);
+        let mut buf = Buffer::empty(area);
+
+        palette.render_input(area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Search commands by name, shortcut, or category"));
     }
 
     #[test]

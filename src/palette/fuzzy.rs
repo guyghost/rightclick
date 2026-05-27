@@ -245,6 +245,24 @@ mod tests {
     }
 
     #[test]
+    fn test_match_entries_matches_shortcuts_and_command_ids() {
+        let matcher = FuzzyMatcher::new();
+        let entries = vec![
+            PaletteEntry::minimal("app.refresh", "Refresh Current View", Category::System)
+                .with_key("ctrl+r"),
+            PaletteEntry::minimal("git.commit", "Create Commit", Category::Git),
+        ];
+
+        let shortcut_results = matcher.match_entries(&entries, "ctrl+r");
+        assert_eq!(shortcut_results.len(), 1);
+        assert_eq!(shortcut_results[0].entry.command_id, "app.refresh");
+
+        let id_results = matcher.match_entries(&entries, "git.commit");
+        assert_eq!(id_results.len(), 1);
+        assert_eq!(id_results[0].entry.name, "Create Commit");
+    }
+
+    #[test]
     fn test_match_entries_with_context_hides_unavailable_commands() {
         let matcher = FuzzyMatcher::new();
         let entries = vec![

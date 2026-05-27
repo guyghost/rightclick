@@ -145,10 +145,12 @@ impl PaletteEntry {
     /// Returns the search text for this entry (used for fuzzy matching).
     pub fn search_text(&self) -> String {
         format!(
-            "{} {} {}",
+            "{} {} {} {} {}",
             self.name,
             self.description,
-            self.category.display_name()
+            self.category.display_name(),
+            self.key,
+            self.command_id
         )
     }
 
@@ -244,7 +246,7 @@ mod tests {
     #[test]
     fn test_search_text() {
         let entry = PaletteEntry::new(
-            "",
+            "ctrl+s",
             "file.save",
             "Save File",
             "Save the current file",
@@ -256,6 +258,8 @@ mod tests {
         assert!(search.contains("Save File"));
         assert!(search.contains("Save the current file"));
         assert!(search.contains("Actions"));
+        assert!(search.contains("ctrl+s"));
+        assert!(search.contains("file.save"));
     }
 
     #[test]
