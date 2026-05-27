@@ -153,8 +153,8 @@ pub fn standard_entries() -> Vec<PaletteEntry> {
         PaletteEntry::minimal("app.quit", "Quit", Category::System)
             .with_description("Exit the application")
             .with_key("ctrl+q"),
-        PaletteEntry::minimal("app.reload", "Reload", Category::System)
-            .with_description("Reload the window")
+        PaletteEntry::minimal("app.refresh", "Refresh Current View", Category::System)
+            .with_description("Refresh the current view")
             .with_key("ctrl+r"),
         PaletteEntry::minimal("app.settings", "Settings", Category::System)
             .with_description("Open settings")
@@ -182,6 +182,19 @@ mod tests {
 
         assert_eq!(command_search.name, "Command Search");
         assert_eq!(command_search.description, "Search available commands");
+    }
+
+    #[test]
+    fn test_standard_entries_match_refresh_binding() {
+        let entries = standard_entries();
+        let refresh = entries
+            .iter()
+            .find(|entry| entry.command_id == "app.refresh")
+            .expect("standard entries should include refresh");
+
+        assert_eq!(refresh.name, "Refresh Current View");
+        assert_eq!(refresh.description, "Refresh the current view");
+        assert_eq!(refresh.key, "ctrl+r");
     }
 
     #[test]
