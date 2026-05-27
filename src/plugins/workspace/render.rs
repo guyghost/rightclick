@@ -314,7 +314,7 @@ fn output_empty_message(state: &PluginState) -> &'static str {
     if state.worktrees.is_empty() {
         "No output yet\n\nn: Create worktree\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
     } else if state.selected_worktree().is_none() {
-        "No output selected\n\nj/k: Navigate worktrees\nEnter/o: Open worktree\nTab/Shift+Tab: Switch pane\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
+        "No worktree selected\n\nj/k: Navigate worktrees\nEnter/o: Open worktree\nTab/Shift+Tab: Switch pane\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
     } else {
         "No output yet\n\na: Launch agent\nEnter/o: Open interactive shell\nT: Link task\nr: Refresh worktrees\n/: Global search  |  : Command search\n?: Toggle help"
     }
@@ -1120,7 +1120,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("No output selected"));
+        assert!(content.contains("No worktree selected"));
+        assert!(!content.contains("No output selected"));
         assert!(content.contains("j/k: Navigate worktrees"));
         assert!(content.contains("Enter/o: Open worktree"));
         assert!(content.contains("Tab/Shift+Tab: Switch pane"));
