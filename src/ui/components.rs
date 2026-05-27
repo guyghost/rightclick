@@ -5,6 +5,7 @@
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_ui_element};
+use crate::ui::text::truncate_display;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Modifier;
@@ -487,33 +488,6 @@ fn header_title_parts(
         title.to_string(),
         subtitle.map(|value| truncate_display(value, subtitle_width)),
     )
-}
-
-fn truncate_display(value: &str, max_width: usize) -> String {
-    if max_width == 0 {
-        return String::new();
-    }
-
-    if UnicodeWidthStr::width(value) <= max_width {
-        return value.to_string();
-    }
-
-    if max_width <= 3 {
-        return ".".repeat(max_width);
-    }
-
-    let mut output = String::new();
-    let mut width = 0;
-    for ch in value.chars() {
-        let ch_width = UnicodeWidthStr::width(ch.to_string().as_str());
-        if width + ch_width + 3 > max_width {
-            break;
-        }
-        output.push(ch);
-        width += ch_width;
-    }
-    output.push_str("...");
-    output
 }
 
 fn visible_tab_window(tabs: &[String], active: usize, max_width: usize) -> (Vec<String>, usize) {

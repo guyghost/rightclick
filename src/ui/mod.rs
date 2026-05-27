@@ -39,6 +39,7 @@ pub mod progress;
 mod scroll;
 mod selection;
 mod spinner;
+mod text;
 pub mod text_input;
 
 pub use components::{Footer, Header, KeyHint};
@@ -53,4 +54,5 @@ pub use progress::ProgressBar;
 pub use scroll::ScrollState;
 pub use selection::Selection;
 pub use spinner::Spinner;
+pub use text::truncate_display;
 pub use text_input::TextInputWidget;

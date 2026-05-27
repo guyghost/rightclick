@@ -10,12 +10,11 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Widget},
 };
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 use crate::core::models::{ChangeType, Diff, FileChange, FileDiff, FileStatus};
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::compact_global_hint_lines;
+use crate::ui::{compact_global_hint_lines, truncate_display};
 
 use super::state::{FocusPane, PluginState, ViewMode};
 
@@ -1538,33 +1537,6 @@ fn git_empty_message(mut lines: Vec<String>, width: u16) -> String {
 #[cfg(test)]
 fn git_search_hint(width: u16) -> Option<&'static str> {
     crate::ui::compact_global_search_hint(width)
-}
-
-fn truncate_display(text: &str, max_width: usize) -> String {
-    if max_width == 0 {
-        return String::new();
-    }
-
-    if text.width() <= max_width {
-        return text.to_string();
-    }
-
-    if max_width <= 3 {
-        return ".".repeat(max_width);
-    }
-
-    let mut output = String::new();
-    let mut width = 0;
-    for ch in text.chars() {
-        let ch_width = ch.width().unwrap_or(0);
-        if width + ch_width + 3 > max_width {
-            break;
-        }
-        output.push(ch);
-        width += ch_width;
-    }
-    output.push_str("...");
-    output
 }
 
 #[cfg(test)]

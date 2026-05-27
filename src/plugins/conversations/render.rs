@@ -9,7 +9,7 @@ use crate::plugins::conversations::state::SessionInfo;
 use crate::plugins::conversations::state::{ConversationView, PluginState};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
-use crate::ui::{GLOBAL_SEARCH_HINT, compact_global_hint_lines};
+use crate::ui::{GLOBAL_SEARCH_HINT, compact_global_hint_lines, truncate_display};
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -787,32 +787,9 @@ fn format_time(dt: &DateTime<chrono::Utc>) -> String {
     local.format("%H:%M:%S").to_string()
 }
 
-/// Truncate a string to a maximum length
+/// Truncate a string to a maximum display width.
 fn truncate_string(s: &str, max_len: usize) -> String {
-    if max_len == 0 {
-        return String::new();
-    }
-
-    if s.width() <= max_len {
-        return s.to_string();
-    }
-
-    if max_len <= 3 {
-        return ".".repeat(max_len);
-    }
-
-    let mut output = String::new();
-    let mut width = 0;
-    for ch in s.chars() {
-        let ch_width = ch.to_string().width();
-        if width + ch_width + 3 > max_len {
-            break;
-        }
-        output.push(ch);
-        width += ch_width;
-    }
-    output.push_str("...");
-    output
+    truncate_display(s, max_len)
 }
 
 /// Wrap text to a maximum width
