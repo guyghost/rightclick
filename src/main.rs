@@ -604,7 +604,9 @@ impl App {
                 let name_score = fuzzy_match_simple(&command.name, query).unwrap_or(0);
                 let desc_score = fuzzy_match_simple(&command.description, query).unwrap_or(0);
                 let id_score = fuzzy_match_simple(&command.id, query).unwrap_or(0);
-                let score = name_score.max(desc_score).max(id_score);
+                let title = format!("{}: {}", plugin.name(), command.name);
+                let title_score = fuzzy_match_simple(&title, query).unwrap_or(0);
+                let score = name_score.max(desc_score).max(id_score).max(title_score);
                 if score == 0 {
                     continue;
                 }
@@ -613,7 +615,7 @@ impl App {
                     kind: SearchResultKind::Command {
                         id: format!("{}:{}", plugin.id(), command.id),
                     },
-                    title: format!("{}: {}", plugin.name(), command.name),
+                    title,
                     preview: format_command_search_preview(&command),
                     score,
                 });
@@ -1740,6 +1742,35 @@ mod tests {
             &results[0].kind,
             rightclick::search::SearchResultKind::PluginEntry { plugin_id, entry_id }
                 if plugin_id == "conversations" && entry_id == "session-1"
+        ));
+    }
+
+    #[test]
+    fn test_search_plugin_commands_matches_visible_plugin_title() {
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let commands = vec![rightclick::plugin::PluginCommand::with_context_description(
+            "refresh",
+            "Refresh Data",
+            "Reload current plugin data",
+            'r',
+            rightclick::keymap::FocusContext::Global,
+        )];
+        let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![Box::new(RecordingPlugin {
+            id: "target",
+            name: "Target",
+            commands,
+            events,
+            focused: false,
+        })];
+        let app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+
+        let results = app.search_plugin_commands("target refresh", 10);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Target: Refresh Data");
+        assert!(matches!(
+            &results[0].kind,
+            rightclick::search::SearchResultKind::Command { id } if id == "target:refresh"
         ));
     }
 
