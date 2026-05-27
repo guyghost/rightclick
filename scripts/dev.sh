@@ -453,19 +453,6 @@ case "$cmd" in
       fi
     }
 
-    optional_td_workspace() {
-      if ! command -v td >/dev/null 2>&1; then
-        return
-      fi
-
-      if td usage -q -w "$repo_root" >/dev/null 2>&1; then
-        printf 'ok   td workspace\n'
-      else
-        printf 'setup td workspace (optional; run td init in %s to enable task tracking)\n' "$repo_root"
-        optional_setup+=("cd $quoted_repo_root && td init")
-      fi
-    }
-
     version_ge() {
       local current="$1"
       local required="$2"
@@ -495,8 +482,6 @@ case "$cmd" in
     require_cmd git
     require_cmd rg
     optional_cmd_hint tmux "needed for embedded terminal sessions; install with brew install tmux" "brew install tmux"
-    optional_cmd_hint td "enables task tracking workflows; run td init in this checkout after installing" "install td, then cd $quoted_repo_root && td init"
-    optional_td_workspace
     optional_cmd_hint just "enables shorter justfile commands; install with brew install just or cargo install just" "brew install just"
 
     if command -v cargo >/dev/null 2>&1; then

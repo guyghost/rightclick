@@ -75,23 +75,14 @@ fi
 }
 
 #[test]
-fn dev_script_doctor_explains_uninitialized_td_workspace() {
+fn dev_script_doctor_does_not_require_td() {
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
 
     let temp_dir = tempfile::Builder::new()
-        .prefix("rightclick-doctor-td-")
+        .prefix("rightclick-doctor-no-td-")
         .tempdir()
         .expect("temp dir should be created");
-
-    let fake_td = temp_dir.path().join("td");
-    fs::write(
-        &fake_td,
-        "#!/usr/bin/env bash\nprintf 'database not found\\n' >&2\nexit 1\n",
-    )
-    .expect("fake td should be written");
-    fs::set_permissions(&fake_td, fs::Permissions::from_mode(0o755))
-        .expect("fake td should be executable");
 
     for (name, body) in [
         ("cargo", "#!/usr/bin/env bash\nprintf 'cargo 1.85.0\\n'\n"),
@@ -103,11 +94,15 @@ fn dev_script_doctor_explains_uninitialized_td_workspace() {
         ("cargo-clippy", "#!/usr/bin/env bash\nexit 0\n"),
         ("git", "#!/usr/bin/env bash\nexit 0\n"),
         ("rg", "#!/usr/bin/env bash\nexit 0\n"),
+        (
+            "td",
+            "#!/usr/bin/env bash\nprintf 'database not found\\n' >&2\nexit 1\n",
+        ),
     ] {
         let fake_tool = temp_dir.path().join(name);
-        fs::write(&fake_tool, body).expect("fake required tool should be written");
+        fs::write(&fake_tool, body).expect("fake tool should be written");
         fs::set_permissions(&fake_tool, fs::Permissions::from_mode(0o755))
-            .expect("fake required tool should be executable");
+            .expect("fake tool should be executable");
     }
 
     let path = format!(
@@ -123,26 +118,22 @@ fn dev_script_doctor_explains_uninitialized_td_workspace() {
 
     assert!(
         output.status.success(),
-        "doctor should not fail for optional td workspace setup: {}",
+        "doctor should not fail when td is uninitialized: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("ok   td"),
-        "doctor should detect the td executable"
+        !stdout.contains("td init"),
+        "doctor should not suggest td workspace setup"
     );
     assert!(
-        stdout.contains("setup td workspace (optional; run td init in "),
-        "doctor should explain that the td workspace still needs setup"
+        !stdout.contains("setup td workspace"),
+        "doctor should not mention td workspace setup"
     );
     assert!(
-        stdout.contains("Optional setup:"),
-        "doctor should include a follow-up setup section"
-    );
-    assert!(
-        stdout.contains("&& td init"),
-        "doctor should print the exact td init follow-up command"
+        !stdout.contains("ok   td"),
+        "doctor should not report td as a developer prerequisite"
     );
 }
 

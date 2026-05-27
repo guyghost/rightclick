@@ -1,14 +1,5 @@
 # RightClick - Agent Context
 
-## MANDATORY: Use td for Task Management
-
-You must run td usage --new-session at conversation start (or after /clear) to see current work.
-Use td usage -q for subsequent reads.
-If td reports that the database is missing, do not run td init automatically.
-Report that task tracking is not initialized for this checkout and continue with
-the repository state as the source of truth unless the user explicitly asks to
-initialize td.
-
 RightClick is a TUI dashboard for AI coding agents. This document provides context for AI agents working on the codebase.
 
 ## Architecture: Functional Core & Imperative Shell

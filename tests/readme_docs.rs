@@ -99,14 +99,14 @@ fn developer_commands_explain_quick_warning_policy() {
 }
 
 #[test]
-fn developer_commands_explain_td_workspace_setup() {
+fn developer_commands_do_not_require_td() {
     assert!(
-        README.contains("`doctor` prints `setup td workspace`"),
-        "README should document the doctor output for an uninitialized td workspace"
+        !README.contains("td init"),
+        "README developer commands should not require td workspace setup"
     );
     assert!(
-        README.contains("repo path where\n`td init` should be run"),
-        "README should explain how to finish optional td setup"
+        !README.contains("setup td workspace"),
+        "README developer commands should not document td workspace setup"
     );
 }
 
