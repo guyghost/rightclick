@@ -1416,6 +1416,15 @@ mod tests {
     }
 
     #[test]
+    fn test_build_footer_hints_surfaces_workers_refresh() {
+        let plugin = workers::WorkersPlugin::new();
+        let commands = <workers::WorkersPlugin as Plugin>::commands(&plugin);
+        let hints = build_footer_hints(plugin.id(), &commands);
+
+        assert!(hints.contains(&("f".to_string(), "Refresh Intents".to_string())));
+    }
+
+    #[test]
     fn test_build_footer_hints_omits_ctrl_tab_when_tab_switches_plugins() {
         let hints = build_footer_hints("conversations", &[]);
         assert_eq!(hints[0], ("Tab".to_string(), "Switch".to_string()));

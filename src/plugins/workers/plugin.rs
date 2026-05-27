@@ -1156,7 +1156,8 @@ impl Plugin for WorkersPlugin {
                 "Reload intents from disk",
                 'f',
                 crate::keymap::FocusContext::Workspace,
-            ),
+            )
+            .with_footer_priority(5),
         ]
     }
 
@@ -1295,7 +1296,13 @@ mod tests {
             .collect();
         assert_eq!(
             prioritized,
-            vec![("create", 1), ("run", 4), ("stop", 2), ("open", 3)]
+            vec![
+                ("create", 1),
+                ("run", 4),
+                ("stop", 2),
+                ("open", 3),
+                ("refresh", 5)
+            ]
         );
     }
 
