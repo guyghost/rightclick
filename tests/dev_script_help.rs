@@ -26,6 +26,10 @@ fn dev_script_help_explains_test_many() {
         stdout.contains("test-list only accepts filters; pass cargo test args to test-one or test-many\nafter --."),
         "dev script help should explain where cargo test args are supported"
     );
+    assert!(
+        stdout.contains("test-one and test-many print validate test filter before running Cargo"),
+        "dev script help should explain the filter validation progress line"
+    );
 }
 
 #[test]

@@ -53,6 +53,8 @@ test-list only accepts filters; pass cargo test args to test-one or test-many
 after --.
 Use test-many when you want to check several filters in one command; cargo test
 itself accepts only one substring filter per invocation.
+test-one and test-many print validate test filter before running Cargo so long
+filter checks are visible.
 
 If you use just:
   just help
