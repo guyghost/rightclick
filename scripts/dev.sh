@@ -150,8 +150,21 @@ print_unknown_command() {
   print_help >&2
 }
 
+print_command() {
+  local arg quoted
+  local separator=""
+
+  for arg in "$@"; do
+    printf -v quoted '%q' "$arg"
+    printf '%s%s' "$separator" "$quoted"
+    separator=" "
+  done
+}
+
 run_step() {
-  printf '\n==> %s\n' "$*" >&2
+  printf '\n==> ' >&2
+  print_command "$@" >&2
+  printf '\n' >&2
   "$@"
 }
 

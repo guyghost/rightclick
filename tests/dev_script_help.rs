@@ -454,3 +454,30 @@ fn dev_script_test_one_reports_filter_validation_before_running() {
         "dev script should still report the actual cargo test command"
     );
 }
+
+#[test]
+fn dev_script_run_step_shell_quotes_spaced_args() {
+    let output = Command::new("bash")
+        .args([
+            "scripts/dev.sh",
+            "test-one",
+            "dev_script_help_explains_test_many",
+            "--",
+            "--skip",
+            "no matching skipped test",
+        ])
+        .output()
+        .expect("dev script test-one should run");
+
+    assert!(
+        output.status.success(),
+        "test-one should pass for a known filter: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("==> cargo test dev_script_help_explains_test_many -- --skip no\\ matching\\ skipped\\ test"),
+        "dev script should quote spaced args in progress output: {stderr}"
+    );
+}
