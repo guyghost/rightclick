@@ -1275,7 +1275,7 @@ pub fn render_status_info(state: &PluginState) -> String {
     let mut parts = Vec::new();
 
     if state.branch.is_empty() && state.files.is_empty() && state.commits.is_empty() {
-        return "No repository data loaded | r: Refresh git status | /: Global search  |  : Command search | ?: Toggle help"
+        return "Git status not loaded yet | r: Refresh git status | /: Global search  |  : Command search | ?: Toggle help"
             .to_string();
     }
 
@@ -1329,7 +1329,7 @@ pub fn render_status_info(state: &PluginState) -> String {
 
 fn git_changes_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
-        "No repository data loaded\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        "Git status not loaded yet\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     } else {
         "Working tree clean\n\nB: Branches\nH: History\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     }
@@ -1337,7 +1337,7 @@ fn git_changes_empty_message(state: &PluginState) -> &'static str {
 
 fn git_diff_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
-        "No repository data loaded\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        "Git status not loaded yet\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     } else if state.files.is_empty() {
         "Working tree clean\n\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     } else {
@@ -1354,7 +1354,7 @@ fn git_file_no_diff_message(file: &FileChange) -> String {
 
 fn git_sidebar_empty_message(state: &PluginState) -> &'static str {
     if state.branch.is_empty() {
-        "No repository data loaded\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
+        "Git status not loaded yet\n\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     } else {
         "Working tree clean\n\nB: Branches\nH: History\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help"
     }
@@ -1625,8 +1625,9 @@ mod tests {
 
         assert_eq!(
             info,
-            "No repository data loaded | r: Refresh git status | /: Global search  |  : Command search | ?: Toggle help"
+            "Git status not loaded yet | r: Refresh git status | /: Global search  |  : Command search | ?: Toggle help"
         );
+        assert!(!info.contains("No repository data loaded"));
     }
 
     #[test]
@@ -1755,11 +1756,12 @@ mod tests {
         let state = PluginState::new();
         let message = git_changes_empty_message(&state);
 
-        assert!(message.contains("No repository data loaded"));
+        assert!(message.contains("Git status not loaded yet"));
         assert!(message.contains("r: Refresh git status"));
         assert!(message.contains("/: Global search"));
         assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
+        assert!(!message.contains("No repository data loaded"));
     }
 
     #[test]
@@ -1782,12 +1784,13 @@ mod tests {
         let state = PluginState::new();
         let message = git_diff_empty_message(&state);
 
-        assert!(message.contains("No repository data loaded"));
+        assert!(message.contains("Git status not loaded yet"));
         assert!(message.contains("r: Refresh git status"));
         assert!(message.contains("/: Global search"));
         assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(!message.contains("Working tree clean"));
+        assert!(!message.contains("No repository data loaded"));
     }
 
     #[test]
@@ -1888,11 +1891,12 @@ mod tests {
     fn test_git_sidebar_empty_message_points_to_next_actions() {
         let state = PluginState::new();
         let unloaded = git_sidebar_empty_message(&state);
-        assert!(unloaded.contains("No repository data loaded"));
+        assert!(unloaded.contains("Git status not loaded yet"));
         assert!(unloaded.contains("r: Refresh git status"));
         assert!(unloaded.contains("/: Global search"));
         assert!(unloaded.contains(": Command search"));
         assert!(unloaded.contains("?: Toggle help"));
+        assert!(!unloaded.contains("No repository data loaded"));
 
         let mut clean_state = PluginState::new();
         clean_state.branch = "main".to_string();
