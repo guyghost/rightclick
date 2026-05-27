@@ -51,7 +51,7 @@ bash scripts/dev.sh pre-push      # full local verification before pushing
 bash scripts/dev.sh doctor        # check required and optional local tools
 bash scripts/dev.sh rust-version  # print the required Rust version
 bash scripts/dev.sh check         # diff check, fmt check, clippy with warnings denied, and tests
-bash scripts/dev.sh quick         # diff check, fmt check, and clippy without tests
+bash scripts/dev.sh quick         # diff check, fmt check, and clippy with warnings denied, without tests
 bash scripts/dev.sh script-check  # validate shell helper and justfile syntax when available
 bash scripts/dev.sh diff-check    # git whitespace checks for staged and unstaged changes
 bash scripts/dev.sh fmt-check

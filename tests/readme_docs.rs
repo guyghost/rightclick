@@ -83,6 +83,16 @@ fn developer_commands_include_diff_check() {
 }
 
 #[test]
+fn developer_commands_explain_quick_warning_policy() {
+    assert!(
+        README.contains(
+            "bash scripts/dev.sh quick         # diff check, fmt check, and clippy with warnings denied, without tests"
+        ),
+        "README quick command should explain that clippy still denies warnings"
+    );
+}
+
+#[test]
 fn developer_commands_explain_td_workspace_setup() {
     assert!(
         README.contains("`doctor` prints `setup td workspace`"),
