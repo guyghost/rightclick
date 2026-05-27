@@ -124,8 +124,12 @@ fn developer_commands_explain_test_many() {
         "README should explain unfiltered test-list count feedback"
     );
     assert!(
-        README.contains("When passed multiple\nfilters, `test-list` reuses one test list"),
-        "README should explain batched test-list filtering"
+        README.contains("Filtered `test-list`,\n`test-one`, and `test-many` reuse one unfiltered Cargo test list"),
+        "README should explain that filtered test commands use one unfiltered list"
+    );
+    assert!(
+        README.contains("so broad filters avoid Cargo's slower filtered `--list` path"),
+        "README should explain why filtered commands avoid Cargo's filtered list path"
     );
     assert!(
         README.contains("then report `Matched N tests for filter: ...`"),

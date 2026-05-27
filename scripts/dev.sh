@@ -55,8 +55,8 @@ Use test-many when you want to check several filters in one command; cargo test
 itself accepts only one substring filter per invocation.
 test-list reports "Listed N tests." for the full list and
 "Listed N tests for filter: ..." for filtered lists.
-When passed multiple filters, test-list reuses one test list and prints matching
-test lines for each filter.
+Filtered test-list, test-one, and test-many reuse one unfiltered Cargo test list
+for validation so broad filters do not pay Cargo's slower filtered --list path.
 test-one and test-many print a "validate test filter" step before running Cargo
 and then report "Matched N tests for filter: ..." so long filter checks are
 visible and confirm the filter scope before the test run starts. test-many
@@ -252,31 +252,6 @@ ensure_test_filter_arg() {
   fi
 }
 
-ensure_test_filter_matches() {
-  local filter="$1"
-  local output
-  local matches
-
-  printf '\n==> validate test filter %s\n' "$filter" >&2
-  if ! output="$(cargo test "$filter" -- --list 2>&1)"; then
-    printf '%s\n' "$output" >&2
-    exit 1
-  fi
-
-  matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
-  if [ "$matches" -eq 0 ]; then
-    echo "No tests matched filter: $filter" >&2
-    print_test_filter_hint "$filter"
-    exit 2
-  fi
-
-  if [ "$matches" -eq 1 ]; then
-    echo "Matched 1 test for filter: $filter" >&2
-  else
-    echo "Matched $matches tests for filter: $filter" >&2
-  fi
-}
-
 test_filter_match_count() {
   local output="$1"
   local filter="$2"
@@ -322,32 +297,6 @@ ensure_test_filters_match() {
       echo "Matched $matches tests for filter: $filter" >&2
     fi
   done
-}
-
-list_tests_for_filter() {
-  local filter="$1"
-  local output
-  local matches
-
-  printf '\n==> cargo test %s -- --list\n' "$filter" >&2
-  if ! output="$(cargo test "$filter" -- --list 2>&1)"; then
-    printf '%s\n' "$output" >&2
-    exit 1
-  fi
-
-  matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
-  if [ "$matches" -eq 0 ]; then
-    echo "No tests matched filter: $filter" >&2
-    print_test_filter_hint "$filter"
-    exit 2
-  fi
-
-  if [ "$matches" -eq 1 ]; then
-    echo "Listed 1 test for filter: $filter" >&2
-  else
-    echo "Listed $matches tests for filter: $filter" >&2
-  fi
-  printf '%s\n' "$output"
 }
 
 list_tests_for_filters() {
@@ -570,11 +519,7 @@ case "$cmd" in
       for filter in "$@"; do
         ensure_test_filter_arg "test-list" "[<test-filter>...]" "$filter"
       done
-      if [ "$#" -eq 1 ]; then
-        list_tests_for_filter "$1"
-      else
-        list_tests_for_filters "$@"
-      fi
+      list_tests_for_filters "$@"
     fi
     ;;
   test-one)
@@ -585,7 +530,7 @@ case "$cmd" in
       exit 2
     fi
     ensure_test_filter_arg "test-one" "<test-filter> [-- <cargo-test-args>]" "$1"
-    ensure_test_filter_matches "$1"
+    ensure_test_filters_match "$1"
     run_step cargo test "$@"
     ;;
   test-many)

@@ -3,19 +3,13 @@ use std::process::Command;
 fn run_dev_script_with_fake_cargo(args: &[&str]) -> std::process::Output {
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
-    let unique = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system time should be after unix epoch")
-        .as_nanos();
-    let temp_dir = std::env::temp_dir().join(format!(
-        "rightclick-fake-cargo-{}-{unique}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&temp_dir).expect("temp dir should be created");
+    let temp_dir = tempfile::Builder::new()
+        .prefix("rightclick-fake-cargo-")
+        .tempdir()
+        .expect("temp dir should be created");
 
-    let fake_cargo = temp_dir.join("cargo");
+    let fake_cargo = temp_dir.path().join("cargo");
     fs::write(
         &fake_cargo,
         r#"#!/usr/bin/env bash
@@ -57,37 +51,28 @@ fi
 
     let path = format!(
         "{}:{}",
-        temp_dir.display(),
+        temp_dir.path().display(),
         std::env::var("PATH").expect("PATH should be set")
     );
-    let output = Command::new("bash")
+    Command::new("bash")
         .arg("scripts/dev.sh")
         .args(args)
         .env("PATH", path)
         .output()
-        .expect("dev script should run");
-
-    fs::remove_dir_all(&temp_dir).expect("temp dir should be removed");
-    output
+        .expect("dev script should run")
 }
 
 #[test]
 fn dev_script_doctor_explains_uninitialized_td_workspace() {
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
-    let unique = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system time should be after unix epoch")
-        .as_nanos();
-    let temp_dir = std::env::temp_dir().join(format!(
-        "rightclick-doctor-td-{}-{unique}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&temp_dir).expect("temp dir should be created");
+    let temp_dir = tempfile::Builder::new()
+        .prefix("rightclick-doctor-td-")
+        .tempdir()
+        .expect("temp dir should be created");
 
-    let fake_td = temp_dir.join("td");
+    let fake_td = temp_dir.path().join("td");
     fs::write(
         &fake_td,
         "#!/usr/bin/env bash\nprintf 'database not found\\n' >&2\nexit 1\n",
@@ -98,7 +83,7 @@ fn dev_script_doctor_explains_uninitialized_td_workspace() {
 
     let path = format!(
         "{}:{}",
-        temp_dir.display(),
+        temp_dir.path().display(),
         std::env::var("PATH").expect("PATH should be set")
     );
     let output = Command::new("bash")
@@ -106,8 +91,6 @@ fn dev_script_doctor_explains_uninitialized_td_workspace() {
         .env("PATH", path)
         .output()
         .expect("dev script doctor should run");
-
-    fs::remove_dir_all(&temp_dir).expect("temp dir should be removed");
 
     assert!(
         output.status.success(),
@@ -162,6 +145,12 @@ fn dev_script_help_explains_test_many() {
     );
     assert!(
         stdout.contains(
+            "Filtered test-list, test-one, and test-many reuse one unfiltered Cargo test list"
+        ),
+        "dev script help should explain the faster filtered list path"
+    );
+    assert!(
+        stdout.contains(
             "test-one and test-many print a \"validate test filter\" step before running Cargo"
         ),
         "dev script help should explain the filter validation progress line"
@@ -179,8 +168,8 @@ fn dev_script_help_explains_test_many() {
         "dev script help should explain unfiltered test-list count feedback"
     );
     assert!(
-        stdout.contains("When passed multiple filters, test-list reuses one test list"),
-        "dev script help should explain batched test-list filtering"
+        stdout.contains("so broad filters do not pay Cargo's slower filtered --list path"),
+        "dev script help should explain why filtered commands use the unfiltered list"
     );
 }
 
@@ -196,6 +185,11 @@ fn dev_script_test_list_reports_filter_match_count() {
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("==> cargo test -- --list").count(),
+        1,
+        "test-list should use the unfiltered test list for a single filter: {stderr}"
+    );
     assert!(
         stderr.contains("Listed 1 test for filter: dev_script_help_explains_test_many"),
         "test-list should report how many tests matched the filter"
@@ -582,6 +576,11 @@ fn dev_script_test_one_reports_filter_validation_before_running() {
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("==> cargo test -- --list").count(),
+        1,
+        "test-one should validate from the unfiltered test list: {stderr}"
+    );
     assert!(
         stderr.contains("==> validate test filter dev_script_help_explains_test_many"),
         "dev script should report the filter validation step"
