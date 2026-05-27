@@ -221,7 +221,7 @@ impl Plugin for FileBrowserPlugin {
             .with_footer_priority(5),
             PluginCommand::with_context_description(
                 "refresh",
-                "Refresh files",
+                "Refresh Files",
                 "Reload the file tree",
                 'r',
                 crate::keymap::FocusContext::FileBrowserTree,
@@ -1577,7 +1577,7 @@ mod tests {
             ("delete", 'd', "Delete"),
             ("rename", 'R', "Rename"),
             ("filter", 'f', "Filter"),
-            ("refresh", 'r', "Refresh files"),
+            ("refresh", 'r', "Refresh Files"),
             ("toggle_ignored", 'i', "Toggle Ignored"),
             ("toggle_hidden", 'H', "Toggle Hidden"),
             ("file_info", 'I', "File Info"),
@@ -1638,6 +1638,20 @@ mod tests {
         assert_eq!(execution.command_name, "Filter");
         assert!(plugin.state.modal_active);
         assert_eq!(plugin.state.active_modal, Some(FileOperationModal::Filter));
+    }
+
+    #[test]
+    fn test_file_browser_execute_refresh_command_uses_declared_shortcut() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+
+        let execution = plugin
+            .execute_command("refresh")
+            .expect("refresh command should execute");
+
+        assert_eq!(execution.command_name, "Refresh Files");
+        assert!(execution.emitted_commands.is_empty());
+        assert!(!plugin.state.modal_active);
     }
 
     #[test]
