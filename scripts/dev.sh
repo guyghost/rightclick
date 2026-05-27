@@ -177,6 +177,7 @@ case "$cmd" in
   doctor)
     missing_required=0
     optional_setup=()
+    printf -v quoted_repo_root '%q' "$repo_root"
     printf 'RightClick doctor\n'
     printf 'repo %s\n' "$repo_root"
 
@@ -209,7 +210,7 @@ case "$cmd" in
         printf 'ok   td workspace\n'
       else
         printf 'skip td workspace (optional; run td init in %s to enable task tracking)\n' "$repo_root"
-        optional_setup+=("td init")
+        optional_setup+=("cd $quoted_repo_root && td init")
       fi
     }
 
@@ -242,7 +243,7 @@ case "$cmd" in
     require_cmd git
     require_cmd rg
     optional_cmd_hint tmux "needed for embedded terminal sessions; install with brew install tmux" "brew install tmux"
-    optional_cmd_hint td "enables task tracking workflows; run td init in this checkout after installing" "install td, then run td init"
+    optional_cmd_hint td "enables task tracking workflows; run td init in this checkout after installing" "install td, then cd $quoted_repo_root && td init"
     optional_td_workspace
     optional_cmd_hint just "enables shorter justfile commands; install with brew install just or cargo install just" "brew install just"
 
