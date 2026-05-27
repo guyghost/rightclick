@@ -498,19 +498,24 @@ fn full_scope_tabs_width(result_count: usize) -> usize {
 fn compact_scope_tabs_text(scope: SearchScope, result_count: usize, width: u16) -> String {
     let width = width as usize;
     let count = result_count_label(result_count);
+    let compact_count = compact_result_count_label(result_count);
     let label = scope.label();
     let short_label = compact_scope_label(scope);
 
-    [
+    let mut candidates = vec![
         format!("Scope: {label} | {count}"),
         format!("{label} | {count}"),
         format!("Scope: {label}"),
-        label.to_string(),
-        short_label.to_string(),
-    ]
-    .into_iter()
-    .find(|text| text.width() <= width)
-    .unwrap_or_default()
+    ];
+    if result_count > 0 {
+        candidates.push(format!("{short_label} | {compact_count}"));
+    }
+    candidates.extend([label.to_string(), short_label.to_string()]);
+
+    candidates
+        .into_iter()
+        .find(|text| text.width() <= width)
+        .unwrap_or_default()
 }
 
 fn compact_scope_label(scope: SearchScope) -> &'static str {
@@ -520,6 +525,10 @@ fn compact_scope_label(scope: SearchScope) -> &'static str {
         SearchScope::Items => "Proj",
         SearchScope::Commands => "Cmd",
     }
+}
+
+fn compact_result_count_label(count: usize) -> String {
+    count.to_string()
 }
 
 fn render_results(
@@ -1257,6 +1266,39 @@ mod tests {
     }
 
     #[test]
+    fn test_compact_scope_tabs_preserve_result_count_when_narrow() {
+        assert_eq!(
+            compact_scope_tabs_text(SearchScope::Commands, 2, 8),
+            "Cmd | 2"
+        );
+        assert_eq!(
+            compact_scope_tabs_text(SearchScope::Files, 12, 9),
+            "File | 12"
+        );
+        assert_eq!(compact_scope_tabs_text(SearchScope::Commands, 2, 6), "Cmd");
+    }
+
+    #[test]
+    fn test_compact_scope_tabs_never_exceed_width() {
+        for scope in [
+            SearchScope::All,
+            SearchScope::Files,
+            SearchScope::Items,
+            SearchScope::Commands,
+        ] {
+            for count in [0, 1, 12, 123] {
+                for width in 0..=60 {
+                    let text = compact_scope_tabs_text(scope, count, width);
+                    assert!(
+                        text.width() <= width as usize,
+                        "scope text {text:?} exceeded width {width}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_render_scope_tabs_compacts_when_narrow() {
         let mut state = SearchOverlayState::new();
         state.open_with_scope(SearchScope::Commands);
@@ -1270,6 +1312,22 @@ mod tests {
             .collect();
         assert!(content.contains("Commands"));
         assert!(!content.contains("All"));
+    }
+
+    #[test]
+    fn test_render_scope_tabs_preserves_count_when_narrow() {
+        let mut state = SearchOverlayState::new();
+        state.open_with_scope(SearchScope::Commands);
+        state.set_results((0..2).map(command_result).collect());
+        let area = Rect::new(0, 0, 8, 1);
+        let mut buf = Buffer::empty(area);
+
+        render_scope_tabs(&state, area, &mut buf, Color::Blue, Color::DarkGray);
+
+        let content: String = (0..area.width)
+            .map(|x| buf.cell((x, 0)).unwrap().symbol().to_string())
+            .collect();
+        assert!(content.contains("Cmd | 2"));
     }
 
     #[test]
