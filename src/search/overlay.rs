@@ -680,7 +680,7 @@ fn search_input_placeholder(scope: SearchScope) -> &'static str {
         SearchScope::All => "Search files, commands, project items...",
         SearchScope::Files => "Search file contents...",
         SearchScope::Items => "Search sessions, worktrees, and intents...",
-        SearchScope::Commands => "Search commands...",
+        SearchScope::Commands => "Search commands by plugin or action...",
     }
 }
 
@@ -713,7 +713,7 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
         SearchScope::All => "Search everything: files, commands, sessions, worktrees, intents",
         SearchScope::Files => "Search file contents with ripgrep",
         SearchScope::Items => "Search project sessions, worktrees, and intents",
-        SearchScope::Commands => "Search available commands",
+        SearchScope::Commands => "Search commands by plugin name or action",
     }
 }
 
@@ -723,7 +723,7 @@ fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
         SearchScope::All => format!("No results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
         SearchScope::Items => format!("No project items match \"{}\"", query),
-        SearchScope::Commands => format!("No command matches \"{}\"", query),
+        SearchScope::Commands => format!("No command or plugin matches \"{}\"", query),
     };
 
     format!("{}\n\n{}", message, search_empty_action_hint(width))
@@ -1233,7 +1233,7 @@ mod tests {
         );
         assert_eq!(
             search_input_placeholder(SearchScope::Commands),
-            "Search commands..."
+            "Search commands by plugin or action..."
         );
     }
 
@@ -1327,7 +1327,7 @@ mod tests {
         );
         assert_eq!(
             empty_query_hint(SearchScope::Commands),
-            "Search available commands"
+            "Search commands by plugin name or action"
         );
     }
 
@@ -1355,7 +1355,7 @@ mod tests {
     fn test_no_results_message_uses_compact_hint_when_narrow() {
         let message = no_results_message("deploy", SearchScope::Commands, 14);
 
-        assert!(message.contains("No command matches \"deploy\""));
+        assert!(message.contains("No command or plugin matches \"deploy\""));
         assert!(message.contains("Ctrl+U/Tab/Esc"));
         assert!(!message.contains(SEARCH_EMPTY_ACTION_HINT));
     }
@@ -1532,7 +1532,7 @@ mod tests {
             .collect();
         assert!(content.contains("Command Search"));
         assert!(content.contains(":"));
-        assert!(content.contains("Search commands"));
+        assert!(content.contains("Search commands by plugin or action"));
         assert!(!content.contains("Search files, commands, project items"));
     }
 
