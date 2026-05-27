@@ -1397,7 +1397,7 @@ fn file_preview_empty_message(state: &PluginState) -> String {
         "No file to preview yet\n\na: New file\nA: New directory\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     } else if state.visible_indices().is_empty() {
-        "No preview available\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
+        "No visible file to preview\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     } else {
         "No preview selected\n\nj/k: Navigate files\nEnter/Space: Expand directory\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
@@ -1860,7 +1860,7 @@ mod tests {
 
         let message = file_preview_empty_message(&state);
 
-        assert!(message.contains("No preview available"));
+        assert!(message.contains("No visible file to preview"));
         assert!(message.contains("H: Toggle hidden"));
         assert!(message.contains("i: Toggle ignored"));
         assert!(message.contains("f: Filter files"));
@@ -1868,6 +1868,7 @@ mod tests {
         assert!(message.contains("/: Global search"));
         assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
+        assert!(!message.contains("No preview available"));
     }
 
     #[test]
