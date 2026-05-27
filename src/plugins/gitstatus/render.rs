@@ -982,11 +982,11 @@ fn render_branch_details(
         }
         lines.push(Line::raw(""));
         lines.push(Line::styled("Shortcuts:", muted_style));
-        lines.push(Line::styled("  Enter  Checkout branch", text_style));
-        lines.push(Line::styled("  n      Create new branch", text_style));
-        lines.push(Line::styled("  d      Delete branch", text_style));
-        lines.push(Line::styled("  y      Copy branch name", text_style));
-        lines.push(Line::styled("  S      Back to Status", text_style));
+        lines.push(Line::styled("  Enter: Checkout branch", text_style));
+        lines.push(Line::styled("  n: Create new branch", text_style));
+        lines.push(Line::styled("  d: Delete branch", text_style));
+        lines.push(Line::styled("  y: Copy branch name", text_style));
+        lines.push(Line::styled("  S: Back to Status", text_style));
     } else {
         let empty = Paragraph::new(git_branch_details_empty_message(state))
             .alignment(Alignment::Center)
@@ -1125,13 +1125,13 @@ fn render_stash_details(
         lines.push(Line::raw(""));
         lines.push(Line::styled("Shortcuts:", muted_style));
         lines.push(Line::styled(
-            "  Enter  Pop stash (apply & drop)",
+            "  Enter: Pop stash (apply & drop)",
             text_style,
         ));
-        lines.push(Line::styled("  s      Stash current changes", text_style));
-        lines.push(Line::styled("  d      Drop stash entry", text_style));
-        lines.push(Line::styled("  y      Copy stash info", text_style));
-        lines.push(Line::styled("  S      Back to Status", text_style));
+        lines.push(Line::styled("  s: Stash current changes", text_style));
+        lines.push(Line::styled("  d: Drop stash entry", text_style));
+        lines.push(Line::styled("  y: Copy stash info", text_style));
+        lines.push(Line::styled("  S: Back to Status", text_style));
     } else {
         let empty = Paragraph::new(git_stash_details_empty_message(state))
             .alignment(Alignment::Center)
@@ -1431,6 +1431,72 @@ mod tests {
         assert!(!hints.iter().any(|hint| hint.contains("Escape=")));
         assert!(!hints.iter().any(|hint| hint.contains("Enter=")));
         assert!(!hints.iter().any(|hint| hint.contains("Confirm")));
+    }
+
+    #[test]
+    fn test_render_branch_details_uses_action_case_shortcuts() {
+        let mut state = PluginState::new();
+        state.branches.push(crate::core::models::Branch {
+            name: "feature/git-ux".to_string(),
+            full_name: "refs/heads/feature/git-ux".to_string(),
+            is_current: false,
+            is_remote: false,
+            remote: None,
+            commit_hash: "abc1234".to_string(),
+            upstream: None,
+            ahead: None,
+            behind: None,
+        });
+        state.selected_branch = Some(0);
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        render_branch_details(&state, FocusPane::Main, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Shortcuts:"));
+        assert!(content.contains("Enter: Checkout branch"));
+        assert!(content.contains("n: Create new branch"));
+        assert!(content.contains("d: Delete branch"));
+        assert!(content.contains("y: Copy branch name"));
+        assert!(content.contains("S: Back to Status"));
+        assert!(!content.contains("Enter  Checkout branch"));
+    }
+
+    #[test]
+    fn test_render_stash_details_uses_action_case_shortcuts() {
+        let mut state = PluginState::new();
+        state.stashes.push(crate::core::models::Stash {
+            index: 0,
+            message: "WIP git UX".to_string(),
+            commit_hash: "def5678".to_string(),
+            date: None,
+            branch: Some("main".to_string()),
+        });
+        state.selected_stash = Some(0);
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        render_stash_details(&state, FocusPane::Main, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Shortcuts:"));
+        assert!(content.contains("Enter: Pop stash (apply & drop)"));
+        assert!(content.contains("s: Stash current changes"));
+        assert!(content.contains("d: Drop stash entry"));
+        assert!(content.contains("y: Copy stash info"));
+        assert!(content.contains("S: Back to Status"));
+        assert!(!content.contains("Enter  Pop stash"));
     }
 
     #[test]
