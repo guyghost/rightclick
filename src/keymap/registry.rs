@@ -533,7 +533,7 @@ impl Registry {
                 .with_description("Go back to the previous view"),
         );
         self.register_command(
-            Command::new("app.search", "Global Search", || Action::Search)
+            Command::new("app.search", "Global search", || Action::Search)
                 .with_description("Open global search"),
         );
         self.register_command(
@@ -875,7 +875,7 @@ mod tests {
         let search = registry
             .get_command("app.search")
             .expect("global search command");
-        assert_eq!(search.name, "Global Search");
+        assert_eq!(search.name, "Global search");
         assert_eq!(search.description.as_deref(), Some("Open global search"));
     }
 

@@ -175,7 +175,7 @@ impl Action {
             Self::Edit => "Edit",
             Self::Copy => "Copy",
             Self::Paste => "Paste",
-            Self::Search => "Global Search",
+            Self::Search => "Global search",
             Self::Filter => "Filter",
             Self::Toggle => "Toggle",
             Self::Expand => "Expand",
@@ -313,7 +313,7 @@ mod tests {
         assert_eq!(Action::Quit.description(), "Quit");
         assert_eq!(Action::Refresh.description(), "Refresh");
         assert_eq!(Action::OpenPalette.description(), "Open Command Palette");
-        assert_eq!(Action::Search.description(), "Global Search");
+        assert_eq!(Action::Search.description(), "Global search");
     }
 
     #[test]
