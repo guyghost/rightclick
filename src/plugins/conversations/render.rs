@@ -10,7 +10,7 @@ use crate::plugins::conversations::state::{ConversationView, PluginState};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
 use crate::ui::{
-    GLOBAL_SEARCH_HINT, append_global_hint_lines, char_display_width, display_width,
+    GLOBAL_SEARCH_HINT, append_global_hint_lines, char_display_width, count_label, display_width,
     display_width_u16, global_hint_message, truncate_display,
 };
 use chrono::{DateTime, Local};
@@ -152,10 +152,13 @@ impl ConversationsRenderer {
         } else if state.search_query.is_some() {
             format!(
                 " Sessions ({}) ",
-                result_count_label(state.filtered_sessions().len())
+                count_label(state.filtered_sessions().len(), "result", "results")
             )
         } else {
-            format!(" Sessions ({}) ", session_count_label(state.sessions.len()))
+            format!(
+                " Sessions ({}) ",
+                count_label(state.sessions.len(), "session", "sessions")
+            )
         };
 
         let block = Block::default()
@@ -239,7 +242,7 @@ impl ConversationsRenderer {
 
                 // Message count
                 let msg_count = session_info.message_count();
-                let count_str = format!(" • {}", compact_message_count(msg_count));
+                let count_str = format!(" • {}", count_label(msg_count, "msg", "msgs"));
                 meta_spans.push(Span::styled(count_str, muted_style));
 
                 // Token count if available
@@ -318,11 +321,14 @@ impl ConversationsRenderer {
             let total_sessions = state.sessions.len();
             let total_messages = state.total_message_count();
             text_lines.push(Line::from(vec![Span::styled(
-                format!("  Total: {}", session_count_label(total_sessions)),
+                format!(
+                    "  Total: {}",
+                    count_label(total_sessions, "session", "sessions")
+                ),
                 text_style,
             )]));
             text_lines.push(Line::from(vec![Span::styled(
-                format!("  Messages: {}", compact_message_count(total_messages)),
+                format!("  Messages: {}", count_label(total_messages, "msg", "msgs")),
                 text_style,
             )]));
 
@@ -412,7 +418,7 @@ impl ConversationsRenderer {
                 " {} {} - {} ",
                 session.adapter_icon,
                 truncate_display(session.title(), 30),
-                compact_message_count(state.messages.len())
+                count_label(state.messages.len(), "msg", "msgs")
             )
         } else {
             " Conversation ".to_string()
@@ -906,30 +912,6 @@ fn loading_messages_message(width: u16) -> String {
         ],
         width,
     )
-}
-
-fn compact_message_count(count: usize) -> String {
-    if count == 1 {
-        "1 msg".to_string()
-    } else {
-        format!("{} msgs", count)
-    }
-}
-
-fn session_count_label(count: usize) -> String {
-    if count == 1 {
-        "1 session".to_string()
-    } else {
-        format!("{} sessions", count)
-    }
-}
-
-fn result_count_label(count: usize) -> String {
-    if count == 1 {
-        "1 result".to_string()
-    } else {
-        format!("{} results", count)
-    }
 }
 
 fn token_count_label(count: usize) -> String {

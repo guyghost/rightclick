@@ -10,6 +10,7 @@ use crate::keymap::KeyBinding;
 use crate::plugins::conversations::render::ConversationsRenderer;
 use crate::plugins::conversations::state::{ConversationView, PluginState, SessionInfo};
 use crate::theme::get_current_theme;
+use crate::ui::count_label;
 use anyhow::Result;
 use parking_lot::RwLock;
 use ratatui::buffer::Buffer;
@@ -552,7 +553,7 @@ impl ConversationsPlugin {
                 } else {
                     format!(
                         "Sessions ({})",
-                        conversation_count_label(self.state.sessions.len(), "session")
+                        count_label(self.state.sessions.len(), "session", "sessions")
                     )
                 }
             }
@@ -953,10 +954,10 @@ impl Plugin for ConversationsPlugin {
             .map(|session_info| {
                 let mut preview_parts = vec![
                     session_info.adapter_name.clone(),
-                    conversation_count_label(session_info.message_count(), "message"),
+                    count_label(session_info.message_count(), "message", "messages"),
                 ];
                 if let Some(total_tokens) = session_info.total_tokens() {
-                    preview_parts.push(conversation_count_label(total_tokens, "token"));
+                    preview_parts.push(count_label(total_tokens, "token", "tokens"));
                 }
 
                 crate::plugin::PluginSearchEntry {
@@ -1026,11 +1027,11 @@ fn conversations_status_line(state: &PluginState) -> String {
 
     if state.search_query.is_some() || state.adapter_filter.is_some() {
         let mut parts = vec![
-            format!("{} visible", conversation_count_label(visible, "session")),
-            format!("{} total", conversation_count_label(total, "session")),
+            format!("{} visible", count_label(visible, "session", "sessions")),
+            format!("{} total", count_label(total, "session", "sessions")),
         ];
         if messages > 0 {
-            parts.push(conversation_count_label(messages, "message"));
+            parts.push(count_label(messages, "message", "messages"));
         }
         let mut status = parts.join(" | ");
         if let Some(adapter_type) = state.adapter_filter {
@@ -1041,19 +1042,11 @@ fn conversations_status_line(state: &PluginState) -> String {
         }
         status
     } else {
-        let mut parts = vec![conversation_count_label(total, "session")];
+        let mut parts = vec![count_label(total, "session", "sessions")];
         if messages > 0 {
-            parts.push(conversation_count_label(messages, "message"));
+            parts.push(count_label(messages, "message", "messages"));
         }
         parts.join(" | ")
-    }
-}
-
-fn conversation_count_label(count: usize, label: &str) -> String {
-    if count == 1 {
-        format!("1 {}", label)
-    } else {
-        format!("{} {}s", count, label)
     }
 }
 

@@ -19,6 +19,7 @@ use crate::core::models::intent::{
 use crate::event::Event;
 use crate::keymap::registry::KeyBindingRegistry;
 use crate::keymap::{Action, FocusContext};
+use crate::ui::count_label;
 
 use super::render::{render_workers, render_workers_status};
 use super::runner::{WorkerOutput, WorkerRunner};
@@ -1009,8 +1010,8 @@ fn workers_status_line(state: &PluginState) -> String {
         .count();
 
     let mut parts = vec![
-        count_label(state.intents.len(), "intent"),
-        count_label(state.workers.len(), "worker"),
+        count_label(state.intents.len(), "intent", "intents"),
+        count_label(state.workers.len(), "worker", "workers"),
     ];
     if running > 0 {
         parts.push(format!("{} running", running));
@@ -1023,14 +1024,6 @@ fn workers_status_line(state: &PluginState) -> String {
     }
 
     parts.join(" | ")
-}
-
-fn count_label(count: usize, label: &str) -> String {
-    if count == 1 {
-        format!("1 {}", label)
-    } else {
-        format!("{} {}s", count, label)
-    }
 }
 
 // ============================================================================

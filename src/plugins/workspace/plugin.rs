@@ -14,6 +14,7 @@ use crate::core::models::Theme;
 use crate::event::Event;
 use crate::keymap::registry::KeyBindingRegistry;
 use crate::keymap::{Action, FocusContext};
+use crate::ui::count_label;
 
 use super::render::{render_workspace, render_workspace_status};
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
@@ -1066,28 +1067,20 @@ fn workspace_status_line(state: &PluginState) -> String {
         .filter(|worktree| worktree.linked_task.is_some())
         .count();
 
-    let mut parts = vec![workspace_count_label(state.worktrees.len(), "worktree")];
+    let mut parts = vec![count_label(state.worktrees.len(), "worktree", "worktrees")];
     if dirty > 0 {
         parts.push(format!("{} dirty", dirty));
     } else {
         parts.push("clean".to_string());
     }
     if agents > 0 {
-        parts.push(workspace_count_label(agents, "agent"));
+        parts.push(count_label(agents, "agent", "agents"));
     }
     if linked > 0 {
         parts.push(format!("{} linked", linked));
     }
 
     parts.join(" | ")
-}
-
-fn workspace_count_label(count: usize, label: &str) -> String {
-    if count == 1 {
-        format!("1 {}", label)
-    } else {
-        format!("{} {}s", count, label)
-    }
 }
 
 // ============================================================================

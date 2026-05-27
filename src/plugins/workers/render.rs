@@ -13,7 +13,7 @@ use ratatui::{
 
 use crate::core::models::Theme;
 use crate::ui::{
-    compact_global_search_hint_with_stacked, compact_help_hint, display_width,
+    compact_global_search_hint_with_stacked, compact_help_hint, count_label, display_width,
     prefixed_stacked_global_hint_message, truncate_display_with_suffix,
 };
 
@@ -672,7 +672,7 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
         let header = format!(
             " {} ({}) ",
             title,
-            workers_render_count_label(worker_ids.len(), "worker")
+            count_label(worker_ids.len(), "worker", "workers")
         );
         let block = Block::default()
             .title(header)
@@ -913,7 +913,7 @@ pub fn render_workers_status<'a>(state: &'a PluginState, theme: &'a Theme) -> Ve
     spans.push(Span::styled(
         format!(
             "📋 {}",
-            workers_render_count_label(state.intents.len(), "intent")
+            count_label(state.intents.len(), "intent", "intents")
         ),
         Style::default().fg(theme_fg(theme)),
     ));
@@ -937,14 +937,6 @@ pub fn render_workers_status<'a>(state: &'a PluginState, theme: &'a Theme) -> Ve
     }
 
     spans
-}
-
-fn workers_render_count_label(count: usize, label: &str) -> String {
-    if count == 1 {
-        format!("1 {}", label)
-    } else {
-        format!("{} {}s", count, label)
-    }
 }
 
 fn workers_modal_area(percent_x: u16, percent_y: u16, area: Rect) -> Option<Rect> {

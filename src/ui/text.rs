@@ -17,6 +17,15 @@ pub fn char_display_width(ch: char) -> usize {
     ch.width().unwrap_or(0)
 }
 
+/// Return a count label using the singular or plural noun as appropriate.
+pub fn count_label(count: usize, singular: &str, plural: &str) -> String {
+    if count == 1 {
+        format!("1 {singular}")
+    } else {
+        format!("{count} {plural}")
+    }
+}
+
 /// Truncate text to fit within `max_width` display columns.
 pub fn truncate_display(text: &str, max_width: usize) -> String {
     truncate_display_with_suffix(text, max_width, "...")
@@ -125,5 +134,12 @@ mod tests {
         assert_eq!(display_width("検索a"), 5);
         assert_eq!(char_display_width('検'), 2);
         assert_eq!(char_display_width('\u{200d}'), 0);
+    }
+
+    #[test]
+    fn count_label_uses_explicit_plural() {
+        assert_eq!(count_label(0, "directory", "directories"), "0 directories");
+        assert_eq!(count_label(1, "directory", "directories"), "1 directory");
+        assert_eq!(count_label(2, "directory", "directories"), "2 directories");
     }
 }

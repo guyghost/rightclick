@@ -13,7 +13,7 @@ use ratatui::{
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::{global_hint_message, truncate_display};
+use crate::ui::{count_label, global_hint_message, truncate_display};
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 
@@ -512,7 +512,7 @@ fn render_kanban_column(
         .title(format!(
             " {} ({}) ",
             title,
-            workspace_render_count_label(indices.len(), "worktree")
+            count_label(indices.len(), "worktree", "worktrees")
         ))
         .title_style(header_style)
         .borders(Borders::ALL)
@@ -876,7 +876,7 @@ pub fn render_workspace_status(state: &PluginState, theme: &Theme) -> Vec<Span<'
     let with_agents = state.worktrees.iter().filter(|w| w.agent_running).count();
 
     spans.push(Span::styled(
-        format!("{} ", workspace_render_count_label(total, "worktree")),
+        format!("{} ", count_label(total, "worktree", "worktrees")),
         style_for_ui_element(theme, UiElement::Text),
     ));
 
@@ -889,7 +889,7 @@ pub fn render_workspace_status(state: &PluginState, theme: &Theme) -> Vec<Span<'
 
     if with_agents > 0 {
         spans.push(Span::styled(
-            format!("{} ", workspace_render_count_label(with_agents, "agent")),
+            format!("{} ", count_label(with_agents, "agent", "agents")),
             style_for_ui_element(theme, UiElement::Info),
         ));
     }
@@ -915,14 +915,6 @@ pub fn render_workspace_status(state: &PluginState, theme: &Theme) -> Vec<Span<'
     }
 
     spans
-}
-
-fn workspace_render_count_label(count: usize, label: &str) -> String {
-    if count == 1 {
-        format!("1 {}", label)
-    } else {
-        format!("{} {}s", count, label)
-    }
 }
 
 #[cfg(test)]

@@ -64,6 +64,7 @@ use parking_lot::RwLock;
 
 use crate::adapters::types::Adapter;
 use crate::core::models::conversation::Session;
+use crate::ui::count_label;
 
 /// Initialize the conversations plugin with default settings
 ///
@@ -132,20 +133,12 @@ pub fn format_session_line(session: &Session, adapter: &dyn Adapter, selected: b
     let msg_count = session.message_count;
 
     let date_str = session.updated_at.format("%Y-%m-%d %H:%M").to_string();
-    let messages = compact_message_count(msg_count);
+    let messages = count_label(msg_count, "msg", "msgs");
 
     if selected {
         format!("▶ {} {} ({}, {})", icon, name, messages, date_str)
     } else {
         format!("  {} {} ({}, {})", icon, name, messages, date_str)
-    }
-}
-
-fn compact_message_count(count: usize) -> String {
-    if count == 1 {
-        "1 msg".to_string()
-    } else {
-        format!("{} msgs", count)
     }
 }
 

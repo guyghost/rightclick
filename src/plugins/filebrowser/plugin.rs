@@ -19,7 +19,9 @@ use crate::event::Event;
 use crate::keymap::{Action, FocusContext};
 use crate::plugin::{Command, Plugin, PluginCommand, PluginContext};
 use crate::theme::{UiElement, style_for_ui_element};
-use crate::ui::{Footer, HELP_HINT, Header, KeyHint, global_hint_message, truncate_display};
+use crate::ui::{
+    Footer, HELP_HINT, Header, KeyHint, count_label, global_hint_message, truncate_display,
+};
 
 use super::preview::PreviewWidget;
 use super::state::{FileOperationModal, PluginState};
@@ -1350,7 +1352,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
         return format!(
             "{} | {}{} | j/k: Navigate | Enter/Space: Toggle directory",
             selected,
-            visible_file_count_label(visible),
+            count_label(visible, "visible file", "visible files"),
             filter
         );
     }
@@ -1358,17 +1360,9 @@ fn file_browser_status_line(state: &PluginState) -> String {
     format!(
         "{} | {}{}",
         selected,
-        visible_file_count_label(visible),
+        count_label(visible, "visible file", "visible files"),
         filter
     )
-}
-
-fn visible_file_count_label(count: usize) -> String {
-    if count == 1 {
-        "1 visible file".to_string()
-    } else {
-        format!("{} visible files", count)
-    }
 }
 
 fn file_tree_empty_message(state: &PluginState, width: u16) -> String {

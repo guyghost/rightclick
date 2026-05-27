@@ -17,7 +17,7 @@ use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Widget};
 
-use crate::ui::clip_display;
+use crate::ui::{clip_display, count_label};
 
 /// Maximum file size to preview (5 MB)
 const MAX_PREVIEW_SIZE: u64 = 5 * 1024 * 1024;
@@ -172,8 +172,8 @@ impl Preview {
         let mut content = format!("Directory: {}\n", path.display());
         content.push_str(&format!(
             "{} | {} | Total size: {}\n",
-            directory_count_label(file_count, "file"),
-            directory_count_label(dir_count, "directory"),
+            count_label(file_count, "file", "files"),
+            count_label(dir_count, "directory", "directories"),
             Self::format_size(total_size)
         ));
         content.push_str("─".repeat(50).as_str());
@@ -275,14 +275,6 @@ impl Preview {
         } else {
             "Text".to_string()
         }
-    }
-}
-
-fn directory_count_label(count: usize, label: &str) -> String {
-    if count == 1 {
-        format!("1 {}", label)
-    } else {
-        format!("{} {}s", count, label)
     }
 }
 
