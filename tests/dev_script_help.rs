@@ -240,3 +240,33 @@ fn dev_script_test_many_explains_missing_filters() {
         "dev script should still print test-many usage"
     );
 }
+
+#[test]
+fn dev_script_test_one_reports_filter_validation_before_running() {
+    let output = Command::new("bash")
+        .args([
+            "scripts/dev.sh",
+            "test-one",
+            "dev_script_help_explains_test_many",
+            "--",
+            "--nocapture",
+        ])
+        .output()
+        .expect("dev script test-one should run");
+
+    assert!(
+        output.status.success(),
+        "test-one should pass for a known filter: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("==> validate test filter dev_script_help_explains_test_many"),
+        "dev script should report the filter validation step"
+    );
+    assert!(
+        stderr.contains("==> cargo test dev_script_help_explains_test_many -- --nocapture"),
+        "dev script should still report the actual cargo test command"
+    );
+}

@@ -232,6 +232,7 @@ ensure_test_filter_matches() {
   local output
   local matches
 
+  printf '\n==> validate test filter %s\n' "$filter" >&2
   if ! output="$(cargo test "$filter" -- --list 2>&1)"; then
     printf '%s\n' "$output" >&2
     exit 1
