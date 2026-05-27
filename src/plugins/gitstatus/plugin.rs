@@ -388,18 +388,23 @@ impl GitStatusPlugin {
                 self.state.close_modal();
                 vec![Command::Refresh]
             }
-            "Enter" => {
-                // Extract modal action before closing
+            "Enter" | "d" | "D" => {
+                // Extract modal action before closing.
                 let modal = self.state.active_modal.clone();
-                self.state.close_modal();
                 match modal {
                     Some(GitModal::DeleteBranch { name }) => {
+                        self.state.close_modal();
                         vec![Command::DeleteBranch(name)]
                     }
                     Some(GitModal::DropStash { index }) => {
+                        self.state.close_modal();
                         vec![Command::StashDrop(index)]
                     }
-                    _ => vec![Command::Refresh],
+                    _ if key == "Enter" => {
+                        self.state.close_modal();
+                        vec![Command::Refresh]
+                    }
+                    _ => vec![],
                 }
             }
             _ => vec![],
@@ -1854,6 +1859,21 @@ mod tests {
     }
 
     #[test]
+    fn test_modal_d_confirms_delete_branch() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.open_modal(GitModal::DeleteBranch {
+            name: "old-branch".to_string(),
+        });
+
+        let commands = plugin.handle_key("d");
+        assert_eq!(
+            commands,
+            vec![Command::DeleteBranch("old-branch".to_string())]
+        );
+        assert!(!plugin.state.modal_active);
+    }
+
+    #[test]
     fn test_modal_enter_confirms_drop_stash() {
         let mut plugin = GitStatusPlugin::new();
         plugin.state.open_modal(GitModal::DropStash { index: 2 });
@@ -1861,6 +1881,26 @@ mod tests {
         let commands = plugin.handle_key("Enter");
         assert_eq!(commands, vec![Command::StashDrop(2)]);
         assert!(!plugin.state.modal_active);
+    }
+
+    #[test]
+    fn test_modal_d_confirms_drop_stash() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.open_modal(GitModal::DropStash { index: 2 });
+
+        let commands = plugin.handle_key("D");
+        assert_eq!(commands, vec![Command::StashDrop(2)]);
+        assert!(!plugin.state.modal_active);
+    }
+
+    #[test]
+    fn test_modal_d_does_not_confirm_text_modal() {
+        let mut plugin = GitStatusPlugin::new();
+        plugin.state.open_modal(GitModal::CommitMessage);
+
+        let commands = plugin.handle_key("d");
+        assert!(commands.is_empty());
+        assert!(plugin.state.modal_active);
     }
 
     #[test]

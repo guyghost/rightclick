@@ -17,7 +17,8 @@ use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
 
 use super::state::{FocusPane, PluginState, ViewMode};
 
-const GIT_CONFIRM_MODAL_HINT: &str = "Enter: Confirm  |  Esc: Cancel";
+const GIT_DELETE_BRANCH_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
+const GIT_DROP_STASH_MODAL_HINT: &str = "Enter/D: Drop  |  Esc: Cancel";
 const GIT_CANCEL_MODAL_HINT: &str = "Esc: Cancel";
 const GIT_ERROR_MODAL_HINT: &str = "Esc: Close";
 const GIT_MODAL_WIDTH: u16 = 50;
@@ -1182,7 +1183,7 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
                 ),
                 Line::raw(""),
                 Line::styled(
-                    GIT_CONFIRM_MODAL_HINT,
+                    GIT_DELETE_BRANCH_MODAL_HINT,
                     style_for_ui_element(theme, UiElement::MutedText),
                 ),
             ]);
@@ -1204,7 +1205,7 @@ fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme
                 ),
                 Line::raw(""),
                 Line::styled(
-                    GIT_CONFIRM_MODAL_HINT,
+                    GIT_DROP_STASH_MODAL_HINT,
                     style_for_ui_element(theme, UiElement::MutedText),
                 ),
             ]);
@@ -1414,17 +1415,63 @@ mod tests {
     #[test]
     fn test_git_modal_hints_use_compact_action_case() {
         let hints = [
-            GIT_CONFIRM_MODAL_HINT,
+            GIT_DELETE_BRANCH_MODAL_HINT,
+            GIT_DROP_STASH_MODAL_HINT,
             GIT_CANCEL_MODAL_HINT,
             GIT_ERROR_MODAL_HINT,
         ];
 
-        assert!(GIT_CONFIRM_MODAL_HINT.contains("Enter: Confirm"));
-        assert!(GIT_CONFIRM_MODAL_HINT.contains("Esc: Cancel"));
+        assert!(GIT_DELETE_BRANCH_MODAL_HINT.contains("Enter/D: Delete"));
+        assert!(GIT_DELETE_BRANCH_MODAL_HINT.contains("Esc: Cancel"));
+        assert!(GIT_DROP_STASH_MODAL_HINT.contains("Enter/D: Drop"));
+        assert!(GIT_DROP_STASH_MODAL_HINT.contains("Esc: Cancel"));
         assert!(GIT_CANCEL_MODAL_HINT.contains("Esc: Cancel"));
         assert!(GIT_ERROR_MODAL_HINT.contains("Esc: Close"));
         assert!(!hints.iter().any(|hint| hint.contains("Escape=")));
         assert!(!hints.iter().any(|hint| hint.contains("Enter=")));
+        assert!(!hints.iter().any(|hint| hint.contains("Confirm")));
+    }
+
+    #[test]
+    fn test_render_delete_branch_modal_uses_handled_key_hint() {
+        let mut state = PluginState::new();
+        state.open_modal(crate::plugins::gitstatus::GitModal::DeleteBranch {
+            name: "old-branch".to_string(),
+        });
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        render_modal_overlay(&state, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Delete branch 'old-branch'?"));
+        assert!(content.contains(GIT_DELETE_BRANCH_MODAL_HINT));
+        assert!(!content.contains("Enter: Confirm"));
+    }
+
+    #[test]
+    fn test_render_drop_stash_modal_uses_handled_key_hint() {
+        let mut state = PluginState::new();
+        state.open_modal(crate::plugins::gitstatus::GitModal::DropStash { index: 2 });
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 80, 20);
+        let mut buf = Buffer::empty(area);
+
+        render_modal_overlay(&state, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Drop stash@{2}?"));
+        assert!(content.contains(GIT_DROP_STASH_MODAL_HINT));
+        assert!(!content.contains("Enter: Confirm"));
     }
 
     #[test]
