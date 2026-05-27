@@ -881,8 +881,9 @@ fn compact_help_overlay_text(width: u16) -> &'static str {
         0 => "",
         1..=7 => "?",
         8..=18 => "? Help",
-        19..=25 => "? Help  / Search",
-        _ => "? Help  / Search  q Quit",
+        19..=27 => "? Help  / Search",
+        28..=35 => "? Help  / Search  : Commands",
+        _ => "? Help  / Search  : Commands  q Quit",
     }
 }
 
@@ -1201,7 +1202,14 @@ mod tests {
         assert_eq!(compact_help_overlay_text(7), "?");
         assert_eq!(compact_help_overlay_text(18), "? Help");
         assert_eq!(compact_help_overlay_text(25), "? Help  / Search");
-        assert_eq!(compact_help_overlay_text(30), "? Help  / Search  q Quit");
+        assert_eq!(
+            compact_help_overlay_text(30),
+            "? Help  / Search  : Commands"
+        );
+        assert_eq!(
+            compact_help_overlay_text(36),
+            "? Help  / Search  : Commands  q Quit"
+        );
     }
 
     #[test]
