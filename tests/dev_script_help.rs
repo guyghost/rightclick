@@ -115,3 +115,26 @@ fn dev_script_test_one_explains_missing_filter_before_cargo_args() {
         "dev script should still print test-one usage"
     );
 }
+
+#[test]
+fn dev_script_test_one_explains_missing_filter() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "test-one"])
+        .output()
+        .expect("dev script test-one usage path should run");
+
+    assert!(
+        !output.status.success(),
+        "test-one should fail when no filter is provided"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("A test filter is required."),
+        "dev script should explain that a test filter is required"
+    );
+    assert!(
+        stderr.contains("Usage: bash scripts/dev.sh test-one <test-filter>"),
+        "dev script should still print test-one usage"
+    );
+}

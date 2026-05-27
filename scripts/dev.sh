@@ -432,6 +432,7 @@ case "$cmd" in
   test-one)
     shift
     if [ "$#" -eq 0 ]; then
+      echo "A test filter is required." >&2
       echo "Usage: bash scripts/dev.sh test-one <test-filter> [-- <cargo-test-args>]" >&2
       exit 2
     fi
