@@ -837,6 +837,8 @@ fn build_help_lines(
         "  ?: Toggle help".to_string(),
         "  Tab: Switch plugin/pane".to_string(),
         "  Shift+Tab: Previous plugin/pane".to_string(),
+        "  Ctrl+Tab: Next plugin".to_string(),
+        "  Ctrl+Shift+Tab: Previous plugin".to_string(),
         "  1-9: Jump to plugin".to_string(),
         "  Esc: Back/close".to_string(),
         "  q/Ctrl+C: Quit".to_string(),
@@ -915,14 +917,19 @@ fn build_footer_hints(
         "Switch"
     };
 
-    for (key, label) in [
+    let mut global_hints = vec![
         ("Tab", tab_label),
         ("/", "Global search"),
         (":", "Command search"),
         ("?", "Toggle help"),
         ("q/Ctrl+C", "Quit"),
         ("1-9", "Plugin"),
-    ] {
+    ];
+    if plugin_uses_tab_for_panes(plugin_id) {
+        global_hints.insert(1, ("Ctrl+Tab", "Plugin"));
+    }
+
+    for (key, label) in global_hints {
         if seen.insert(key.to_string()) {
             hints.push((key.to_string(), label.to_string()));
         }
@@ -1109,6 +1116,8 @@ mod tests {
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
         assert!(lines.contains(&"  Tab: Switch plugin/pane".to_string()));
         assert!(lines.contains(&"  Shift+Tab: Previous plugin/pane".to_string()));
+        assert!(lines.contains(&"  Ctrl+Tab: Next plugin".to_string()));
+        assert!(lines.contains(&"  Ctrl+Shift+Tab: Previous plugin".to_string()));
         assert!(lines.contains(&"  Esc: Back/close".to_string()));
         assert!(
             !lines
@@ -1350,9 +1359,10 @@ mod tests {
         let hints = build_footer_hints("workspace", &commands);
 
         assert_eq!(
-            &hints[..5],
+            &hints[..6],
             &[
                 ("Tab".to_string(), "Pane".to_string()),
+                ("Ctrl+Tab".to_string(), "Plugin".to_string()),
                 ("/".to_string(), "Global search".to_string()),
                 (":".to_string(), "Command search".to_string()),
                 ("?".to_string(), "Toggle help".to_string()),
@@ -1386,7 +1396,7 @@ mod tests {
 
         let hints = build_footer_hints("workspace", &commands);
 
-        let plugin_hints = &hints[6..];
+        let plugin_hints = &hints[7..];
         assert_eq!(plugin_hints[0], ("p".to_string(), "Primary".to_string()));
         assert_eq!(plugin_hints[1], ("s".to_string(), "Secondary".to_string()));
     }
@@ -1395,12 +1405,21 @@ mod tests {
     fn test_build_footer_hints_labels_git_tab_as_pane() {
         let hints = build_footer_hints("git-status", &[]);
         assert_eq!(hints[0], ("Tab".to_string(), "Pane".to_string()));
+        assert_eq!(hints[1], ("Ctrl+Tab".to_string(), "Plugin".to_string()));
     }
 
     #[test]
     fn test_build_footer_hints_labels_workers_tab_as_pane() {
         let hints = build_footer_hints("workers", &[]);
         assert_eq!(hints[0], ("Tab".to_string(), "Pane".to_string()));
+        assert_eq!(hints[1], ("Ctrl+Tab".to_string(), "Plugin".to_string()));
+    }
+
+    #[test]
+    fn test_build_footer_hints_omits_ctrl_tab_when_tab_switches_plugins() {
+        let hints = build_footer_hints("conversations", &[]);
+        assert_eq!(hints[0], ("Tab".to_string(), "Switch".to_string()));
+        assert!(!hints.iter().any(|(key, _)| key == "Ctrl+Tab"));
     }
 
     #[test]
