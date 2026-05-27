@@ -684,7 +684,8 @@ impl App {
             if let Some(plugin) = self.plugins.get(self.active_plugin) {
                 plugin.render(chunks[1], f.buffer_mut(), &self.theme);
             } else {
-                let msg = Paragraph::new(no_plugins_empty_message()).alignment(Alignment::Center);
+                let msg = Paragraph::new(no_plugins_empty_message(chunks[1].width))
+                    .alignment(Alignment::Center);
                 f.render_widget(msg, chunks[1]);
             }
 
@@ -1018,8 +1019,55 @@ fn plugin_uses_tab_for_panes(plugin_id: &str) -> bool {
     matches!(plugin_id, "git-status" | "workspace" | "workers")
 }
 
-fn no_plugins_empty_message() -> &'static str {
-    "No plugins loaded\n\nRightClick is running without an active plugin.\n\n?: Toggle help\n/: Global search  |  : Command search\nq/Ctrl+C: Quit\n\nDiagnostics:\nbash scripts/dev.sh doctor\nRUST_LOG=debug bash scripts/dev.sh run\nCheck configuration if this persists."
+fn no_plugins_empty_message(width: u16) -> String {
+    let mut lines = vec![
+        "No plugins loaded".to_string(),
+        String::new(),
+        "RightClick is running without an active plugin.".to_string(),
+        String::new(),
+        fit_no_plugins_line("?: Toggle help", width),
+    ];
+
+    if let Some(search_hint) = no_plugins_search_hint(width) {
+        lines.push(search_hint.to_string());
+    }
+
+    lines.extend([
+        fit_no_plugins_line("q/Ctrl+C: Quit", width),
+        String::new(),
+        "Diagnostics:".to_string(),
+        fit_no_plugins_line("bash scripts/dev.sh doctor", width),
+        fit_no_plugins_line("RUST_LOG=debug bash scripts/dev.sh run", width),
+        "Check configuration if this persists.".to_string(),
+    ]);
+
+    lines.join("\n")
+}
+
+fn no_plugins_search_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [
+        "/: Global search  |  : Command search",
+        "/: Search  |  : Commands",
+        "/: Search  |  : Cmds",
+        "/: Search",
+        "/:",
+    ]
+    .into_iter()
+    .find(|hint| hint.len() <= width)
+}
+
+fn fit_no_plugins_line(line: &str, width: u16) -> String {
+    let max_width = width as usize;
+    if line.len() <= max_width {
+        return line.to_string();
+    }
+
+    if max_width <= 2 {
+        return ".".repeat(max_width);
+    }
+
+    format!("{}..", &line[..max_width - 2])
 }
 
 fn no_plugins_footer_status() -> &'static str {
@@ -1817,7 +1865,7 @@ mod tests {
 
     #[test]
     fn test_no_plugins_empty_state_points_to_global_actions() {
-        let message = no_plugins_empty_message();
+        let message = no_plugins_empty_message(80);
         let hints = no_plugins_footer_hints();
 
         assert!(message.contains("No plugins loaded"));
@@ -1840,6 +1888,39 @@ mod tests {
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn test_no_plugins_search_hint_compacts_for_narrow_widths() {
+        assert_eq!(no_plugins_search_hint(1), None);
+        assert_eq!(no_plugins_search_hint(2), Some("/:"));
+        assert_eq!(no_plugins_search_hint(9), Some("/: Search"));
+        assert_eq!(no_plugins_search_hint(20), Some("/: Search  |  : Cmds"));
+        assert_eq!(no_plugins_search_hint(24), Some("/: Search  |  : Commands"));
+        assert_eq!(
+            no_plugins_search_hint(80),
+            Some("/: Global search  |  : Command search")
+        );
+    }
+
+    #[test]
+    fn test_no_plugins_empty_state_omits_search_hint_when_too_narrow() {
+        let message = no_plugins_empty_message(1);
+
+        assert!(message.contains("No plugins loaded"));
+        assert!(!message.contains("Global search"));
+        assert!(!message.contains("/:"));
+        assert!(message.contains("Diagnostics:"));
+    }
+
+    #[test]
+    fn test_no_plugins_diagnostics_truncate_for_narrow_widths() {
+        let message = no_plugins_empty_message(20);
+
+        assert!(message.contains("bash scripts/dev.s.."));
+        assert!(message.contains("RUST_LOG=debug bas.."));
+        assert!(!message.contains("bash scripts/dev.sh doctor"));
+        assert!(!message.contains("RUST_LOG=debug bash scripts/dev.sh run"));
     }
 
     #[test]
