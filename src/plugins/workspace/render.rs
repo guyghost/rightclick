@@ -17,7 +17,7 @@ use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 
 const CREATE_WORKTREE_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
-const DELETE_WORKTREE_MODAL_HINT: &str = "y: Confirm  |  Other: Cancel";
+const DELETE_WORKTREE_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const LINK_TASK_MODAL_HINT: &str = "Enter: Link  |  Esc: Cancel";
 const MERGE_WORKFLOW_MODAL_HINT: &str = "1-3: Select  |  Esc: Cancel";
 const INTERACTIVE_MODE_HINT: &str = "q: Return";
@@ -860,9 +860,39 @@ mod tests {
         assert!(hints.iter().all(|hint| hint.contains(": ")));
         assert!(hints.iter().all(|hint| hint.contains("Cancel")));
         assert!(CREATE_WORKTREE_MODAL_HINT.contains("Enter: Create"));
+        assert!(DELETE_WORKTREE_MODAL_HINT.contains("Enter/D: Delete"));
+        assert!(!DELETE_WORKTREE_MODAL_HINT.contains("Other: Cancel"));
+        assert!(!DELETE_WORKTREE_MODAL_HINT.contains("y:"));
         assert!(LINK_TASK_MODAL_HINT.contains("Enter: Link"));
         assert!(MERGE_WORKFLOW_MODAL_HINT.contains("1-3: Select"));
         assert!(!hints.iter().any(|hint| hint.starts_with("Press ")));
+    }
+
+    #[test]
+    fn test_render_delete_worktree_modal_uses_handled_key_hint() {
+        let theme = Theme::default();
+        let mut state = PluginState::new();
+        state.worktrees.push(Worktree::new(
+            "feature-cleanup",
+            PathBuf::from("/repo/feature-cleanup"),
+            "feature-cleanup",
+        ));
+        state.selected = Some(0);
+        state.modal_state = ModalState::DeleteConfirm;
+        let area = Rect::new(0, 0, 100, 30);
+        let mut buf = Buffer::empty(area);
+
+        render_workspace(&state, FocusPane::Sidebar, true, area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Delete worktree 'feature-cleanup'?"));
+        assert!(content.contains(DELETE_WORKTREE_MODAL_HINT));
+        assert!(!content.contains("Other: Cancel"));
+        assert!(!content.contains("y: Confirm"));
     }
 
     #[test]
