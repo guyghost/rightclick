@@ -892,7 +892,7 @@ impl Plugin for ConversationsPlugin {
         vec![
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
-                "Refresh current view",
+                "Refresh Current View",
                 "Reload sessions or messages for the active view",
                 'r',
                 crate::keymap::FocusContext::Conversations,
@@ -1178,11 +1178,12 @@ mod tests {
             .find(|command| command.id == "refresh")
             .expect("conversations refresh command");
 
-        assert_eq!(refresh_command.name, "Refresh current view");
+        assert_eq!(refresh_command.name, "Refresh Current View");
         assert_eq!(
             refresh_command.description,
             "Reload sessions or messages for the active view"
         );
+        assert_eq!(refresh_command.key, 'r');
         assert_eq!(filter_command.name, "Filter");
         assert_eq!(filter_command.key, 'f');
         assert!(commands.iter().any(|command| command.id == "expand"
@@ -1227,6 +1228,20 @@ mod tests {
 
         assert_eq!(execution.command_name, "Collapse All");
         assert!(plugin.state().expanded_messages.is_empty());
+    }
+
+    #[test]
+    fn test_execute_refresh_command_uses_declared_shortcut() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let mut plugin = ConversationsPlugin::new(registry);
+
+        let execution = plugin
+            .execute_command("refresh")
+            .expect("refresh command should execute");
+
+        assert_eq!(execution.command_name, "Refresh Current View");
+        assert!(execution.emitted_commands.is_empty());
+        assert!(plugin.pending_refresh);
     }
 
     #[test]
