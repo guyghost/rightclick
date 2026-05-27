@@ -1399,6 +1399,36 @@ mod tests {
     }
 
     #[test]
+    fn test_build_footer_hints_orders_higher_priorities_first() {
+        let commands = vec![
+            rightclick::plugin::PluginCommand::with_priority(
+                "low",
+                "Low",
+                "Lower priority",
+                rightclick::plugin::Category::System,
+                'l',
+                rightclick::keymap::FocusContext::Global,
+                1,
+            ),
+            rightclick::plugin::PluginCommand::with_priority(
+                "high",
+                "High",
+                "Higher priority",
+                rightclick::plugin::Category::System,
+                'h',
+                rightclick::keymap::FocusContext::Global,
+                5,
+            ),
+        ];
+
+        let hints = build_footer_hints("workspace", &commands);
+
+        let plugin_hints = &hints[7..];
+        assert_eq!(plugin_hints[0], ("h".to_string(), "High".to_string()));
+        assert_eq!(plugin_hints[1], ("l".to_string(), "Low".to_string()));
+    }
+
+    #[test]
     fn test_build_footer_hints_keeps_all_unique_plugin_actions() {
         let commands = vec![
             rightclick::plugin::PluginCommand::with_context(

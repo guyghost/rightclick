@@ -381,7 +381,7 @@ pub struct PluginCommand {
     pub key: char,
     /// Focus context where this command is available
     pub context: FocusContext,
-    /// Priority for footer display (1 = highest priority, 0 = default)
+    /// Priority for footer display (higher numbers are shown earlier, 0 = default)
     pub priority: u8,
 }
 
@@ -407,7 +407,7 @@ impl PluginCommand {
     /// * `category` - Logical grouping for palette
     /// * `key` - The keyboard shortcut character
     /// * `context` - The focus context where this command is available
-    /// * `priority` - Footer display priority (1 = highest)
+    /// * `priority` - Footer display priority (higher numbers are shown earlier)
     ///
     /// # Examples
     ///
@@ -499,7 +499,7 @@ impl PluginCommand {
     /// * `category` - Logical grouping for palette
     /// * `key` - The keyboard shortcut character
     /// * `context` - The focus context where this command is available
-    /// * `priority` - Footer display priority (1 = highest)
+    /// * `priority` - Footer display priority (higher numbers are shown earlier)
     ///
     /// # Examples
     ///
@@ -514,7 +514,7 @@ impl PluginCommand {
     ///     Category::Git,
     ///     's',
     ///     FocusContext::GitStatus,
-    ///     1, // High priority
+    ///     5, // High priority
     /// );
     /// assert_eq!(cmd.id, "stage");
     /// assert_eq!(cmd.name, "Stage");
