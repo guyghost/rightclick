@@ -10,7 +10,7 @@ use crate::keymap::KeyBinding;
 use crate::plugins::conversations::render::ConversationsRenderer;
 use crate::plugins::conversations::state::{ConversationView, PluginState, SessionInfo};
 use crate::theme::get_current_theme;
-use crate::ui::{count_label, nonzero_count_label};
+use crate::ui::{count_label, nonzero_count_label, truncate_display};
 use anyhow::Result;
 use parking_lot::RwLock;
 use ratatui::buffer::Buffer;
@@ -549,7 +549,7 @@ impl ConversationsPlugin {
         match self.state.view {
             ConversationView::SessionsList => {
                 if let Some(ref query) = self.state.search_query {
-                    format!("Sessions (filter: '{}')", query)
+                    format!("Sessions (filter: '{}')", truncate_display(query, 40))
                 } else {
                     format!(
                         "Sessions ({})",
@@ -1284,6 +1284,19 @@ mod tests {
 
         plugin.state_mut().view = ConversationView::Search;
         assert_eq!(plugin.view_title(), "Filter Sessions");
+    }
+
+    #[test]
+    fn test_view_title_truncates_long_session_filter() {
+        let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
+        let mut plugin = ConversationsPlugin::new(registry);
+        plugin.state_mut().search_query =
+            Some("abcdefghijklmnopqrstuvwxyz0123456789abcdef".to_string());
+
+        assert_eq!(
+            plugin.view_title(),
+            "Sessions (filter: 'abcdefghijklmnopqrstuvwxyz0123456789a...')"
+        );
     }
 
     #[test]

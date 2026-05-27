@@ -716,13 +716,7 @@ impl FileBrowserPlugin {
             .split(area);
 
         // Render tree panel
-        let tree_title = if let Some(query) = &self.state.filter_query {
-            format!(" Files (filter: {}) ", query)
-        } else if self.state.show_ignored {
-            " Files (showing ignored) ".to_string()
-        } else {
-            " Files ".to_string()
-        };
+        let tree_title = file_tree_title(&self.state);
 
         let tree_block = Block::default()
             .title(tree_title)
@@ -1365,6 +1359,16 @@ fn file_browser_status_line(state: &PluginState) -> String {
     )
 }
 
+fn file_tree_title(state: &PluginState) -> String {
+    if let Some(query) = &state.filter_query {
+        format!(" Files (filter: {}) ", truncate_display(query, 40))
+    } else if state.show_ignored {
+        " Files (showing ignored) ".to_string()
+    } else {
+        " Files ".to_string()
+    }
+}
+
 fn file_tree_empty_message(state: &PluginState, width: u16) -> String {
     if let Some(query) = &state.filter_query {
         file_browser_empty_message(
@@ -1606,6 +1610,20 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("."));
+    }
+
+    #[test]
+    fn test_file_tree_title_truncates_long_filter_query() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.set_filter(Some(
+            "abcdefghijklmnopqrstuvwxyz0123456789abcdef".to_string(),
+        ));
+
+        assert_eq!(
+            file_tree_title(&state),
+            " Files (filter: abcdefghijklmnopqrstuvwxyz0123456789a...) "
+        );
     }
 
     #[test]
