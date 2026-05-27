@@ -878,7 +878,7 @@ fn empty_sessions_message(state: &PluginState) -> String {
             "No sessions match \"{}\"\n\nBackspace  Edit filter\nEsc: Clear filter\nr  Refresh sessions\n/  Global search\n?  Help",
             query
         ),
-        None => "No sessions found\n\nr  Refresh detected adapters\nf  Filter sessions\n/  Global search\n?  Help\n\nSessions appear after supported adapters are detected."
+        None => "No sessions found\n\nr  Refresh sessions\nf  Filter sessions\n/  Global search\n?  Help\n\nSessions appear after supported adapters are detected."
             .to_string(),
     }
 }
@@ -1038,7 +1038,7 @@ mod tests {
         let message = empty_sessions_message(&state);
 
         assert!(message.contains("No sessions found"));
-        assert!(message.contains("r  Refresh detected adapters"));
+        assert!(message.contains("r  Refresh sessions"));
         assert!(message.contains("f  Filter sessions"));
         assert!(message.contains("/  Global search"));
         assert!(message.contains("?  Help"));
