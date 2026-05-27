@@ -864,6 +864,22 @@ fn build_help_lines(
         plugin_name.to_string(),
         status.to_string(),
         String::new(),
+        "Plugin commands:".to_string(),
+    ];
+
+    let mut seen = std::collections::HashSet::new();
+    for command in commands {
+        let key = command.key.to_string();
+        if seen.insert((key.clone(), command.name.clone())) {
+            lines.push(format_command_help_line(&key, command));
+        }
+    }
+    if seen.is_empty() {
+        lines.push("  No view-specific plugin commands".to_string());
+    }
+
+    lines.extend([
+        String::new(),
         "Global shortcuts:".to_string(),
         "  /: Global search".to_string(),
         "  : Command search".to_string(),
@@ -871,7 +887,7 @@ fn build_help_lines(
         "  j/k or ↑/↓: Navigate items".to_string(),
         "  Enter: Select".to_string(),
         "  Ctrl+R: Refresh current view".to_string(),
-    ];
+    ]);
     if plugin_uses_tab_for_panes(plugin_id) {
         lines.extend([
             "  Tab: Switch pane".to_string(),
@@ -889,20 +905,7 @@ fn build_help_lines(
         "  1-9: Jump to plugin".to_string(),
         "  Esc: Back/close".to_string(),
         "  q/Ctrl+C: Quit".to_string(),
-        String::new(),
-        "Plugin commands:".to_string(),
     ]);
-
-    let mut seen = std::collections::HashSet::new();
-    for command in commands {
-        let key = command.key.to_string();
-        if seen.insert((key.clone(), command.name.clone())) {
-            lines.push(format_command_help_line(&key, command));
-        }
-    }
-    if seen.is_empty() {
-        lines.push("  No view-specific plugin commands".to_string());
-    }
 
     lines
 }
@@ -1219,7 +1222,35 @@ mod tests {
             .iter()
             .position(|line| line == "Plugin commands:")
             .expect("plugin commands section should be present");
-        assert!(global_index < plugin_index);
+        assert!(plugin_index < global_index);
+    }
+
+    #[test]
+    fn test_build_help_lines_surfaces_plugin_commands_before_generic_shortcuts() {
+        let commands = vec![rightclick::plugin::PluginCommand::with_context_description(
+            "commit",
+            "Commit",
+            "Create a git commit",
+            'c',
+            rightclick::keymap::FocusContext::Global,
+        )];
+
+        let lines = build_help_lines("git-status", "Git Status", &commands, "ready");
+
+        assert_eq!(lines[0], "Git Status");
+        assert_eq!(lines[1], "ready");
+        assert_eq!(lines[3], "Plugin commands:");
+        assert_eq!(lines[4], "  c: Commit - Create a git commit");
+        assert!(
+            lines
+                .iter()
+                .position(|line| line == "Plugin commands:")
+                .unwrap()
+                < lines
+                    .iter()
+                    .position(|line| line == "Global shortcuts:")
+                    .unwrap()
+        );
     }
 
     #[test]
