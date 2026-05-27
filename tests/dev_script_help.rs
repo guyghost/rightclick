@@ -93,6 +93,23 @@ fn dev_script_doctor_explains_uninitialized_td_workspace() {
     fs::set_permissions(&fake_td, fs::Permissions::from_mode(0o755))
         .expect("fake td should be executable");
 
+    for (name, body) in [
+        ("cargo", "#!/usr/bin/env bash\nprintf 'cargo 1.85.0\\n'\n"),
+        (
+            "rustc",
+            "#!/usr/bin/env bash\nprintf 'rustc 1.85.0 (test)\\n'\n",
+        ),
+        ("cargo-fmt", "#!/usr/bin/env bash\nexit 0\n"),
+        ("cargo-clippy", "#!/usr/bin/env bash\nexit 0\n"),
+        ("git", "#!/usr/bin/env bash\nexit 0\n"),
+        ("rg", "#!/usr/bin/env bash\nexit 0\n"),
+    ] {
+        let fake_tool = temp_dir.path().join(name);
+        fs::write(&fake_tool, body).expect("fake required tool should be written");
+        fs::set_permissions(&fake_tool, fs::Permissions::from_mode(0o755))
+            .expect("fake required tool should be executable");
+    }
+
     let path = format!(
         "{}:{}",
         temp_dir.path().display(),
@@ -709,6 +726,12 @@ fn dev_script_run_step_prints_cargo_target_dir_for_cargo_steps() {
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(
+            "==> CARGO_TARGET_DIR=/tmp/rightclick\\ target\\ verify cargo test -- --list"
+        ),
+        "dev script should print the active cargo target dir for test listing: {stderr}"
+    );
     assert!(
         stderr.contains(
             "==> CARGO_TARGET_DIR=/tmp/rightclick\\ target\\ verify cargo test dev_script_help_explains_test_many"

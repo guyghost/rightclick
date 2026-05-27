@@ -184,6 +184,16 @@ run_step() {
   "$@"
 }
 
+print_cargo_list_step() {
+  if [ -n "${CARGO_TARGET_DIR:-}" ]; then
+    local quoted_target_dir
+    printf -v quoted_target_dir '%q' "$CARGO_TARGET_DIR"
+    printf '\n==> CARGO_TARGET_DIR=%s cargo test -- --list\n' "$quoted_target_dir" >&2
+  else
+    printf '\n==> cargo test -- --list\n' >&2
+  fi
+}
+
 run_script_checks() {
   run_step bash -n scripts/dev.sh
   if command -v just >/dev/null 2>&1; then
@@ -294,7 +304,7 @@ ensure_test_filters_match() {
   local filter
   local matches
 
-  printf '\n==> cargo test -- --list\n' >&2
+  print_cargo_list_step
   print_test_list_collection_note
   if ! output="$(cargo test -- --list 2>&1)"; then
     printf '%s\n' "$output" >&2
@@ -323,7 +333,7 @@ list_tests_for_filters() {
   local filter
   local matches
 
-  printf '\n==> cargo test -- --list\n' >&2
+  print_cargo_list_step
   print_test_list_collection_note
   if ! output="$(cargo test -- --list 2>&1)"; then
     printf '%s\n' "$output" >&2
@@ -354,7 +364,7 @@ list_all_tests() {
   local output
   local matches
 
-  printf '\n==> cargo test -- --list\n' >&2
+  print_cargo_list_step
   print_test_list_collection_note
   if ! output="$(cargo test -- --list 2>&1)"; then
     printf '%s\n' "$output" >&2
