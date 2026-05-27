@@ -937,14 +937,13 @@ fn compact_help_overlay_text(width: u16) -> &'static str {
     match width {
         0 => "",
         1..=7 => "?",
-        8..=12 => "? Toggle",
-        13..=22 => "? Toggle help",
-        23..=29 => "? Toggle help  / Global",
-        30..=34 => "? Toggle help  / Global search",
-        35..=40 => "? Toggle help  / Global  : Command",
-        41..=47 => "? Toggle help  / Global  : Command search",
-        48..=55 => "? Toggle help  / Global search  : Command search",
-        _ => "? Toggle help  / Global search  : Command search  q Quit",
+        8..=12 => "? Help",
+        13..=22 => "? Help  Esc",
+        23..=29 => "? Help  / Search  Esc",
+        30..=39 => "? Help  / Search  : Cmds  Esc",
+        40..=52 => "? Toggle help  / Global  : Commands  Esc",
+        53..=60 => "? Toggle help  / Global search  : Command search  Esc",
+        _ => "? Toggle help  / Global search  : Command search  Esc  q Quit",
     }
 }
 
@@ -1419,33 +1418,29 @@ mod tests {
 
     #[test]
     fn test_compact_help_overlay_text_fits_width() {
-        for width in 0..=48 {
+        for width in 0..=80 {
             assert!(compact_help_overlay_text(width).len() <= width as usize);
         }
         assert_eq!(compact_help_overlay_text(0), "");
         assert_eq!(compact_help_overlay_text(7), "?");
-        assert_eq!(compact_help_overlay_text(12), "? Toggle");
-        assert_eq!(compact_help_overlay_text(18), "? Toggle help");
-        assert_eq!(compact_help_overlay_text(25), "? Toggle help  / Global");
+        assert_eq!(compact_help_overlay_text(12), "? Help");
+        assert_eq!(compact_help_overlay_text(18), "? Help  Esc");
+        assert_eq!(compact_help_overlay_text(25), "? Help  / Search  Esc");
         assert_eq!(
             compact_help_overlay_text(30),
-            "? Toggle help  / Global search"
+            "? Help  / Search  : Cmds  Esc"
         );
         assert_eq!(
-            compact_help_overlay_text(35),
-            "? Toggle help  / Global  : Command"
+            compact_help_overlay_text(40),
+            "? Toggle help  / Global  : Commands  Esc"
         );
         assert_eq!(
-            compact_help_overlay_text(41),
-            "? Toggle help  / Global  : Command search"
+            compact_help_overlay_text(53),
+            "? Toggle help  / Global search  : Command search  Esc"
         );
         assert_eq!(
-            compact_help_overlay_text(48),
-            "? Toggle help  / Global search  : Command search"
-        );
-        assert_eq!(
-            compact_help_overlay_text(56),
-            "? Toggle help  / Global search  : Command search  q Quit"
+            compact_help_overlay_text(61),
+            "? Toggle help  / Global search  : Command search  Esc  q Quit"
         );
     }
 
@@ -1466,8 +1461,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("? Toggle help"));
-        assert!(content.contains("/ Global"));
+        assert!(content.contains("? Help"));
+        assert!(content.contains("Esc"));
     }
 
     #[test]
