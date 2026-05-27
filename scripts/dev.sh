@@ -156,10 +156,35 @@ run_quick_checks() {
 print_test_filter_hint() {
   local filter="$1"
   local quoted_filter
+  local broader_filters=()
+  local token quoted_token quoted_broader_filters
 
   printf -v quoted_filter '%q' "$filter"
   echo "Test filters are passed to Cargo as substring filters; module paths work too." >&2
   echo "Inspect matches with: bash scripts/dev.sh test-list $quoted_filter" >&2
+  while IFS= read -r token; do
+    case "$token" in
+      test|tests|should|with|without|when|then|from|into|uses|use|and|the|for)
+        continue
+        ;;
+    esac
+
+    if [ "${#token}" -ge 4 ]; then
+      broader_filters+=("$token")
+    fi
+    if [ "${#broader_filters[@]}" -ge 4 ]; then
+      break
+    fi
+  done < <(printf '%s\n' "$filter" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n')
+
+  if [ "${#broader_filters[@]}" -ne 0 ]; then
+    quoted_broader_filters=()
+    for token in "${broader_filters[@]}"; do
+      printf -v quoted_token '%q' "$token"
+      quoted_broader_filters+=("$quoted_token")
+    done
+    echo "Try broader matches with: bash scripts/dev.sh test-list ${quoted_broader_filters[*]}" >&2
+  fi
   echo "List every test with: bash scripts/dev.sh test-list" >&2
 }
 

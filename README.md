@@ -76,7 +76,8 @@ If you prefer `just`, run `just help` for the same command overview. The default
 
 `test-one`, `test-many`, and `test-list` pass filters through to Cargo as
 substring filters. If a filter does not match any test, the script prints the
-matching `test-list` command to help refine the filter.
+matching `test-list` command plus broader token searches to help refine the
+filter.
 
 `run` forwards arguments after `--` to the RightClick binary. `install-local`
 forwards extra arguments to `cargo install`, so flags like `--locked` or
