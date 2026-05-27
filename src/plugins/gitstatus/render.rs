@@ -494,11 +494,7 @@ fn format_relative_time(date: &chrono::DateTime<chrono::Utc>) -> String {
 }
 
 fn relative_time_label(count: i64, singular: &str, plural: &str) -> String {
-    if count == 1 {
-        format!("1 {} ago", singular)
-    } else {
-        format!("{} {} ago", count, plural)
-    }
+    format!("{} ago", count_label(count as usize, singular, plural))
 }
 
 fn count_title(
@@ -508,11 +504,12 @@ fn count_title(
     unit_singular: &str,
     unit_plural: &str,
 ) -> String {
-    if count == 1 {
-        format!(" {} (1 {}) ", singular, unit_singular)
-    } else {
-        format!(" {} ({} {}) ", plural, count, unit_plural)
-    }
+    let title = if count == 1 { singular } else { plural };
+    format!(
+        " {} ({}) ",
+        title,
+        count_label(count, unit_singular, unit_plural)
+    )
 }
 
 /// Render commit details panel
@@ -1307,12 +1304,7 @@ pub fn render_status_info(state: &PluginState) -> String {
     }
 
     if !state.commits.is_empty() {
-        let suffix = if state.commits.len() == 1 {
-            "commit"
-        } else {
-            "commits"
-        };
-        parts.push(format!("{} {}", state.commits.len(), suffix));
+        parts.push(count_label(state.commits.len(), "commit", "commits"));
     }
 
     parts.join(" | ")
