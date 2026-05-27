@@ -476,6 +476,33 @@ fn dev_script_unknown_command_uses_plural_wording_for_multiple_suggestions() {
 }
 
 #[test]
+fn dev_script_unknown_command_reports_truncated_suggestions() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "t"])
+        .output()
+        .expect("dev script unknown command path should run");
+
+    assert!(
+        !output.status.success(),
+        "unknown command should fail so callers notice the typo"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Unknown command: t"),
+        "dev script should echo the unknown command"
+    );
+    assert!(
+        stderr.contains("Showing first 5 of"),
+        "dev script should disclose when suggestions are truncated"
+    );
+    assert!(
+        stderr.contains("suggestions."),
+        "dev script should make the truncated suggestion count readable"
+    );
+}
+
+#[test]
 fn dev_script_test_many_explains_missing_filters_before_cargo_args() {
     let output = Command::new("bash")
         .args(["scripts/dev.sh", "test-many", "--", "--nocapture"])

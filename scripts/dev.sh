@@ -152,6 +152,9 @@ print_unknown_command() {
     for command in "${suggestions[@]:0:5}"; do
       echo "  bash scripts/dev.sh $command" >&2
     done
+    if [ "${#suggestions[@]}" -gt 5 ]; then
+      echo "Showing first 5 of ${#suggestions[@]} suggestions." >&2
+    fi
   else
     echo "Run bash scripts/dev.sh help to list available commands." >&2
   fi
