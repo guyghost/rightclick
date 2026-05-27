@@ -10,11 +10,10 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Tabs, Widget, Wrap},
 };
-use unicode_width::UnicodeWidthStr;
 
 use crate::core::models::Theme;
 use crate::ui::{
-    compact_global_search_hint_with_stacked, compact_help_hint,
+    compact_global_search_hint_with_stacked, compact_help_hint, display_width,
     prefixed_stacked_global_hint_message, truncate_display_with_suffix,
 };
 
@@ -804,11 +803,12 @@ fn workers_search_hint(width: u16) -> Option<&'static str> {
 fn specs_path_line(path: &str, width: u16) -> String {
     const PREFIX: &str = "Specs: ";
     let max_width = width as usize;
-    if max_width <= PREFIX.width() {
+    let prefix_width = display_width(PREFIX);
+    if max_width <= prefix_width {
         return truncate_with_suffix(&format!("{PREFIX}{path}"), max_width);
     }
 
-    let path_width = max_width - PREFIX.width();
+    let path_width = max_width - prefix_width;
     format!("{PREFIX}{}", truncate_with_suffix(path, path_width))
 }
 
@@ -1273,7 +1273,7 @@ mod tests {
             .find(|line| line.starts_with("Specs:"))
             .expect("specs path line should be present");
 
-        assert!(specs_line.width() <= 30, "{specs_line}");
+        assert!(display_width(specs_line) <= 30, "{specs_line}");
         assert!(specs_line.ends_with(".."), "{specs_line}");
         assert!(!message.contains("very-long-directory-name"));
     }
@@ -1686,7 +1686,7 @@ mod tests {
     fn test_worker_card_separator_fits_column_width() {
         assert_eq!(worker_card_separator(0), "");
         assert_eq!(worker_card_separator(3), "───");
-        assert_eq!(worker_card_separator(16).width(), 16);
-        assert_eq!(worker_card_separator(80).width(), 16);
+        assert_eq!(display_width(&worker_card_separator(16)), 16);
+        assert_eq!(display_width(&worker_card_separator(80)), 16);
     }
 }
