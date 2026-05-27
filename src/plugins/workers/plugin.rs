@@ -917,7 +917,7 @@ impl WorkersPlugin {
             PluginCommand::new("run", "Run Workers", 'r'),
             PluginCommand::new("stop", "Stop Workers", 's'),
             PluginCommand::new("open", "Open Intent", 'o'),
-            PluginCommand::new("refresh", "Refresh intents", 'f'),
+            PluginCommand::new("refresh", "Refresh Intents", 'f'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
             PluginCommand::new("prev-tab", "Previous Tab", '['),
             PluginCommand::new("next-tab", "Next Tab", ']'),
@@ -1152,8 +1152,8 @@ impl Plugin for WorkersPlugin {
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
-                "Refresh intents",
-                "Reload worker state",
+                "Refresh Intents",
+                "Reload intents from disk",
                 'f',
                 crate::keymap::FocusContext::Workspace,
             ),
@@ -1270,7 +1270,24 @@ mod tests {
         assert_eq!(next_tab_command.name, "Next Tab");
         assert_eq!(next_tab_command.key, ']');
 
+        let refresh_command = commands
+            .iter()
+            .find(|command| command.id == "refresh")
+            .expect("workers refresh command");
+        assert_eq!(refresh_command.name, "Refresh Intents");
+        assert_eq!(refresh_command.key, 'f');
+
         let trait_commands = <WorkersPlugin as crate::plugin::Plugin>::commands(&plugin);
+        let trait_refresh_command = trait_commands
+            .iter()
+            .find(|command| command.id == "refresh")
+            .expect("workers trait refresh command");
+        assert_eq!(trait_refresh_command.name, "Refresh Intents");
+        assert_eq!(
+            trait_refresh_command.description,
+            "Reload intents from disk"
+        );
+
         let prioritized: Vec<(&str, u8)> = trait_commands
             .iter()
             .filter(|command| command.priority > 0)
@@ -1329,7 +1346,7 @@ mod tests {
             .execute_command("refresh")
             .expect("refresh command should execute");
 
-        assert_eq!(execution.command_name, "Refresh intents");
+        assert_eq!(execution.command_name, "Refresh Intents");
         assert_eq!(plugin.pending_commands.pop_front(), Some(Command::Refresh));
     }
 
