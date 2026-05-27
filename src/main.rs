@@ -747,7 +747,7 @@ impl App {
             let status = plugin
                 .status_line()
                 .unwrap_or_else(|| format!("{} ready", plugin.name()));
-            build_help_lines(plugin.name(), &plugin.commands(), &status)
+            build_help_lines(plugin.id(), plugin.name(), &plugin.commands(), &status)
         } else {
             build_no_plugins_help_lines()
         };
@@ -823,6 +823,7 @@ fn search_plugin_entries(
 }
 
 fn build_help_lines(
+    plugin_id: &str,
     plugin_name: &str,
     commands: &[rightclick::plugin::PluginCommand],
     status: &str,
@@ -835,16 +836,27 @@ fn build_help_lines(
         "  /: Global search".to_string(),
         "  :: Command search".to_string(),
         "  ?: Toggle help".to_string(),
-        "  Tab: Switch plugin/pane".to_string(),
-        "  Shift+Tab: Previous plugin/pane".to_string(),
-        "  Ctrl+Tab: Next plugin".to_string(),
-        "  Ctrl+Shift+Tab: Previous plugin".to_string(),
+    ];
+    if plugin_uses_tab_for_panes(plugin_id) {
+        lines.extend([
+            "  Tab: Switch pane".to_string(),
+            "  Shift+Tab: Previous pane".to_string(),
+            "  Ctrl+Tab: Next plugin".to_string(),
+            "  Ctrl+Shift+Tab: Previous plugin".to_string(),
+        ]);
+    } else {
+        lines.extend([
+            "  Tab: Next plugin".to_string(),
+            "  Shift+Tab: Previous plugin".to_string(),
+        ]);
+    }
+    lines.extend([
         "  1-9: Jump to plugin".to_string(),
         "  Esc: Back/close".to_string(),
         "  q/Ctrl+C: Quit".to_string(),
         String::new(),
         "Plugin commands:".to_string(),
-    ];
+    ]);
 
     let mut seen = std::collections::HashSet::new();
     for command in commands {
@@ -1097,7 +1109,7 @@ mod tests {
             rightclick::keymap::FocusContext::Global,
         )];
 
-        let lines = build_help_lines("Git Status", &commands, "3 files changed");
+        let lines = build_help_lines("git-status", "Git Status", &commands, "3 files changed");
 
         assert!(lines.iter().any(|line| line.contains("Git Status")));
         assert!(lines.iter().any(|line| line.contains("r")));
@@ -1111,10 +1123,11 @@ mod tests {
         assert!(lines.contains(&"  :: Command search".to_string()));
         assert!(lines.iter().any(|line| line == "  ?: Toggle help"));
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
-        assert!(lines.contains(&"  Tab: Switch plugin/pane".to_string()));
-        assert!(lines.contains(&"  Shift+Tab: Previous plugin/pane".to_string()));
+        assert!(lines.contains(&"  Tab: Switch pane".to_string()));
+        assert!(lines.contains(&"  Shift+Tab: Previous pane".to_string()));
         assert!(lines.contains(&"  Ctrl+Tab: Next plugin".to_string()));
         assert!(lines.contains(&"  Ctrl+Shift+Tab: Previous plugin".to_string()));
+        assert!(!lines.iter().any(|line| line.contains("plugin/pane")));
         assert!(lines.contains(&"  Esc: Back/close".to_string()));
         assert!(
             !lines
@@ -1155,7 +1168,7 @@ mod tests {
             rightclick::keymap::FocusContext::Global,
         )];
 
-        let lines = build_help_lines("Git Status", &commands, "ready");
+        let lines = build_help_lines("git-status", "Git Status", &commands, "ready");
 
         assert!(
             lines
@@ -1166,7 +1179,7 @@ mod tests {
 
     #[test]
     fn test_build_help_lines_describes_empty_plugin_commands() {
-        let lines = build_help_lines("Workers", &[], "Workers ready");
+        let lines = build_help_lines("workers", "Workers", &[], "Workers ready");
 
         assert!(lines.iter().any(|line| line.contains("Plugin commands:")));
         assert!(
@@ -1176,6 +1189,16 @@ mod tests {
         );
         assert!(lines.iter().any(|line| line.contains("Workers ready")));
         assert!(lines.iter().any(|line| line.contains("Global shortcuts:")));
+    }
+
+    #[test]
+    fn test_build_help_lines_labels_tab_as_plugin_switch_for_simple_plugins() {
+        let lines = build_help_lines("conversations", "Conversations", &[], "ready");
+
+        assert!(lines.contains(&"  Tab: Next plugin".to_string()));
+        assert!(lines.contains(&"  Shift+Tab: Previous plugin".to_string()));
+        assert!(!lines.iter().any(|line| line == "  Ctrl+Tab: Next plugin"));
+        assert!(!lines.iter().any(|line| line.contains("plugin/pane")));
     }
 
     #[test]
