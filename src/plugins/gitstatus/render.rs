@@ -27,6 +27,7 @@ const GIT_MODAL_HEIGHT: u16 = 7;
 const MIN_GIT_MODAL_WIDTH: u16 = 20;
 const MIN_GIT_MODAL_HEIGHT: u16 = 5;
 const GIT_SEARCH_HINT: &str = "/: Global search  |  : Command search";
+const GIT_HELP_HINT: &str = "?: Toggle help";
 
 /// Render the git status plugin
 pub fn render_git_status(
@@ -1535,7 +1536,9 @@ fn git_empty_message(mut lines: Vec<String>, width: u16) -> String {
     if let Some(hint) = git_search_hint(width) {
         lines.push(hint.to_string());
     }
-    lines.push("?: Toggle help".to_string());
+    if let Some(hint) = git_help_hint(width) {
+        lines.push(hint.to_string());
+    }
     lines.join("\n")
 }
 
@@ -1550,6 +1553,13 @@ fn git_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.width() <= width)
+}
+
+fn git_help_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [GIT_HELP_HINT, "?: Help", "?"]
+        .into_iter()
+        .find(|hint| hint.width() <= width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
@@ -1858,6 +1868,23 @@ mod tests {
     }
 
     #[test]
+    fn test_git_help_hint_compacts_for_narrow_widths() {
+        assert_eq!(git_help_hint(0), None);
+        assert_eq!(git_help_hint(1), Some("?"));
+        assert_eq!(git_help_hint(7), Some("?: Help"));
+        assert_eq!(git_help_hint(14), Some(GIT_HELP_HINT));
+
+        for width in 0..=30 {
+            if let Some(hint) = git_help_hint(width) {
+                assert!(
+                    hint.width() <= width as usize,
+                    "hint {hint:?} overflowed width {width}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_git_empty_messages_omit_search_hint_when_too_narrow() {
         let mut state = PluginState::new();
         state.branch = "main".to_string();
@@ -1866,7 +1893,8 @@ mod tests {
         assert!(message.contains("Working tree clean"));
         assert!(!message.contains("Global search"));
         assert!(!message.contains("/:"));
-        assert!(message.contains("?: Toggle help"));
+        assert!(message.contains("?"));
+        assert!(!message.contains("?: Toggle help"));
     }
 
     #[test]
