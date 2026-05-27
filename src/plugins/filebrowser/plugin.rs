@@ -856,9 +856,10 @@ impl FileBrowserPlugin {
     fn render_footer(&self, area: Rect, buf: &mut Buffer) {
         let hints = [
             KeyHint::new("j/k", "Navigate"),
-            KeyHint::new("↵/space", "Expand/Collapse"),
             KeyHint::new("r", "Refresh files"),
             KeyHint::new("/", "Global search"),
+            KeyHint::new(":", "Command search"),
+            KeyHint::new("↵/space", "Expand/Collapse"),
             KeyHint::new("f", "Filter"),
             KeyHint::new("a/A", "New file/dir"),
             KeyHint::new("d", "Delete"),
@@ -1303,7 +1304,7 @@ impl Default for FileBrowserPlugin {
 fn file_browser_status_line(state: &PluginState) -> String {
     let visible = state.visible_indices().len();
     if state.tree.entries.is_empty() {
-        return "No files | a New | A New dir | r Refresh files | / Global search | ? Help"
+        return "No files | a New | A New dir | r Refresh files | / Global search | : Command search | ? Help"
             .to_string();
     }
 
@@ -1315,7 +1316,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 
     if visible == 0 && state.filter_query.is_some() {
         return format!(
-            "No matching files | {}{} | f Filter | r Refresh files | / Global search | ? Help",
+            "No matching files | {}{} | f Filter | r Refresh files | / Global search | : Command search | ? Help",
             visible_file_count_label(visible),
             filter
         );
@@ -1335,7 +1336,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 
     if state.selected_path.is_none() && visible > 0 {
         return format!(
-            "{} | {}{} | j/k Navigate | / Global search | ? Help",
+            "{} | {}{} | j/k Navigate | / Global search | : Command search | ? Help",
             selected,
             visible_file_count_label(visible),
             filter
@@ -1361,14 +1362,14 @@ fn visible_file_count_label(count: usize) -> String {
 fn file_tree_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No files match \"{}\"\n\nf  Change or clear filter\nr  Refresh files\n/  Global search\n?  Help",
+            "No files match \"{}\"\n\nf  Change or clear filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No files found\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search\n?  Help"
+        "No files found\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search  |  :  Command search\n?  Help"
             .to_string()
     } else {
-        "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n/  Global search\n?  Help"
+        "No visible files\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Help"
             .to_string()
     }
 }
@@ -1376,23 +1377,23 @@ fn file_tree_empty_message(state: &PluginState) -> String {
 fn file_preview_empty_message(state: &PluginState) -> String {
     if let Some(query) = &state.filter_query {
         format!(
-            "No preview available\n\nNo files match \"{}\"\nf  Change or clear filter\nr  Refresh files\n/  Global search\n?  Help",
+            "No preview available\n\nNo files match \"{}\"\nf  Change or clear filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Help",
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No preview available\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search\n?  Help"
+        "No preview available\n\na  New file\nA  New directory\nr  Refresh files\n/  Global search  |  :  Command search\n?  Help"
             .to_string()
     } else if state.visible_indices().is_empty() {
-        "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n/  Global search\n?  Help"
+        "No preview available\n\nH  Toggle hidden\ni  Toggle ignored\nf  Filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Help"
             .to_string()
     } else {
-        "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter\nr  Refresh files\n/  Global search\n?  Help"
+        "No preview selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nf  Filter\nr  Refresh files\n/  Global search  |  :  Command search\n?  Help"
             .to_string()
     }
 }
 
 fn file_info_empty_message() -> &'static str {
-    "No file selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nI  Close info\nr  Refresh files\n/  Global search\n?  Help"
+    "No file selected\n\nj/k  Navigate files\nEnter/Space  Expand directory\nI  Close info\nr  Refresh files\n/  Global search  |  :  Command search\n?  Help"
 }
 
 // Helper function for muted style
@@ -1654,7 +1655,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No files | a New | A New dir | r Refresh files | / Global search | ? Help"
+                "No files | a New | A New dir | r Refresh files | / Global search | : Command search | ? Help"
                     .to_string()
             )
         );
@@ -1672,7 +1673,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No matching files | 0 visible files | filter: missing | f Filter | r Refresh files | / Global search | ? Help"
+                "No matching files | 0 visible files | filter: missing | f Filter | r Refresh files | / Global search | : Command search | ? Help"
                     .to_string()
             )
         );
@@ -1695,7 +1696,7 @@ mod tests {
 
         assert_eq!(
             file_browser_status_line(&state),
-            "No file selected | 1 visible file | j/k Navigate | / Global search | ? Help"
+            "No file selected | 1 visible file | j/k Navigate | / Global search | : Command search | ? Help"
         );
 
         let beta = temp_dir.path().join("beta.txt");
@@ -1707,7 +1708,7 @@ mod tests {
 
         assert_eq!(
             file_browser_status_line(&state),
-            "No file selected | 2 visible files | j/k Navigate | / Global search | ? Help"
+            "No file selected | 2 visible files | j/k Navigate | / Global search | : Command search | ? Help"
         );
     }
 
@@ -1724,7 +1725,43 @@ mod tests {
         assert!(message.contains("A  New directory"));
         assert!(message.contains("r  Refresh files"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_file_browser_empty_messages_surface_command_search() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut empty_state = PluginState::new(temp_dir.path().to_path_buf());
+        empty_state.tree.entries.clear();
+
+        let assert_hint = |message: &str| {
+            assert!(message.contains("/  Global search"), "{message}");
+            assert!(message.contains(":  Command search"), "{message}");
+        };
+
+        assert_hint(&file_tree_empty_message(&empty_state));
+        assert_hint(&file_preview_empty_message(&empty_state));
+        assert_hint(file_info_empty_message());
+
+        let mut filtered_state = PluginState::new(temp_dir.path().to_path_buf());
+        filtered_state.set_filter(Some("missing".to_string()));
+        assert_hint(&file_tree_empty_message(&filtered_state));
+        assert_hint(&file_preview_empty_message(&filtered_state));
+
+        let hidden_path = temp_dir.path().join(".hidden");
+        fs::write(&hidden_path, "hidden").unwrap();
+        let mut hidden_state = PluginState::new(temp_dir.path().to_path_buf());
+        hidden_state.refresh();
+        hidden_state.show_hidden = false;
+        assert_hint(&file_tree_empty_message(&hidden_state));
+        assert_hint(&file_preview_empty_message(&hidden_state));
+
+        fs::write(temp_dir.path().join("alpha.txt"), "alpha").unwrap();
+        let mut unselected_state = PluginState::new(temp_dir.path().to_path_buf());
+        unselected_state.refresh();
+        unselected_state.selected_path = None;
+        assert_hint(&file_preview_empty_message(&unselected_state));
     }
 
     #[test]
@@ -1739,6 +1776,7 @@ mod tests {
         assert!(message.contains("f  Change or clear filter"));
         assert!(message.contains("r  Refresh files"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(!message.contains("Esc  Close dialogs"));
         assert!(message.contains("?  Help"));
     }
@@ -1756,6 +1794,7 @@ mod tests {
         assert!(message.contains("f  Change or clear filter"));
         assert!(message.contains("r  Refresh files"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1775,6 +1814,7 @@ mod tests {
         assert!(message.contains("f  Filter"));
         assert!(message.contains("r  Refresh files"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1794,6 +1834,7 @@ mod tests {
         assert!(message.contains("f  Filter"));
         assert!(message.contains("r  Refresh files"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1810,6 +1851,7 @@ mod tests {
         assert!(message.contains("A  New directory"));
         assert!(message.contains("r  Refresh files"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(message.contains("?  Help"));
     }
 
@@ -1837,11 +1879,12 @@ mod tests {
         assert!(content.contains("f  Filter"));
         assert!(content.contains("r  Refresh files"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
     #[test]
-    fn test_render_footer_includes_refresh_and_global_search_hints() {
+    fn test_render_footer_includes_refresh_and_search_hints() {
         let temp_dir = TempDir::new().unwrap();
         let plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
         let area = Rect::new(0, 0, 180, 1);
@@ -1856,6 +1899,7 @@ mod tests {
             .collect();
         assert!(content.contains("r: Refresh files"));
         assert!(content.contains("/: Global search"));
+        assert!(content.contains(":: Command search"));
     }
 
     #[test]
@@ -1884,6 +1928,7 @@ mod tests {
         assert!(content.contains("Close info"));
         assert!(content.contains("r  Refresh files"));
         assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("?  Help"));
     }
 
