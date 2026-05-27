@@ -99,6 +99,10 @@ fn dev_script_help_explains_test_many() {
         stdout.contains("and then report \"Matched N tests for filter: ...\""),
         "dev script help should explain matched test count feedback"
     );
+    assert!(
+        stdout.contains("test-list reports \"Listed N tests.\" for the full list"),
+        "dev script help should explain unfiltered test-list count feedback"
+    );
 }
 
 #[test]
@@ -128,6 +132,36 @@ fn dev_script_test_list_reports_filter_match_count() {
     assert!(
         stdout.contains("dev_script_help_explains_test_many: test"),
         "test-list should still print the matching Cargo test list"
+    );
+}
+
+#[test]
+fn dev_script_test_list_reports_unfiltered_match_count() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "test-list"])
+        .output()
+        .expect("dev script test-list should run");
+
+    assert!(
+        output.status.success(),
+        "test-list should pass without filters: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Listed "),
+        "test-list should report how many tests were listed"
+    );
+    assert!(
+        stderr.contains(" tests."),
+        "test-list should use the unfiltered count wording"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("dev_script_help_explains_test_many: test"),
+        "test-list should still print the full Cargo test list"
     );
 }
 

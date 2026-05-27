@@ -53,7 +53,8 @@ test-list only accepts filters; pass cargo test args to test-one or test-many
 after --.
 Use test-many when you want to check several filters in one command; cargo test
 itself accepts only one substring filter per invocation.
-test-list reports "Listed N tests for filter: ..." for filtered lists.
+test-list reports "Listed N tests." for the full list and
+"Listed N tests for filter: ..." for filtered lists.
 test-one and test-many print a "validate test filter" step before running Cargo
 and then report "Matched N tests for filter: ..." so long filter checks are
 visible and confirm the filter scope before the test run starts.
@@ -286,6 +287,25 @@ list_tests_for_filter() {
   printf '%s\n' "$output"
 }
 
+list_all_tests() {
+  local output
+  local matches
+
+  printf '\n==> cargo test -- --list\n' >&2
+  if ! output="$(cargo test -- --list 2>&1)"; then
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+
+  matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
+  if [ "$matches" -eq 1 ]; then
+    echo "Listed 1 test." >&2
+  else
+    echo "Listed $matches tests." >&2
+  fi
+  printf '%s\n' "$output"
+}
+
 rust_version() {
   local version
   version="$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
@@ -451,7 +471,7 @@ case "$cmd" in
   test-list)
     shift
     if [ "$#" -eq 0 ]; then
-      run_step cargo test -- --list
+      list_all_tests
     else
       for filter in "$@"; do
         ensure_test_filter_arg "test-list" "[<test-filter>...]" "$filter"

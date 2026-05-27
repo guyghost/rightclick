@@ -116,8 +116,12 @@ fn developer_commands_explain_test_many() {
         "README should explain the filter validation progress line"
     );
     assert!(
-        README.contains("`test-list` reports `Listed N tests for filter: ...`"),
+        README.contains("`Listed N tests for filter: ...` for filtered lists"),
         "README should explain filtered test-list count feedback"
+    );
+    assert!(
+        README.contains("`test-list` reports `Listed N tests.` for the full list"),
+        "README should explain unfiltered test-list count feedback"
     );
     assert!(
         README.contains("then report `Matched N tests for filter: ...`"),
