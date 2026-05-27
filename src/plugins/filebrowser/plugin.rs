@@ -221,7 +221,7 @@ impl Plugin for FileBrowserPlugin {
             .with_footer_priority(5),
             PluginCommand::with_context_description(
                 "refresh",
-                "Refresh",
+                "Refresh files",
                 "Reload the file tree",
                 'r',
                 crate::keymap::FocusContext::FileBrowserTree,
@@ -857,7 +857,7 @@ impl FileBrowserPlugin {
         let hints = [
             KeyHint::new("j/k", "Navigate"),
             KeyHint::new("↵/space", "Expand/Collapse"),
-            KeyHint::new("r", "Refresh"),
+            KeyHint::new("r", "Refresh files"),
             KeyHint::new("/", "Global search"),
             KeyHint::new("f", "Filter"),
             KeyHint::new("a/A", "New file/dir"),
@@ -1559,6 +1559,7 @@ mod tests {
             ("delete", 'd', "Delete"),
             ("rename", 'R', "Rename"),
             ("filter", 'f', "Filter"),
+            ("refresh", 'r', "Refresh files"),
             ("toggle_ignored", 'i', "Toggle Ignored"),
             ("toggle_hidden", 'H', "Toggle Hidden"),
             ("file_info", 'I', "File Info"),
@@ -1853,7 +1854,7 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("r: Refresh"));
+        assert!(content.contains("r: Refresh files"));
         assert!(content.contains("/: Global search"));
     }
 
