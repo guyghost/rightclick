@@ -55,3 +55,16 @@ fn developer_commands_include_diff_check() {
         "README should clarify that diff-check covers both staged and unstaged changes"
     );
 }
+
+#[test]
+fn developer_commands_explain_test_many() {
+    assert!(
+        README.contains("Use `test-many` when you want to check several filters in one command"),
+        "README should explain when to use test-many"
+    );
+    assert!(
+        README
+            .contains("Cargo itself accepts only one substring filter per `cargo test` invocation"),
+        "README should clarify why test-many runs filters separately"
+    );
+}
