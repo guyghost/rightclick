@@ -64,6 +64,68 @@ If you use just:
 EOF
 }
 
+known_commands() {
+  cat <<'EOF'
+ci
+pre-commit
+pre-push
+doctor
+rust-version
+check
+quick
+script-check
+fmt-check
+fmt
+clippy
+lint
+build
+build-release
+test
+doc-test
+test-list
+test-one
+test-many
+run
+install-local
+help
+EOF
+}
+
+print_unknown_command() {
+  local unknown="$1"
+  local normalized_unknown="${unknown//-/}"
+  local suggestions=()
+  local command normalized_command
+
+  while IFS= read -r command; do
+    normalized_command="${command//-/}"
+    if [[ "$command" == *"$unknown"* || "$normalized_command" == *"$normalized_unknown"* ]]; then
+      suggestions+=("$command")
+    fi
+  done < <(known_commands)
+
+  if [ "${#suggestions[@]}" -eq 0 ] && [ "${#unknown}" -ge 2 ]; then
+    local prefix="${unknown:0:2}"
+    while IFS= read -r command; do
+      if [[ "$command" == "$prefix"* ]]; then
+        suggestions+=("$command")
+      fi
+    done < <(known_commands)
+  fi
+
+  echo "Unknown command: $unknown" >&2
+  if [ "${#suggestions[@]}" -ne 0 ]; then
+    echo "Did you mean:" >&2
+    for command in "${suggestions[@]:0:5}"; do
+      echo "  bash scripts/dev.sh $command" >&2
+    done
+  else
+    echo "Run bash scripts/dev.sh help to list available commands." >&2
+  fi
+  echo >&2
+  print_help >&2
+}
+
 run_step() {
   printf '\n==> %s\n' "$*" >&2
   "$@"
@@ -384,9 +446,7 @@ case "$cmd" in
     print_help
     ;;
   *)
-    echo "Unknown command: $cmd" >&2
-    echo >&2
-    print_help >&2
+    print_unknown_command "$cmd"
     exit 2
     ;;
 esac
