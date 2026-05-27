@@ -1349,7 +1349,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
 
     if state.selected_path.is_none() && visible > 0 {
         return format!(
-            "{} | {}{} | j/k: Navigate | Enter/Space: Expand | /: Global search  |  : Command search | ?: Toggle help",
+            "{} | {}{} | j/k: Navigate | Enter/Space: Toggle directory | /: Global search  |  : Command search | ?: Toggle help",
             selected,
             visible_file_count_label(visible),
             filter
@@ -1400,13 +1400,13 @@ fn file_preview_empty_message(state: &PluginState) -> String {
         "No visible file to preview\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     } else {
-        "No preview selected\n\nj/k: Navigate files\nEnter/Space: Expand directory\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
+        "No preview selected\n\nj/k: Navigate files\nEnter/Space: Toggle directory\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     }
 }
 
 fn file_info_empty_message() -> &'static str {
-    "No file selected\n\nj/k: Navigate files\nEnter/Space: Expand directory\nI: Close info\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
+    "No file selected\n\nj/k: Navigate files\nEnter/Space: Toggle directory\nI: Close info\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
 }
 
 // Helper function for muted style
@@ -1727,7 +1727,7 @@ mod tests {
 
         assert_eq!(
             file_browser_status_line(&state),
-            "No file selected | 1 visible file | j/k: Navigate | Enter/Space: Expand | /: Global search  |  : Command search | ?: Toggle help"
+            "No file selected | 1 visible file | j/k: Navigate | Enter/Space: Toggle directory | /: Global search  |  : Command search | ?: Toggle help"
         );
 
         let beta = temp_dir.path().join("beta.txt");
@@ -1739,7 +1739,7 @@ mod tests {
 
         assert_eq!(
             file_browser_status_line(&state),
-            "No file selected | 2 visible files | j/k: Navigate | Enter/Space: Expand | /: Global search  |  : Command search | ?: Toggle help"
+            "No file selected | 2 visible files | j/k: Navigate | Enter/Space: Toggle directory | /: Global search  |  : Command search | ?: Toggle help"
         );
     }
 
@@ -1910,7 +1910,7 @@ mod tests {
             .collect();
         assert!(content.contains("No preview selected"));
         assert!(content.contains("j/k: Navigate files"));
-        assert!(content.contains("Enter/Space: Expand directory"));
+        assert!(content.contains("Enter/Space: Toggle directory"));
         assert!(content.contains("f: Filter files"));
         assert!(content.contains("r: Refresh files"));
         assert!(content.contains("/: Global search"));
@@ -1961,7 +1961,7 @@ mod tests {
             .collect();
         assert!(content.contains("No file selected"));
         assert!(content.contains("j/k: Navigate files"));
-        assert!(content.contains("Enter/Space: Expand directory"));
+        assert!(content.contains("Enter/Space: Toggle directory"));
         assert!(content.contains("Close info"));
         assert!(content.contains("r: Refresh files"));
         assert!(content.contains("/: Global search"));
