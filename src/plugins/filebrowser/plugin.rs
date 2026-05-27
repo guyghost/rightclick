@@ -30,7 +30,7 @@ const DELETE_ENTRY_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const RENAME_ENTRY_MODAL_HINT: &str = "Enter: Rename  |  Esc: Cancel";
 const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty: Clear  |  Esc: Cancel";
 const ERROR_MODAL_HINT: &str = "Enter/Esc: Close";
-const HELP_OVERLAY_HINT: &str = "?: Close";
+const HELP_OVERLAY_HINT: &str = "?: Toggle help";
 const FILE_INFO_OVERLAY_HINT: &str = "I: Close";
 const MIN_OVERLAY_WIDTH: u16 = 24;
 const MIN_OVERLAY_HEIGHT: u16 = 5;
@@ -1453,7 +1453,8 @@ mod tests {
     fn test_file_overlay_hints_use_compact_action_case() {
         let hints = [HELP_OVERLAY_HINT, FILE_INFO_OVERLAY_HINT];
 
-        assert!(hints.iter().all(|hint| hint.contains(": Close")));
+        assert!(HELP_OVERLAY_HINT.contains(": Toggle help"));
+        assert!(FILE_INFO_OVERLAY_HINT.contains(": Close"));
         assert!(HELP_OVERLAY_HINT.starts_with('?'));
         assert!(FILE_INFO_OVERLAY_HINT.starts_with('I'));
         assert!(!hints.iter().any(|hint| hint.starts_with("Press ")));
