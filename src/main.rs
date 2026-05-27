@@ -919,9 +919,17 @@ fn visible_help_lines(lines: Vec<String>, max_height: u16) -> Vec<String> {
         return Vec::new();
     }
 
+    let hidden_count = lines.len().saturating_sub(max_lines);
     let mut visible: Vec<String> = lines.into_iter().take(max_lines).collect();
-    visible[max_lines - 1] = "  ... more help hidden".to_string();
+    visible[max_lines - 1] = hidden_help_line_label(hidden_count);
     visible
+}
+
+fn hidden_help_line_label(hidden_count: usize) -> String {
+    match hidden_count {
+        1 => "  ... 1 more help line".to_string(),
+        count => format!("  ... {count} more help lines"),
+    }
 }
 
 fn compact_help_overlay_text(width: u16) -> &'static str {
@@ -1322,9 +1330,36 @@ mod tests {
             vec![
                 "Help".to_string(),
                 "Plugin commands:".to_string(),
-                "  ... more help hidden".to_string()
+                "  ... 1 more help line".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn test_visible_help_lines_counts_hidden_lines() {
+        let lines = vec![
+            "Help".to_string(),
+            "Plugin commands:".to_string(),
+            "  r: Refresh".to_string(),
+            "  c: Commit".to_string(),
+            "Global shortcuts:".to_string(),
+            "  q/Ctrl+C: Quit".to_string(),
+        ];
+
+        assert_eq!(
+            visible_help_lines(lines, 3),
+            vec![
+                "Help".to_string(),
+                "Plugin commands:".to_string(),
+                "  ... 3 more help lines".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn test_hidden_help_line_label_uses_singular_and_plural() {
+        assert_eq!(hidden_help_line_label(1), "  ... 1 more help line");
+        assert_eq!(hidden_help_line_label(3), "  ... 3 more help lines");
     }
 
     #[test]
