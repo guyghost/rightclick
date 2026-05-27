@@ -1478,7 +1478,9 @@ fn file_browser_empty_message(mut lines: Vec<String>, width: u16) -> String {
     if let Some(hint) = file_browser_search_hint(width) {
         lines.push(hint.to_string());
     }
-    lines.push("?: Toggle help".to_string());
+    if let Some(hint) = file_browser_help_hint(width) {
+        lines.push(hint.to_string());
+    }
     lines.join("\n")
 }
 
@@ -1493,6 +1495,13 @@ fn file_browser_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.width() <= width)
+}
+
+fn file_browser_help_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [HELP_OVERLAY_HINT, "?: Help", "?"]
+        .into_iter()
+        .find(|hint| hint.width() <= width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
@@ -1920,6 +1929,23 @@ mod tests {
     }
 
     #[test]
+    fn test_file_browser_help_hint_compacts_for_narrow_widths() {
+        assert_eq!(file_browser_help_hint(0), None);
+        assert_eq!(file_browser_help_hint(1), Some("?"));
+        assert_eq!(file_browser_help_hint(7), Some("?: Help"));
+        assert_eq!(file_browser_help_hint(14), Some(HELP_OVERLAY_HINT));
+
+        for width in 0..=30 {
+            if let Some(hint) = file_browser_help_hint(width) {
+                assert!(
+                    hint.width() <= width as usize,
+                    "hint {hint:?} overflowed width {width}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_file_browser_empty_messages_truncate_long_filter_query() {
         let temp_dir = TempDir::new().unwrap();
         let mut state = PluginState::new(temp_dir.path().to_path_buf());
@@ -1943,7 +1969,8 @@ mod tests {
         assert!(message.contains("No file selected"));
         assert!(!message.contains("Global search"));
         assert!(!message.contains("/:"));
-        assert!(message.contains("?: Toggle help"));
+        assert!(message.contains("?"));
+        assert!(!message.contains("?: Toggle help"));
     }
 
     #[test]
