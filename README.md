@@ -40,7 +40,8 @@ checks Rust, Cargo, the required `rust-version`, `rustfmt`, `clippy`, Git, and
 from any directory inside the checkout. When `td` is installed, `doctor` also
 reports whether this checkout has task tracking initialized. Missing optional
 tools include a short hint explaining what workflow they unlock and, for common
-tools, the install command to use.
+tools, the install command to use. If `td` is present but this checkout is not
+initialized yet, `doctor` prints the repo path where `td init` should be run.
 
 ```bash
 bash scripts/dev.sh ci            # same checks used by GitHub Actions
