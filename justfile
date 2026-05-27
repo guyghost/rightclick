@@ -24,6 +24,9 @@ quick:
 script-check:
     bash scripts/dev.sh script-check
 
+diff-check:
+    bash scripts/dev.sh diff-check
+
 doctor:
     bash scripts/dev.sh doctor
 

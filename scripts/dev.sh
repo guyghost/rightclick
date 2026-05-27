@@ -16,9 +16,10 @@ Commands:
   pre-push       full local verification before pushing
   doctor         check required and optional local developer tools
   rust-version   print the required Rust version from Cargo.toml
-  check          fmt check, clippy with warnings denied, and tests
-  quick          fmt check and clippy with warnings denied
+  check          diff check, fmt check, clippy with warnings denied, and tests
+  quick          diff check, fmt check, and clippy with warnings denied
   script-check   validate shell helper script and justfile syntax when available
+  diff-check     run git whitespace checks for staged and unstaged changes
   fmt-check      run cargo fmt --check
   fmt            run cargo fmt
   clippy         run cargo clippy --all-targets -- -D warnings
@@ -56,6 +57,7 @@ If you use just:
   just pre-push
   just quick
   just script-check
+  just diff-check
   just test-list gitstatus search::overlay
   just test-one plugins::gitstatus
   just test-one test_plugin_commands -- --nocapture
@@ -74,6 +76,7 @@ rust-version
 check
 quick
 script-check
+diff-check
 fmt-check
 fmt
 clippy
@@ -140,8 +143,14 @@ run_script_checks() {
   fi
 }
 
+run_diff_checks() {
+  run_step git diff --check
+  run_step git diff --cached --check
+}
+
 run_checks() {
   run_script_checks
+  run_diff_checks
   run_step cargo fmt --check
   run_step cargo clippy --all-targets -- -D warnings
   run_step cargo test
@@ -149,6 +158,7 @@ run_checks() {
 
 run_quick_checks() {
   run_script_checks
+  run_diff_checks
   run_step cargo fmt --check
   run_step cargo clippy --all-targets -- -D warnings
 }
@@ -375,6 +385,9 @@ case "$cmd" in
     ;;
   script-check)
     run_script_checks
+    ;;
+  diff-check)
+    run_diff_checks
     ;;
   fmt-check)
     run_step cargo fmt --check

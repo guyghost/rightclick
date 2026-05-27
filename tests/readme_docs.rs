@@ -23,3 +23,15 @@ fn keyboard_shortcuts_include_command_search() {
         "README search docs should explain the direct commands scope shortcut"
     );
 }
+
+#[test]
+fn developer_commands_include_diff_check() {
+    assert!(
+        README.contains("bash scripts/dev.sh diff-check"),
+        "README developer commands should document the whitespace diff check"
+    );
+    assert!(
+        README.contains("staged and unstaged changes"),
+        "README should clarify that diff-check covers both staged and unstaged changes"
+    );
+}
