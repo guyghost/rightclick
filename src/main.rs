@@ -915,10 +915,11 @@ fn compact_help_overlay_text(width: u16) -> &'static str {
         1..=7 => "?",
         8..=12 => "? Toggle",
         13..=22 => "? Toggle help",
-        23..=29 => "? Toggle help  / Search",
+        23..=29 => "? Toggle help  / Global",
         30..=34 => "? Toggle help  / Global search",
-        35..=40 => "? Toggle help  / Search  : Commands",
-        41..=55 => "? Toggle help  / Search  : Command search",
+        35..=40 => "? Toggle help  / Global  : Commands",
+        41..=47 => "? Toggle help  / Global  : Command search",
+        48..=55 => "? Toggle help  / Global search  : Command search",
         _ => "? Toggle help  / Global search  : Command search  q Quit",
     }
 }
@@ -1282,18 +1283,22 @@ mod tests {
         assert_eq!(compact_help_overlay_text(7), "?");
         assert_eq!(compact_help_overlay_text(12), "? Toggle");
         assert_eq!(compact_help_overlay_text(18), "? Toggle help");
-        assert_eq!(compact_help_overlay_text(25), "? Toggle help  / Search");
+        assert_eq!(compact_help_overlay_text(25), "? Toggle help  / Global");
         assert_eq!(
             compact_help_overlay_text(30),
             "? Toggle help  / Global search"
         );
         assert_eq!(
             compact_help_overlay_text(35),
-            "? Toggle help  / Search  : Commands"
+            "? Toggle help  / Global  : Commands"
         );
         assert_eq!(
             compact_help_overlay_text(41),
-            "? Toggle help  / Search  : Command search"
+            "? Toggle help  / Global  : Command search"
+        );
+        assert_eq!(
+            compact_help_overlay_text(48),
+            "? Toggle help  / Global search  : Command search"
         );
         assert_eq!(
             compact_help_overlay_text(56),
@@ -1319,7 +1324,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("? Toggle help"));
-        assert!(content.contains("/ Search"));
+        assert!(content.contains("/ Global"));
     }
 
     #[test]
