@@ -847,10 +847,10 @@ fn build_help_lines(
         "Global shortcuts:".to_string(),
         "  /        Global search".to_string(),
         "  ?        Help".to_string(),
-        "  Tab      Switch plugin or pane".to_string(),
-        "  Shift+Tab  Switch to previous plugin or pane".to_string(),
+        "  Tab      Switch plugin/pane".to_string(),
+        "  Shift+Tab  Previous plugin/pane".to_string(),
         "  1-9      Jump to plugin".to_string(),
-        "  Esc      Back or close active view".to_string(),
+        "  Esc      Back/close".to_string(),
         "  q/Ctrl+C  Quit".to_string(),
     ]);
 
@@ -1095,17 +1095,19 @@ mod tests {
         );
         assert!(lines.iter().any(|line| line == "  ?        Help"));
         assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
+        assert!(lines.contains(&"  Tab      Switch plugin/pane".to_string()));
+        assert!(lines.contains(&"  Shift+Tab  Previous plugin/pane".to_string()));
+        assert!(lines.contains(&"  Esc      Back/close".to_string()));
         assert!(
-            lines
+            !lines
                 .iter()
-                .any(|line| line.contains("Esc") && line.contains("Back or close"))
+                .any(|line| line.contains("Switch to previous plugin or pane"))
         );
         assert!(
-            lines
+            !lines
                 .iter()
-                .any(|line| line.contains("Shift+Tab") && line.contains("previous plugin"))
+                .any(|line| line.contains("Back or close active view"))
         );
-        assert!(lines.contains(&"  Shift+Tab  Switch to previous plugin or pane".to_string()));
         assert!(
             lines
                 .iter()
