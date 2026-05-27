@@ -1,5 +1,76 @@
 use std::process::Command;
 
+fn run_dev_script_with_fake_cargo(args: &[&str]) -> std::process::Output {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time should be after unix epoch")
+        .as_nanos();
+    let temp_dir = std::env::temp_dir().join(format!(
+        "rightclick-fake-cargo-{}-{unique}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&temp_dir).expect("temp dir should be created");
+
+    let fake_cargo = temp_dir.join("cargo");
+    fs::write(
+        &fake_cargo,
+        r#"#!/usr/bin/env bash
+set -euo pipefail
+
+all_tests=(
+  "dev_script_help_explains_test_many: test"
+  "dev_script_run_step_shell_quotes_spaced_args: test"
+)
+
+if [ "${1:-}" != "test" ]; then
+  exit 0
+fi
+
+has_list=0
+filter=""
+for arg in "$@"; do
+  if [ "$arg" = "--list" ]; then
+    has_list=1
+  fi
+done
+
+if [ "$#" -ge 2 ] && [ "$2" != "--" ]; then
+  filter="$2"
+fi
+
+if [ "$has_list" -eq 1 ]; then
+  for test_name in "${all_tests[@]}"; do
+    if [ -z "$filter" ] || [[ "$test_name" == *"$filter"* ]]; then
+      printf '%s\n' "$test_name"
+    fi
+  done
+fi
+"#,
+    )
+    .expect("fake cargo should be written");
+    fs::set_permissions(&fake_cargo, fs::Permissions::from_mode(0o755))
+        .expect("fake cargo should be executable");
+
+    let path = format!(
+        "{}:{}",
+        temp_dir.display(),
+        std::env::var("PATH").expect("PATH should be set")
+    );
+    let output = Command::new("bash")
+        .arg("scripts/dev.sh")
+        .args(args)
+        .env("PATH", path)
+        .output()
+        .expect("dev script should run");
+
+    fs::remove_dir_all(&temp_dir).expect("temp dir should be removed");
+    output
+}
+
 #[test]
 fn dev_script_doctor_explains_uninitialized_td_workspace() {
     use std::fs;
@@ -115,14 +186,8 @@ fn dev_script_help_explains_test_many() {
 
 #[test]
 fn dev_script_test_list_reports_filter_match_count() {
-    let output = Command::new("bash")
-        .args([
-            "scripts/dev.sh",
-            "test-list",
-            "dev_script_help_explains_test_many",
-        ])
-        .output()
-        .expect("dev script test-list should run");
+    let output =
+        run_dev_script_with_fake_cargo(&["test-list", "dev_script_help_explains_test_many"]);
 
     assert!(
         output.status.success(),
@@ -145,15 +210,11 @@ fn dev_script_test_list_reports_filter_match_count() {
 
 #[test]
 fn dev_script_test_list_lists_multiple_filters_from_single_test_list() {
-    let output = Command::new("bash")
-        .args([
-            "scripts/dev.sh",
-            "test-list",
-            "dev_script_help_explains_test_many",
-            "dev_script_run_step_shell_quotes_spaced_args",
-        ])
-        .output()
-        .expect("dev script test-list should run");
+    let output = run_dev_script_with_fake_cargo(&[
+        "test-list",
+        "dev_script_help_explains_test_many",
+        "dev_script_run_step_shell_quotes_spaced_args",
+    ]);
 
     assert!(
         output.status.success(),
@@ -189,15 +250,11 @@ fn dev_script_test_list_lists_multiple_filters_from_single_test_list() {
 
 #[test]
 fn dev_script_test_list_validates_all_filters_before_printing_matches() {
-    let output = Command::new("bash")
-        .args([
-            "scripts/dev.sh",
-            "test-list",
-            "dev_script_help_explains_test_many",
-            "missing_filter_for_partial_output",
-        ])
-        .output()
-        .expect("dev script test-list should run");
+    let output = run_dev_script_with_fake_cargo(&[
+        "test-list",
+        "dev_script_help_explains_test_many",
+        "missing_filter_for_partial_output",
+    ]);
 
     assert!(
         !output.status.success(),
@@ -228,10 +285,7 @@ fn dev_script_test_list_validates_all_filters_before_printing_matches() {
 
 #[test]
 fn dev_script_test_list_reports_unfiltered_match_count() {
-    let output = Command::new("bash")
-        .args(["scripts/dev.sh", "test-list"])
-        .output()
-        .expect("dev script test-list should run");
+    let output = run_dev_script_with_fake_cargo(&["test-list"]);
 
     assert!(
         output.status.success(),
@@ -514,16 +568,12 @@ fn dev_script_test_many_explains_missing_filters() {
 
 #[test]
 fn dev_script_test_one_reports_filter_validation_before_running() {
-    let output = Command::new("bash")
-        .args([
-            "scripts/dev.sh",
-            "test-one",
-            "dev_script_help_explains_test_many",
-            "--",
-            "--nocapture",
-        ])
-        .output()
-        .expect("dev script test-one should run");
+    let output = run_dev_script_with_fake_cargo(&[
+        "test-one",
+        "dev_script_help_explains_test_many",
+        "--",
+        "--nocapture",
+    ]);
 
     assert!(
         output.status.success(),
@@ -548,17 +598,13 @@ fn dev_script_test_one_reports_filter_validation_before_running() {
 
 #[test]
 fn dev_script_test_many_validates_filters_from_single_test_list() {
-    let output = Command::new("bash")
-        .args([
-            "scripts/dev.sh",
-            "test-many",
-            "dev_script_help_explains_test_many",
-            "dev_script_run_step_shell_quotes_spaced_args",
-            "--",
-            "--nocapture",
-        ])
-        .output()
-        .expect("dev script test-many should run");
+    let output = run_dev_script_with_fake_cargo(&[
+        "test-many",
+        "dev_script_help_explains_test_many",
+        "dev_script_run_step_shell_quotes_spaced_args",
+        "--",
+        "--nocapture",
+    ]);
 
     assert!(
         output.status.success(),
@@ -593,17 +639,13 @@ fn dev_script_test_many_validates_filters_from_single_test_list() {
 
 #[test]
 fn dev_script_run_step_shell_quotes_spaced_args() {
-    let output = Command::new("bash")
-        .args([
-            "scripts/dev.sh",
-            "test-one",
-            "dev_script_help_explains_test_many",
-            "--",
-            "--skip",
-            "no matching skipped test",
-        ])
-        .output()
-        .expect("dev script test-one should run");
+    let output = run_dev_script_with_fake_cargo(&[
+        "test-one",
+        "dev_script_help_explains_test_many",
+        "--",
+        "--skip",
+        "no matching skipped test",
+    ]);
 
     assert!(
         output.status.success(),
