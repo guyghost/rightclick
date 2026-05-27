@@ -582,7 +582,7 @@ impl App {
                         self.switch_plugin(plugin_idx);
                     }
                     self.notifications
-                        .info(format!("Command: {}", execution.command_name));
+                        .info(format!("Command: {}", result.title));
                 }
                 Err(error) => {
                     self.notifications.warning(error.notification_message());
@@ -1821,6 +1821,12 @@ mod tests {
         assert_eq!(
             *target_events.lock().unwrap(),
             vec!["key:r:ctrl=false".to_string()]
+        );
+        let active_notifications = app.notifications.active();
+        assert_eq!(active_notifications.len(), 1);
+        assert_eq!(
+            active_notifications[0].message,
+            "Command: Target: Refresh Target"
         );
     }
 
