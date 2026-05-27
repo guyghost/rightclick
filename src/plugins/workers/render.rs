@@ -459,23 +459,16 @@ fn render_criteria_preview(state: &PluginState, area: Rect, buf: &mut Buffer, th
         lines.push(Line::from(""));
 
         if intent.acceptance_criteria.is_empty() {
-            lines.push(Line::from(Span::styled(
-                "No criteria defined.",
-                Style::default().fg(theme_comment(theme)),
-            )));
-            lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled(
-                "Edit the intent spec to add acceptance criteria.",
-                Style::default().fg(theme_comment(theme)),
-            )));
-            lines.push(Line::from(Span::styled(
-                "/: Global search  |  : Command search",
-                Style::default().fg(theme_comment(theme)),
-            )));
-            lines.push(Line::from(Span::styled(
-                "?: Toggle help",
-                Style::default().fg(theme_comment(theme)),
-            )));
+            lines.extend(
+                selected_intent_empty_criteria_message()
+                    .lines()
+                    .map(|line| {
+                        Line::from(Span::styled(
+                            line.to_string(),
+                            Style::default().fg(theme_comment(theme)),
+                        ))
+                    }),
+            );
         } else {
             for (idx, criterion) in intent.acceptance_criteria.iter().enumerate() {
                 let icon = if criterion.completed { "✅" } else { "⬜" };
@@ -555,6 +548,10 @@ fn select_intent_criteria_message() -> &'static str {
 
 fn empty_criteria_message() -> &'static str {
     "No criteria yet\n\nn: New intent\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+}
+
+fn selected_intent_empty_criteria_message() -> &'static str {
+    "No criteria yet\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
 }
 
 /// Render the kanban board view showing workers grouped by status
@@ -1109,6 +1106,7 @@ mod tests {
         assert_hint(select_intent_details_message());
         assert_hint(select_intent_criteria_message());
         assert_hint(empty_criteria_message());
+        assert_hint(selected_intent_empty_criteria_message());
         assert_kanban_hint(&kanban_empty_column_message(&empty_state, "Pending", 28));
         assert_hint(&kanban_empty_column_message(&empty_state, "Pending", 80));
 
@@ -1331,11 +1329,16 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Acceptance Criteria"));
-        assert!(content.contains("No criteria defined."));
-        assert!(content.contains("Edit the intent spec to add acceptance criteria."));
+        assert!(content.contains("No criteria yet"));
+        assert!(content.contains("j/k: Navigate intents"));
+        assert!(content.contains("Enter/o: Open intent"));
+        assert!(content.contains("Tab/Shift+Tab: Switch pane"));
+        assert!(content.contains("f: Reload intents"));
         assert!(content.contains("/: Global search"));
         assert!(content.contains(": Command search"));
         assert!(content.contains("?: Toggle help"));
+        assert!(!content.contains("No criteria defined."));
+        assert!(!content.contains("Edit the intent spec"));
     }
 
     #[test]
