@@ -424,11 +424,14 @@ impl Footer {
                 ));
                 hint_spans.push(Span::styled(format!(": {}", hint.description), text_style));
             }
-            if visible_hints.len() < self.hints.len() && hints_width >= 3 {
+            let hidden_hint_count = self.hints.len().saturating_sub(visible_hints.len());
+            if let Some(overflow_label) =
+                footer_hint_overflow_label(hidden_hint_count, hints_width as usize)
+            {
                 if !hint_spans.is_empty() {
                     hint_spans.push(Span::styled(FOOTER_HINT_SEPARATOR, text_style));
                 }
-                hint_spans.push(Span::styled(FOOTER_HINT_OVERFLOW, text_style));
+                hint_spans.push(Span::styled(overflow_label, text_style));
             }
 
             let hints_line = Line::from(hint_spans);
@@ -523,12 +526,13 @@ fn visible_hints(hints: &[KeyHint], max_width: usize) -> Vec<&KeyHint> {
         } else {
             FOOTER_HINT_SEPARATOR.width()
         };
-        let hidden_after_this = idx + 1 < hints.len();
-        let overflow_marker_width = if hidden_after_this {
-            FOOTER_HINT_SEPARATOR.width() + FOOTER_HINT_OVERFLOW.width()
-        } else {
-            0
-        };
+        let hidden_hint_count = hints.len().saturating_sub(idx + 1);
+        let overflow_marker_width =
+            if let Some(label) = footer_hint_overflow_label(hidden_hint_count, max_width) {
+                FOOTER_HINT_SEPARATOR.width() + label.width()
+            } else {
+                0
+            };
         if used + separator_width + item_width + overflow_marker_width > max_width {
             break;
         }
@@ -537,6 +541,21 @@ fn visible_hints(hints: &[KeyHint], max_width: usize) -> Vec<&KeyHint> {
     }
 
     visible
+}
+
+fn footer_hint_overflow_label(hidden_hint_count: usize, max_width: usize) -> Option<String> {
+    if hidden_hint_count == 0 {
+        return None;
+    }
+
+    let counted = format!("+{hidden_hint_count}");
+    if counted.width() <= max_width {
+        Some(counted)
+    } else if FOOTER_HINT_OVERFLOW.width() <= max_width {
+        Some(FOOTER_HINT_OVERFLOW.to_string())
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -648,6 +667,28 @@ mod tests {
     }
 
     #[test]
+    fn test_footer_render_reports_hidden_hint_count() {
+        let footer = Footer::new("Ready").with_hints(vec![
+            ("q", "Quit"),
+            ("?", "Help"),
+            ("/", "Global search"),
+            (":", "Command search"),
+        ]);
+        let area = ratatui::layout::Rect::new(0, 0, 40, 1);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+
+        footer.render(area, &mut buf, &Theme::default());
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("+3"));
+        assert!(!content.contains("..."));
+    }
+
+    #[test]
     fn test_header_render_offset_area_near_u16_max() {
         let header = Header::new("RightClick").with_tabs(vec!["A", "B"], 0);
         let area = ratatui::layout::Rect::new(u16::MAX - 4, 10, 4, 3);
@@ -703,8 +744,8 @@ mod tests {
     fn test_visible_hints_accounts_for_spacious_separator_before_overflow() {
         let hints = vec![KeyHint::new("q", "Quit"), KeyHint::new("?", "Help")];
 
-        assert!(visible_hints(&hints, 14).is_empty());
-        assert_eq!(visible_hints(&hints, 15), vec![&hints[0]]);
+        assert!(visible_hints(&hints, 13).is_empty());
+        assert_eq!(visible_hints(&hints, 14), vec![&hints[0]]);
     }
 
     #[test]
@@ -714,6 +755,18 @@ mod tests {
         let visible = visible_hints(&hints, 7);
 
         assert_eq!(visible, vec![&hints[0]]);
+    }
+
+    #[test]
+    fn test_footer_hint_overflow_label_counts_when_it_fits() {
+        assert_eq!(footer_hint_overflow_label(0, 4), None);
+        assert_eq!(footer_hint_overflow_label(3, 2), Some("+3".to_string()));
+        assert_eq!(footer_hint_overflow_label(12, 3), Some("+12".to_string()));
+        assert_eq!(
+            footer_hint_overflow_label(100, 3),
+            Some(FOOTER_HINT_OVERFLOW.to_string())
+        );
+        assert_eq!(footer_hint_overflow_label(100, 2), None);
     }
 
     #[test]
