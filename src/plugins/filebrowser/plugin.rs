@@ -1333,7 +1333,7 @@ fn file_browser_status_line(state: &PluginState) -> String {
     let selected = state
         .selected_path
         .as_ref()
-        .map(|path| path.display().to_string())
+        .map(|path| file_browser_status_path(path))
         .unwrap_or_else(|| {
             if visible == 0 {
                 "No matching files".to_string()
@@ -1357,6 +1357,10 @@ fn file_browser_status_line(state: &PluginState) -> String {
         count_label(visible, "visible file", "visible files"),
         filter
     )
+}
+
+fn file_browser_status_path(path: &Path) -> String {
+    truncate_display(&path.display().to_string(), 48)
 }
 
 fn file_tree_title(state: &PluginState) -> String {
@@ -1803,6 +1807,33 @@ mod tests {
         assert!(!status.contains("abcdef |"));
         assert!(status.contains("f: Change filter"));
         assert!(status.contains("r: Refresh files"));
+    }
+
+    #[test]
+    fn test_file_browser_status_line_truncates_long_selected_path() {
+        use super::super::tree::FileEntry;
+
+        let temp_dir = TempDir::new().unwrap();
+        let long_dir = temp_dir
+            .path()
+            .join("very-long-directory-name-for-status-line-polish");
+        fs::create_dir(&long_dir).unwrap();
+        let long_path = long_dir.join("very-long-selected-file-name.rs");
+        fs::write(&long_path, "alpha").unwrap();
+
+        let mut state = PluginState::new(temp_dir.path().to_path_buf());
+        state.tree.entries.clear();
+        state
+            .tree
+            .entries
+            .push(FileEntry::new(long_path.clone(), 0, None, None));
+        state.selected_path = Some(long_path.clone());
+
+        let status = file_browser_status_line(&state);
+
+        assert!(status.contains(" | 1 visible file"));
+        assert!(status.contains("..."));
+        assert!(!status.contains(&long_path.display().to_string()));
     }
 
     #[test]
