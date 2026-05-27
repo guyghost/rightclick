@@ -48,7 +48,9 @@ impl SearchCommandError {
     fn notification_message(&self) -> String {
         match self {
             Self::InvalidRoute(route) => format!("Invalid command route: {}", route),
-            Self::PluginUnavailable(plugin_id) => format!("Plugin not available: {}", plugin_id),
+            Self::PluginUnavailable(plugin_id) => {
+                format!("Command plugin not loaded: {}", plugin_id)
+            }
             Self::PluginCommand(error) => error.to_string(),
         }
     }
@@ -538,7 +540,7 @@ impl App {
                     self.notifications.info(format!("Opened {}:{}", path, line));
                 } else {
                     self.notifications
-                        .warning(format!("File not available: {}", path));
+                        .warning(format!("File no longer in browser: {}", path));
                 }
             }
             SearchResultKind::Conversation { id } => {
@@ -554,8 +556,10 @@ impl App {
                     self.switch_plugin(plugin_idx);
                     self.notifications.info(format!("Opened {}", result.title));
                 } else {
-                    self.notifications
-                        .warning(format!("Conversation not available: {}", result.title));
+                    self.notifications.warning(format!(
+                        "Conversation no longer in {}: {}",
+                        plugin_id, result.title
+                    ));
                 }
             }
             SearchResultKind::PluginEntry {
@@ -569,7 +573,7 @@ impl App {
                     self.notifications.info(format!("Opened {}", result.title));
                 } else {
                     self.notifications
-                        .warning(format!("Item not available: {}", result.title));
+                        .warning(format!("Item no longer in {}: {}", plugin_id, result.title));
                 }
             }
             SearchResultKind::Command { id } => match self.execute_search_command(&id) {
@@ -1882,6 +1886,73 @@ mod tests {
         assert_eq!(
             active_notifications[0].message,
             "Command: Target: Refresh Target"
+        );
+    }
+
+    #[test]
+    fn test_stale_file_search_result_reports_browser_context() {
+        let mut app = App::new(
+            Vec::new(),
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+        );
+        app.search
+            .set_results(vec![rightclick::search::SearchResult {
+                kind: rightclick::search::SearchResultKind::FileContent {
+                    path: "/tmp/rightclick/src/main.rs".to_string(),
+                    line: 12,
+                    column: 1,
+                },
+                title: "src/main.rs".to_string(),
+                preview: "fn main() {}".to_string(),
+                score: 100,
+            }]);
+
+        app.activate_selected_search_result();
+
+        let active_notifications = app.notifications.active();
+        assert_eq!(active_notifications.len(), 1);
+        assert_eq!(
+            active_notifications[0].message,
+            "File no longer in browser: /tmp/rightclick/src/main.rs"
+        );
+    }
+
+    #[test]
+    fn test_stale_plugin_search_result_reports_plugin_context() {
+        let mut app = App::new(
+            Vec::new(),
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+        );
+        app.search
+            .set_results(vec![rightclick::search::SearchResult {
+                kind: rightclick::search::SearchResultKind::PluginEntry {
+                    plugin_id: "workspace".to_string(),
+                    entry_id: "wt-1".to_string(),
+                },
+                title: "feature/work".to_string(),
+                preview: "worktree".to_string(),
+                score: 100,
+            }]);
+
+        app.activate_selected_search_result();
+
+        let active_notifications = app.notifications.active();
+        assert_eq!(active_notifications.len(), 1);
+        assert_eq!(
+            active_notifications[0].message,
+            "Item no longer in workspace: feature/work"
+        );
+    }
+
+    #[test]
+    fn test_command_search_unloaded_plugin_message_names_command_plugin() {
+        let error = SearchCommandError::PluginUnavailable("workspace".to_string());
+
+        assert_eq!(
+            error.notification_message(),
+            "Command plugin not loaded: workspace"
         );
     }
 
