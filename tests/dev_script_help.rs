@@ -23,3 +23,26 @@ fn dev_script_help_explains_test_many() {
         "dev script help should explain why test-many runs filters separately"
     );
 }
+
+#[test]
+fn dev_script_unknown_command_suggests_hyphenated_match_for_underscore() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "test_many"])
+        .output()
+        .expect("dev script unknown command path should run");
+
+    assert!(
+        !output.status.success(),
+        "unknown command should fail so callers notice the typo"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Unknown command: test_many"),
+        "dev script should echo the unknown command"
+    );
+    assert!(
+        stderr.contains("bash scripts/dev.sh test-many"),
+        "dev script should suggest the hyphenated command for underscore typos"
+    );
+}

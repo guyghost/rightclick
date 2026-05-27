@@ -99,11 +99,13 @@ EOF
 print_unknown_command() {
   local unknown="$1"
   local normalized_unknown="${unknown//-/}"
+  normalized_unknown="${normalized_unknown//_/}"
   local suggestions=()
   local command normalized_command
 
   while IFS= read -r command; do
     normalized_command="${command//-/}"
+    normalized_command="${normalized_command//_/}"
     if [[ "$command" == *"$unknown"* || "$normalized_command" == *"$normalized_unknown"* ]]; then
       suggestions+=("$command")
     fi
