@@ -990,7 +990,7 @@ impl super::state::PluginState {
 fn workers_status_line(state: &PluginState) -> String {
     if state.intents.is_empty() {
         return format!(
-            "No intents | n New | f Refresh intents | /: Global search | :: Command search | ? Toggle help | specs: {}",
+            "No intents | n: New | f: Refresh intents | /: Global search | :: Command search | ?: Toggle help | specs: {}",
             state.intents_dir.display()
         );
     }
@@ -1480,7 +1480,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No intents | n New | f Refresh intents | /: Global search | :: Command search | ? Toggle help | specs: .rightclick/intents"
+                "No intents | n: New | f: Refresh intents | /: Global search | :: Command search | ?: Toggle help | specs: .rightclick/intents"
                     .to_string()
             )
         );
