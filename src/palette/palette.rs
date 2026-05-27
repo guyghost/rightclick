@@ -826,7 +826,9 @@ fn palette_title_context_and_hint(
         [
             (" (all contexts)", " (Tab/Shift+Tab: contexts)"),
             (" (all contexts)", " (Tab: contexts)"),
+            (" (all contexts)", " (Tab)"),
             (" (all contexts)", ""),
+            (" (all)", " (Tab)"),
             (" (all)", ""),
         ]
         .into_iter()
@@ -836,6 +838,8 @@ fn palette_title_context_and_hint(
         ("", " (Tab/Shift+Tab: contexts)")
     } else if base.width() + " (Tab: contexts)".width() <= width {
         ("", " (Tab: contexts)")
+    } else if base.width() + " (Tab)".width() <= width {
+        ("", " (Tab)")
     } else {
         ("", "")
     }
@@ -1291,17 +1295,42 @@ mod tests {
             palette_title_context_and_hint(false, 80),
             ("", " (Tab/Shift+Tab: contexts)")
         );
-        assert_eq!(palette_title_context_and_hint(false, 26), ("", ""));
+        assert_eq!(palette_title_context_and_hint(false, 26), ("", " (Tab)"));
         assert_eq!(
             palette_title_context_and_hint(true, 80),
             (" (all contexts)", " (Tab/Shift+Tab: contexts)")
         );
         assert_eq!(
             palette_title_context_and_hint(true, 40),
-            (" (all contexts)", "")
+            (" (all contexts)", " (Tab)")
+        );
+        assert_eq!(
+            palette_title_context_and_hint(true, 26),
+            (" (all)", " (Tab)")
         );
         assert_eq!(palette_title_context_and_hint(true, 22), (" (all)", ""));
         assert_eq!(palette_title_context_and_hint(true, 10), ("", ""));
+    }
+
+    #[test]
+    fn test_palette_title_context_and_hint_never_exceeds_width() {
+        let base = "Command Search";
+
+        for width in base.width() as u16..=80 {
+            let scoped = palette_title_context_and_hint(false, width);
+            let all = palette_title_context_and_hint(true, width);
+
+            assert!(
+                base.width() + scoped.0.width() + scoped.1.width() <= width as usize,
+                "scoped title suffix for width {width:?} was {:?}",
+                scoped
+            );
+            assert!(
+                base.width() + all.0.width() + all.1.width() <= width as usize,
+                "all-context title suffix for width {width:?} was {:?}",
+                all
+            );
+        }
     }
 
     #[test]
