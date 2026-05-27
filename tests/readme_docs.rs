@@ -79,6 +79,18 @@ fn developer_commands_include_diff_check() {
 }
 
 #[test]
+fn developer_commands_explain_td_workspace_setup() {
+    assert!(
+        README.contains("`doctor` prints `setup td workspace`"),
+        "README should document the doctor output for an uninitialized td workspace"
+    );
+    assert!(
+        README.contains("repo path where\n`td init` should be run"),
+        "README should explain how to finish optional td setup"
+    );
+}
+
+#[test]
 fn developer_commands_explain_test_many() {
     assert!(
         README.contains("Use `test-many` when you want to check several filters in one command"),

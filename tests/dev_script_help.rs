@@ -1,6 +1,69 @@
 use std::process::Command;
 
 #[test]
+fn dev_script_doctor_explains_uninitialized_td_workspace() {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time should be after unix epoch")
+        .as_nanos();
+    let temp_dir = std::env::temp_dir().join(format!(
+        "rightclick-doctor-td-{}-{unique}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&temp_dir).expect("temp dir should be created");
+
+    let fake_td = temp_dir.join("td");
+    fs::write(
+        &fake_td,
+        "#!/usr/bin/env bash\nprintf 'database not found\\n' >&2\nexit 1\n",
+    )
+    .expect("fake td should be written");
+    fs::set_permissions(&fake_td, fs::Permissions::from_mode(0o755))
+        .expect("fake td should be executable");
+
+    let path = format!(
+        "{}:{}",
+        temp_dir.display(),
+        std::env::var("PATH").expect("PATH should be set")
+    );
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "doctor"])
+        .env("PATH", path)
+        .output()
+        .expect("dev script doctor should run");
+
+    fs::remove_dir_all(&temp_dir).expect("temp dir should be removed");
+
+    assert!(
+        output.status.success(),
+        "doctor should not fail for optional td workspace setup: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("ok   td"),
+        "doctor should detect the td executable"
+    );
+    assert!(
+        stdout.contains("setup td workspace (optional; run td init in "),
+        "doctor should explain that the td workspace still needs setup"
+    );
+    assert!(
+        stdout.contains("Optional setup:"),
+        "doctor should include a follow-up setup section"
+    );
+    assert!(
+        stdout.contains("&& td init"),
+        "doctor should print the exact td init follow-up command"
+    );
+}
+
+#[test]
 fn dev_script_help_explains_test_many() {
     let output = Command::new("bash")
         .args(["scripts/dev.sh", "help"])

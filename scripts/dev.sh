@@ -327,7 +327,7 @@ case "$cmd" in
       if td usage -q -w "$repo_root" >/dev/null 2>&1; then
         printf 'ok   td workspace\n'
       else
-        printf 'skip td workspace (optional; run td init in %s to enable task tracking)\n' "$repo_root"
+        printf 'setup td workspace (optional; run td init in %s to enable task tracking)\n' "$repo_root"
         optional_setup+=("cd $quoted_repo_root && td init")
       fi
     }
