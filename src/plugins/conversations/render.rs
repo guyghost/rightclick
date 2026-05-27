@@ -25,6 +25,7 @@ const FILTER_OVERLAY_HEIGHT: u16 = 3;
 const MIN_FILTER_OVERLAY_WIDTH: u16 = 20;
 const MIN_FILTER_OVERLAY_HEIGHT: u16 = 3;
 const SEARCH_HINT: &str = "/: Global search  |  : Command search";
+const HELP_HINT: &str = "?: Toggle help";
 
 /// Renderer for the Conversations plugin UI
 #[derive(Clone, Debug, Default)]
@@ -889,7 +890,7 @@ fn empty_sessions_message(state: &PluginState, width: u16) -> String {
                 "r: Refresh sessions".to_string(),
             ];
             append_search_hint(&mut lines, width);
-            lines.push("?: Toggle help".to_string());
+            append_help_hint(&mut lines, width);
             lines.join("\n")
         }
         None => {
@@ -900,8 +901,8 @@ fn empty_sessions_message(state: &PluginState, width: u16) -> String {
                 "f: Filter sessions".to_string(),
             ];
             append_search_hint(&mut lines, width);
+            append_help_hint(&mut lines, width);
             lines.extend([
-                "?: Toggle help".to_string(),
                 String::new(),
                 "Sessions appear after supported adapters are detected.".to_string(),
             ]);
@@ -919,7 +920,7 @@ fn empty_messages_message(width: u16) -> String {
         "Esc/h: Back to sessions".to_string(),
     ];
     append_search_hint(&mut lines, width);
-    lines.push("?: Toggle help".to_string());
+    append_help_hint(&mut lines, width);
     lines.join("\n")
 }
 
@@ -932,12 +933,18 @@ fn loading_messages_message(width: u16) -> String {
         "Esc/h: Back to sessions".to_string(),
     ];
     append_search_hint(&mut lines, width);
-    lines.push("?: Toggle help".to_string());
+    append_help_hint(&mut lines, width);
     lines.join("\n")
 }
 
 fn append_search_hint(lines: &mut Vec<String>, width: u16) {
     if let Some(hint) = conversation_search_hint(width) {
+        lines.push(hint.to_string());
+    }
+}
+
+fn append_help_hint(lines: &mut Vec<String>, width: u16) {
+    if let Some(hint) = conversation_help_hint(width) {
         lines.push(hint.to_string());
     }
 }
@@ -953,6 +960,13 @@ fn conversation_search_hint(width: u16) -> Option<&'static str> {
     ]
     .into_iter()
     .find(|hint| hint.width() <= width)
+}
+
+fn conversation_help_hint(width: u16) -> Option<&'static str> {
+    let width = width as usize;
+    [HELP_HINT, "?: Help", "?"]
+        .into_iter()
+        .find(|hint| hint.width() <= width)
 }
 
 fn compact_message_count(count: usize) -> String {
@@ -1170,6 +1184,23 @@ mod tests {
     }
 
     #[test]
+    fn test_conversation_help_hint_compacts_for_narrow_widths() {
+        assert_eq!(conversation_help_hint(0), None);
+        assert_eq!(conversation_help_hint(1), Some("?"));
+        assert_eq!(conversation_help_hint(7), Some("?: Help"));
+        assert_eq!(conversation_help_hint(14), Some(HELP_HINT));
+
+        for width in 0..=30 {
+            if let Some(hint) = conversation_help_hint(width) {
+                assert!(
+                    hint.width() <= width as usize,
+                    "hint {hint:?} overflowed width {width}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_empty_sessions_message_truncates_long_filter_query() {
         let mut state = PluginState::new();
         state.start_search("abcdefghijklmnopqrstuvwxyz0123456789abcdef".to_string());
@@ -1186,7 +1217,8 @@ mod tests {
         assert!(message.contains("No messages in this session"));
         assert!(!message.contains("Global search"));
         assert!(!message.contains("/:"));
-        assert!(message.contains("?: Toggle help"));
+        assert!(message.contains("?"));
+        assert!(!message.contains("?: Toggle help"));
     }
 
     #[test]
