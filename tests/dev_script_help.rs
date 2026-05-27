@@ -46,3 +46,26 @@ fn dev_script_unknown_command_suggests_hyphenated_match_for_underscore() {
         "dev script should suggest the hyphenated command for underscore typos"
     );
 }
+
+#[test]
+fn dev_script_unknown_command_suggests_match_case_insensitively() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "TEST_MANY"])
+        .output()
+        .expect("dev script unknown command path should run");
+
+    assert!(
+        !output.status.success(),
+        "unknown command should fail so callers notice the typo"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Unknown command: TEST_MANY"),
+        "dev script should echo the unknown command"
+    );
+    assert!(
+        stderr.contains("bash scripts/dev.sh test-many"),
+        "dev script should suggest the command for uppercase typos"
+    );
+}
