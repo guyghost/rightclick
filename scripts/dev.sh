@@ -54,7 +54,8 @@ after --.
 Use test-many when you want to check several filters in one command; cargo test
 itself accepts only one substring filter per invocation.
 test-one and test-many print a "validate test filter" step before running Cargo
-so long filter checks are visible.
+and then report "Matched N tests for filter: ..." so long filter checks are
+visible and confirm the filter scope before the test run starts.
 
 If you use just:
   just help

@@ -95,6 +95,10 @@ fn dev_script_help_explains_test_many() {
         ),
         "dev script help should explain the filter validation progress line"
     );
+    assert!(
+        stdout.contains("and then report \"Matched N tests for filter: ...\""),
+        "dev script help should explain matched test count feedback"
+    );
 }
 
 #[test]
