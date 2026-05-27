@@ -636,7 +636,7 @@ impl WorkersPlugin {
                                 commands.push(Command::SwitchFocus(FocusPane::Preview));
                             }
                         }
-                        "Tab" => {
+                        "Tab" | "BackTab" => {
                             self.focus_pane = match self.focus_pane {
                                 FocusPane::Sidebar => FocusPane::Preview,
                                 FocusPane::Preview => FocusPane::Sidebar,
@@ -1321,6 +1321,19 @@ mod tests {
         });
 
         assert_eq!(commands, vec![Command::Refresh]);
+    }
+
+    #[test]
+    fn test_backtab_toggles_focus() {
+        let mut plugin = WorkersPlugin::new();
+
+        let commands = plugin.handle_event_internal(Event::Key {
+            code: "BackTab".to_string(),
+            modifiers: crate::event::KeyModifiers::default(),
+        });
+
+        assert_eq!(commands, vec![Command::SwitchFocus(FocusPane::Preview)]);
+        assert_eq!(plugin.focus_pane, FocusPane::Preview);
     }
 
     #[test]

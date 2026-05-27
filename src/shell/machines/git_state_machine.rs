@@ -212,7 +212,7 @@ impl GitStateMachine {
                     commands.push(GitCommand::SetFocus(FocusPane::Main));
                 }
             }
-            "Tab" => {
+            "Tab" | "BackTab" => {
                 // Toggle focus between Sidebar and Main
                 let current_pane = self.executor.context().focus_pane;
                 let new_pane = match current_pane {
@@ -581,6 +581,17 @@ mod tests {
         sm.initialize(10, ViewMode::Status);
 
         sm.set_focus_pane(FocusPane::Main);
+        assert_eq!(sm.focus_pane(), FocusPane::Main);
+    }
+
+    #[test]
+    fn test_git_handle_key_backtab_toggles_focus() {
+        let sm = GitStateMachine::new(PathBuf::from("."));
+        sm.initialize(10, ViewMode::Status);
+
+        let commands = sm.handle_key("BackTab");
+
+        assert_eq!(commands, vec![GitCommand::SetFocus(FocusPane::Main)]);
         assert_eq!(sm.focus_pane(), FocusPane::Main);
     }
 
