@@ -711,16 +711,16 @@ fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
     if state.workers.is_empty() {
         if state.selected_intent().is_some() {
             format!(
-                "No {status} workers\n\nr  Run workers\nf  Refresh intents\n/ Search | : Command search\nv  Switch view\n?  Help"
+                "No {status} workers\n\nr  Run workers\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Help"
             )
         } else {
             format!(
-                "No {status} workers\n\nn  New intent\nf  Refresh intents\n/ Search | : Command search\nv  Switch view\n?  Help"
+                "No {status} workers\n\nn  New intent\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Help"
             )
         }
     } else {
         format!(
-            "No {status} workers\n\nh/l  Move columns\nf  Refresh intents\n/ Search | : Command search\nv  Switch view\n?  Help"
+            "No {status} workers\n\nh/l  Move columns\nf  Refresh intents\n/  Global search\n:  Command search\nv  Switch view\n?  Help"
         )
     }
 }
@@ -1054,8 +1054,8 @@ mod tests {
         assert!(content.contains("No running workers"));
         assert!(content.contains("n  New intent"));
         assert!(content.contains("f  Refresh intents"));
-        assert!(content.contains("/ Search"));
-        assert!(content.contains(": Command search"));
+        assert!(content.contains("/  Global search"));
+        assert!(content.contains(":  Command search"));
         assert!(content.contains("v  Switch view"));
         assert!(content.contains("?  Help"));
         assert!(!content.contains("No workers"));
@@ -1086,11 +1086,6 @@ mod tests {
             assert!(message.contains("/  Global search"), "{message}");
             assert!(message.contains(":  Command search"), "{message}");
         };
-        let assert_compact_hint = |message: &str| {
-            assert!(message.contains("/ Search"), "{message}");
-            assert!(message.contains(": Command search"), "{message}");
-        };
-
         let mut empty_state =
             PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
         assert_hint(&empty_intents_message(&empty_state));
@@ -1099,7 +1094,7 @@ mod tests {
         assert_hint(select_intent_details_message());
         assert_hint(select_intent_criteria_message());
         assert_hint(empty_criteria_message());
-        assert_compact_hint(&kanban_empty_column_message(&empty_state, "Pending"));
+        assert_hint(&kanban_empty_column_message(&empty_state, "Pending"));
 
         empty_state.add_intent(Intent::new(
             "Improve worker empty states",
@@ -1111,7 +1106,7 @@ mod tests {
 
         empty_state.selected_intent = Some(0);
         assert_hint(output_empty_message(&empty_state));
-        assert_compact_hint(&kanban_empty_column_message(&empty_state, "Running"));
+        assert_hint(&kanban_empty_column_message(&empty_state, "Running"));
     }
 
     #[test]
