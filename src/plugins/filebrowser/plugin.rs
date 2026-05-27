@@ -1318,7 +1318,7 @@ impl Default for FileBrowserPlugin {
 fn file_browser_status_line(state: &PluginState) -> String {
     let visible = state.visible_indices().len();
     if state.tree.entries.is_empty() {
-        return "No files | a: New file | A: New directory | r: Refresh files | /: Global search  |  : Command search | ?: Toggle help"
+        return "No files yet | a: New file | A: New directory | r: Refresh files | /: Global search  |  : Command search | ?: Toggle help"
             .to_string();
     }
 
@@ -1379,7 +1379,7 @@ fn file_tree_empty_message(state: &PluginState) -> String {
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No files found\n\na: New file\nA: New directory\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
+        "No files yet\n\na: New file\nA: New directory\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     } else {
         "No visible files\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
@@ -1394,7 +1394,7 @@ fn file_preview_empty_message(state: &PluginState) -> String {
             query
         )
     } else if state.tree.entries.is_empty() {
-        "No preview available\n\na: New file\nA: New directory\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
+        "No file to preview yet\n\na: New file\nA: New directory\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
             .to_string()
     } else if state.visible_indices().is_empty() {
         "No preview available\n\nH: Toggle hidden\ni: Toggle ignored\nf: Filter files\nr: Refresh files\n/: Global search  |  : Command search\n?: Toggle help"
@@ -1686,7 +1686,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No files | a: New file | A: New directory | r: Refresh files | /: Global search  |  : Command search | ?: Toggle help"
+                "No files yet | a: New file | A: New directory | r: Refresh files | /: Global search  |  : Command search | ?: Toggle help"
                     .to_string()
             )
         );
@@ -1751,13 +1751,14 @@ mod tests {
 
         let message = file_tree_empty_message(&state);
 
-        assert!(message.contains("No files found"));
+        assert!(message.contains("No files yet"));
         assert!(message.contains("a: New file"));
         assert!(message.contains("A: New directory"));
         assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/: Global search"));
         assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
+        assert!(!message.contains("No files found"));
     }
 
     #[test]
@@ -1877,13 +1878,14 @@ mod tests {
 
         let message = file_preview_empty_message(&state);
 
-        assert!(message.contains("No preview available"));
+        assert!(message.contains("No file to preview yet"));
         assert!(message.contains("a: New file"));
         assert!(message.contains("A: New directory"));
         assert!(message.contains("r: Refresh files"));
         assert!(message.contains("/: Global search"));
         assert!(message.contains(": Command search"));
         assert!(message.contains("?: Toggle help"));
+        assert!(!message.contains("No preview available"));
     }
 
     #[test]
