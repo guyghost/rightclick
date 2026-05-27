@@ -124,6 +124,10 @@ fn developer_commands_explain_test_many() {
         "README should explain unfiltered test-list count feedback"
     );
     assert!(
+        README.contains("When passed multiple\nfilters, `test-list` reuses one test list"),
+        "README should explain batched test-list filtering"
+    );
+    assert!(
         README.contains("then report `Matched N tests for filter: ...`"),
         "README should explain the matched test count feedback"
     );

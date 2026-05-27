@@ -107,6 +107,10 @@ fn dev_script_help_explains_test_many() {
         stdout.contains("test-list reports \"Listed N tests.\" for the full list"),
         "dev script help should explain unfiltered test-list count feedback"
     );
+    assert!(
+        stdout.contains("When passed multiple filters, test-list reuses one test list"),
+        "dev script help should explain batched test-list filtering"
+    );
 }
 
 #[test]
@@ -136,6 +140,50 @@ fn dev_script_test_list_reports_filter_match_count() {
     assert!(
         stdout.contains("dev_script_help_explains_test_many: test"),
         "test-list should still print the matching Cargo test list"
+    );
+}
+
+#[test]
+fn dev_script_test_list_lists_multiple_filters_from_single_test_list() {
+    let output = Command::new("bash")
+        .args([
+            "scripts/dev.sh",
+            "test-list",
+            "dev_script_help_explains_test_many",
+            "dev_script_run_step_shell_quotes_spaced_args",
+        ])
+        .output()
+        .expect("dev script test-list should run");
+
+    assert!(
+        output.status.success(),
+        "test-list should pass for known filters: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("==> cargo test -- --list").count(),
+        1,
+        "test-list should list tests once for multiple filters: {stderr}"
+    );
+    assert!(
+        stderr.contains("Listed 1 test for filter: dev_script_help_explains_test_many"),
+        "test-list should report the first filter count"
+    );
+    assert!(
+        stderr.contains("Listed 1 test for filter: dev_script_run_step_shell_quotes_spaced_args"),
+        "test-list should report the second filter count"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("dev_script_help_explains_test_many: test"),
+        "test-list should print the first matching test"
+    );
+    assert!(
+        stdout.contains("dev_script_run_step_shell_quotes_spaced_args: test"),
+        "test-list should print the second matching test"
     );
 }
 
