@@ -45,7 +45,7 @@ impl SearchOverlayState {
     /// Create a new search overlay state
     pub fn new() -> Self {
         let mut input = TextInputState::new(InputMode::SingleLine)
-            .with_placeholder("Search files, commands, sessions, worktrees, intents...");
+            .with_placeholder("Search files, commands, sessions, worktrees, and intents...");
         input.set_active(true);
         Self {
             visible: false,
@@ -677,7 +677,7 @@ fn search_input_prompt(scope: SearchScope) -> &'static str {
 
 fn search_input_placeholder(scope: SearchScope) -> &'static str {
     match scope {
-        SearchScope::All => "Search files, commands, sessions, worktrees, intents...",
+        SearchScope::All => "Search files, commands, sessions, worktrees, and intents...",
         SearchScope::Files => "Search file contents...",
         SearchScope::Items => "Search sessions, worktrees, and intents...",
         SearchScope::Commands => {
@@ -714,7 +714,7 @@ fn result_count_label(count: usize) -> String {
 
 fn empty_query_hint(scope: SearchScope) -> &'static str {
     match scope {
-        SearchScope::All => "Search everything: files, commands, sessions, worktrees, intents",
+        SearchScope::All => "Search everything: files, commands, sessions, worktrees, and intents",
         SearchScope::Files => "Search file contents with ripgrep",
         SearchScope::Items => "Search sessions, worktrees, and intents",
         SearchScope::Commands => {
@@ -731,7 +731,7 @@ fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
         SearchScope::Items => format!("No session, worktree, or intent matches \"{}\"", query),
         SearchScope::Commands => {
             format!(
-                "No command, plugin, description, shortcut, or command ID matches \"{}\"",
+                "No command name, plugin, description, shortcut, or command ID matches \"{}\"",
                 query
             )
         }
@@ -825,7 +825,7 @@ mod tests {
         assert_eq!(state.selected, 0);
         assert_eq!(
             state.input.placeholder(),
-            "Search files, commands, sessions, worktrees, intents..."
+            "Search files, commands, sessions, worktrees, and intents..."
         );
     }
 
@@ -1233,7 +1233,7 @@ mod tests {
 
         assert_eq!(
             search_input_placeholder(SearchScope::All),
-            "Search files, commands, sessions, worktrees, intents..."
+            "Search files, commands, sessions, worktrees, and intents..."
         );
         assert_eq!(
             search_input_placeholder(SearchScope::Files),
@@ -1329,7 +1329,7 @@ mod tests {
     fn test_empty_query_hint_is_scope_specific() {
         assert_eq!(
             empty_query_hint(SearchScope::All),
-            "Search everything: files, commands, sessions, worktrees, intents"
+            "Search everything: files, commands, sessions, worktrees, and intents"
         );
         assert_eq!(
             empty_query_hint(SearchScope::Files),
@@ -1370,7 +1370,7 @@ mod tests {
         let message = no_results_message("deploy", SearchScope::Commands, 14);
 
         assert!(message.contains(
-            "No command, plugin, description, shortcut, or command ID matches \"deploy\""
+            "No command name, plugin, description, shortcut, or command ID matches \"deploy\""
         ));
         assert!(message.contains("Ctrl+U/Tab/Esc"));
         assert!(!message.contains(SEARCH_EMPTY_ACTION_HINT));
@@ -1527,7 +1527,7 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Global Search"));
-        assert!(content.contains("Search files, commands, sessions, worktrees, intents"));
+        assert!(content.contains("Search files, commands, sessions, worktrees, and intents"));
         assert!(content.contains("Project"));
     }
 
@@ -1552,7 +1552,7 @@ mod tests {
             content
                 .contains("Search commands by plugin, name, description, shortcut, or command ID")
         );
-        assert!(!content.contains("Search files, commands, sessions, worktrees, intents"));
+        assert!(!content.contains("Search files, commands, sessions, worktrees, and intents"));
     }
 
     #[test]
