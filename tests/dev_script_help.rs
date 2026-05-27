@@ -22,6 +22,10 @@ fn dev_script_help_explains_test_many() {
         stdout.contains("cargo test\nitself accepts only one substring filter per invocation"),
         "dev script help should explain why test-many runs filters separately"
     );
+    assert!(
+        stdout.contains("test-list only accepts filters; pass cargo test args to test-one or test-many\nafter --."),
+        "dev script help should explain where cargo test args are supported"
+    );
 }
 
 #[test]

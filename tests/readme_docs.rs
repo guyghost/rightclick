@@ -67,4 +67,10 @@ fn developer_commands_explain_test_many() {
             .contains("Cargo itself accepts only one substring filter per `cargo test` invocation"),
         "README should clarify why test-many runs filters separately"
     );
+    assert!(
+        README.contains(
+            "`test-list` only accepts filters; pass Cargo test args to `test-one` or\n`test-many` after `--`"
+        ),
+        "README should clarify that cargo test args belong on test-one/test-many"
+    );
 }

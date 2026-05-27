@@ -49,6 +49,8 @@ Examples:
 
 Test filters are passed to Cargo as substring filters. Use test-list first when
 you are unsure which module path or test name to target.
+test-list only accepts filters; pass cargo test args to test-one or test-many
+after --.
 Use test-many when you want to check several filters in one command; cargo test
 itself accepts only one substring filter per invocation.
 

@@ -78,7 +78,8 @@ If you prefer `just`, run `just help` for the same command overview. The default
 `test-one`, `test-many`, and `test-list` pass filters through to Cargo as
 substring filters. If a filter does not match any test, the script prints the
 matching `test-list` command plus broader token searches to help refine the
-filter. Use `test-many` when you want to check several filters in one command;
+filter. `test-list` only accepts filters; pass Cargo test args to `test-one` or
+`test-many` after `--`. Use `test-many` when you want to check several filters in one command;
 Cargo itself accepts only one substring filter per `cargo test` invocation.
 
 `run` forwards arguments after `--` to the RightClick binary. `install-local`
