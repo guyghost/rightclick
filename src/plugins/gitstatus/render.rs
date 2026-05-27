@@ -1339,7 +1339,7 @@ fn git_diff_empty_message(state: &PluginState) -> &'static str {
     if state.files.is_empty() {
         "Working tree clean\n\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     } else {
-        "No file selected\n\nj/k: Navigate files\nS: Status\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
+        "No file selected\n\nj/k: Navigate files\nTab/Shift+Tab: Switch pane\nS: Status\nH: History\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
@@ -1366,7 +1366,7 @@ fn git_commit_details_empty_message(state: &PluginState) -> &'static str {
     if state.commits.is_empty() {
         git_commits_empty_message()
     } else {
-        "No commit selected\n\nj/k: Navigate commits\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
+        "No commit selected\n\nj/k: Navigate commits\nTab/Shift+Tab: Switch pane\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
@@ -1378,7 +1378,7 @@ fn git_branch_details_empty_message(state: &PluginState) -> &'static str {
     if state.branches.is_empty() {
         git_branches_empty_message()
     } else {
-        "No branch selected\n\nj/k: Navigate branches\nn: New branch\nS: Status\nH: History\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
+        "No branch selected\n\nj/k: Navigate branches\nTab/Shift+Tab: Switch pane\nn: New branch\nS: Status\nH: History\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
@@ -1390,7 +1390,7 @@ fn git_stash_details_empty_message(state: &PluginState) -> &'static str {
     if state.stashes.is_empty() {
         git_stashes_empty_message()
     } else {
-        "No stash selected\n\nj/k: Navigate stashes\ns: Save stash\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
+        "No stash selected\n\nj/k: Navigate stashes\nTab/Shift+Tab: Switch pane\ns: Save stash\nS: Status\nB: Branches\nr: Refresh git status\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
@@ -1785,6 +1785,7 @@ mod tests {
 
         assert!(message.contains("No file selected"));
         assert!(message.contains("j/k: Navigate files"));
+        assert!(message.contains("Tab/Shift+Tab: Switch pane"));
         assert!(message.contains("S: Status"));
         assert!(message.contains("H: History"));
         assert!(message.contains("B: Branches"));
@@ -1961,6 +1962,7 @@ mod tests {
         let commit = git_commit_details_empty_message(&state);
         assert!(commit.contains("No commit selected"));
         assert!(commit.contains("j/k: Navigate commits"));
+        assert!(commit.contains("Tab/Shift+Tab: Switch pane"));
         assert!(commit.contains("S: Status"));
         assert!(commit.contains("/: Global search"));
         assert!(commit.contains(":: Command search"));
@@ -1969,6 +1971,7 @@ mod tests {
         let branch = git_branch_details_empty_message(&state);
         assert!(branch.contains("No branch selected"));
         assert!(branch.contains("j/k: Navigate branches"));
+        assert!(branch.contains("Tab/Shift+Tab: Switch pane"));
         assert!(branch.contains("n: New branch"));
         assert!(branch.contains("/: Global search"));
         assert!(branch.contains(":: Command search"));
@@ -1977,6 +1980,7 @@ mod tests {
         let stash = git_stash_details_empty_message(&state);
         assert!(stash.contains("No stash selected"));
         assert!(stash.contains("j/k: Navigate stashes"));
+        assert!(stash.contains("Tab/Shift+Tab: Switch pane"));
         assert!(stash.contains("s: Save stash"));
         assert!(stash.contains("/: Global search"));
         assert!(stash.contains(":: Command search"));
