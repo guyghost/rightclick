@@ -115,7 +115,7 @@ Press `/` to open global search, or `:` to open command search directly. Use
 - **All**: search files, commands, sessions, worktrees, and intents together
 - **Files**: search file contents with `rg`
 - **Project**: search sessions, worktrees, and intents exposed by plugins
-- **Commands**: search commands by name, shortcut, category, or command ID
+- **Commands**: search commands by name, description, shortcut, category, or command ID
 
 Selecting an item opens the owning plugin and focuses the matching session,
 worktree, intent, or file result when the plugin supports it.

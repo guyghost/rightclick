@@ -401,7 +401,7 @@ impl Palette {
 
         // Draw the input text or placeholder
         let display_text = if self.input.is_empty() {
-            "Search commands by name, shortcut, category, or command ID..."
+            "Name, description, shortcut, category, or command ID..."
         } else {
             &self.input
         };
@@ -703,7 +703,7 @@ fn palette_empty_state_message(
     } else {
         let input = truncate_query(input, 40);
         format!(
-            "No command, shortcut, or command ID matches \"{}\"\n\n{}",
+            "No command name, description, shortcut, category, or command ID matches \"{}\"\n\n{}",
             input, hint
         )
     }
@@ -1109,7 +1109,7 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("Search commands by name, shortcut, category, or command ID"));
+        assert!(content.contains("Name, description, shortcut, category, or command ID"));
     }
 
     #[test]
@@ -1379,7 +1379,9 @@ mod tests {
         assert!(all_contexts_empty.contains("Tab/Shift+Tab: Current context"));
 
         let no_match = palette_empty_state_message("deploy", 80, true, false);
-        assert!(no_match.contains("No command, shortcut, or command ID matches \"deploy\""));
+        assert!(no_match.contains(
+            "No command name, description, shortcut, category, or command ID matches \"deploy\""
+        ));
         assert!(no_match.contains(PALETTE_NO_MATCH_ACTION_HINT_SCOPED));
         assert!(!no_match.contains("Backspace  Edit search"));
         assert!(!no_match.contains("Ctrl+U  Clear search"));
@@ -1397,7 +1399,7 @@ mod tests {
             false,
         );
         assert!(truncated.contains(
-            "No command, shortcut, or command ID matches \"abcdefghijklmnopqrstuvwxyz0123456789a...\""
+            "No command name, description, shortcut, category, or command ID matches \"abcdefghijklmnopqrstuvwxyz0123456789a...\""
         ));
     }
 

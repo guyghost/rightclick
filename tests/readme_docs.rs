@@ -31,8 +31,9 @@ fn keyboard_shortcuts_include_command_search() {
 #[test]
 fn search_docs_explain_command_search_fields() {
     assert!(
-        README
-            .contains("- **Commands**: search commands by name, shortcut, category, or command ID"),
+        README.contains(
+            "- **Commands**: search commands by name, description, shortcut, category, or command ID",
+        ),
         "README search docs should match command palette search fields"
     );
     assert!(
