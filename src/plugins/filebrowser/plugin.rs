@@ -955,7 +955,7 @@ impl FileBrowserPlugin {
             ]),
             Line::from(vec![
                 Span::styled("?      ", primary_style),
-                Span::styled("Toggle this help", text_style),
+                Span::styled("Help", text_style),
             ]),
             Line::from(""),
             Line::from(vec![Span::styled(
@@ -1433,6 +1433,24 @@ mod tests {
         assert!(HELP_OVERLAY_HINT.starts_with('?'));
         assert!(FILE_INFO_OVERLAY_HINT.starts_with('I'));
         assert!(!hints.iter().any(|hint| hint.starts_with("Press ")));
+    }
+
+    #[test]
+    fn test_render_help_uses_short_help_label() {
+        let temp_dir = TempDir::new().unwrap();
+        let plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        let area = Rect::new(0, 0, 100, 40);
+        let mut buf = Buffer::empty(area);
+
+        plugin.render_help(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("?      Help"));
+        assert!(!content.contains("Toggle this help"));
     }
 
     #[test]
