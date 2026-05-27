@@ -48,6 +48,38 @@ pub fn compact_global_search_hint_with_stacked(width: u16) -> Option<&'static st
     )
 }
 
+/// Return global search and help hint lines that fit within `width`.
+pub fn compact_global_hint_lines(width: u16) -> Vec<String> {
+    compact_prefixed_global_hint_lines(width, "", false)
+}
+
+/// Return prefixed global search and help hint lines, allowing stacked search.
+pub fn compact_prefixed_stacked_global_hint_lines(width: u16, prefix: &str) -> Vec<String> {
+    compact_prefixed_global_hint_lines(width, prefix, true)
+}
+
+fn compact_prefixed_global_hint_lines(
+    width: u16,
+    prefix: &str,
+    allow_stacked_search: bool,
+) -> Vec<String> {
+    let hint_width = width.saturating_sub(prefix.width() as u16);
+    let search_hint = if allow_stacked_search {
+        compact_global_search_hint_with_stacked(hint_width)
+    } else {
+        compact_global_search_hint(hint_width)
+    };
+
+    let mut lines = Vec::new();
+    if let Some(hint) = search_hint {
+        lines.extend(hint.lines().map(|line| format!("{prefix}{line}")));
+    }
+    if let Some(hint) = compact_help_hint(hint_width) {
+        lines.push(format!("{prefix}{hint}"));
+    }
+    lines
+}
+
 fn compact_hint(
     candidates: impl IntoIterator<Item = &'static str>,
     width: u16,
@@ -117,5 +149,37 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn compact_global_hint_lines_keep_search_before_help() {
+        assert_eq!(
+            compact_global_hint_lines(80),
+            vec![GLOBAL_SEARCH_HINT.to_string(), HELP_HINT.to_string()]
+        );
+        assert_eq!(
+            compact_global_hint_lines(9),
+            vec!["/: Search".to_string(), "?: Help".to_string()]
+        );
+        assert_eq!(compact_global_hint_lines(1), vec!["?".to_string()]);
+    }
+
+    #[test]
+    fn compact_prefixed_stacked_global_hint_lines_preserve_prefix_and_width() {
+        let lines = compact_prefixed_stacked_global_hint_lines(22, "  ");
+
+        assert_eq!(
+            lines,
+            vec![
+                "  /: Global search".to_string(),
+                "  : Command search".to_string(),
+                "  ?: Toggle help".to_string(),
+            ]
+        );
+        assert!(
+            lines
+                .iter()
+                .all(|line| line.width() <= 22 && line.starts_with("  "))
+        );
     }
 }

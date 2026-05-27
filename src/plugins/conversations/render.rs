@@ -9,7 +9,7 @@ use crate::plugins::conversations::state::SessionInfo;
 use crate::plugins::conversations::state::{ConversationView, PluginState};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
-use crate::ui::{GLOBAL_SEARCH_HINT, compact_global_search_hint, compact_help_hint};
+use crate::ui::{GLOBAL_SEARCH_HINT, compact_global_hint_lines};
 use chrono::{DateTime, Local};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -889,8 +889,7 @@ fn empty_sessions_message(state: &PluginState, width: u16) -> String {
                 "Esc: Clear filter".to_string(),
                 "r: Refresh sessions".to_string(),
             ];
-            append_search_hint(&mut lines, width);
-            append_help_hint(&mut lines, width);
+            lines.extend(compact_global_hint_lines(width));
             lines.join("\n")
         }
         None => {
@@ -900,8 +899,7 @@ fn empty_sessions_message(state: &PluginState, width: u16) -> String {
                 "r: Refresh sessions".to_string(),
                 "f: Filter sessions".to_string(),
             ];
-            append_search_hint(&mut lines, width);
-            append_help_hint(&mut lines, width);
+            lines.extend(compact_global_hint_lines(width));
             lines.extend([
                 String::new(),
                 "Sessions appear after supported adapters are detected.".to_string(),
@@ -919,8 +917,7 @@ fn empty_messages_message(width: u16) -> String {
         "f: Filter sessions".to_string(),
         "Esc/h: Back to sessions".to_string(),
     ];
-    append_search_hint(&mut lines, width);
-    append_help_hint(&mut lines, width);
+    lines.extend(compact_global_hint_lines(width));
     lines.join("\n")
 }
 
@@ -932,25 +929,13 @@ fn loading_messages_message(width: u16) -> String {
         "f: Filter sessions".to_string(),
         "Esc/h: Back to sessions".to_string(),
     ];
-    append_search_hint(&mut lines, width);
-    append_help_hint(&mut lines, width);
+    lines.extend(compact_global_hint_lines(width));
     lines.join("\n")
 }
 
-fn append_search_hint(lines: &mut Vec<String>, width: u16) {
-    if let Some(hint) = conversation_search_hint(width) {
-        lines.push(hint.to_string());
-    }
-}
-
-fn append_help_hint(lines: &mut Vec<String>, width: u16) {
-    if let Some(hint) = compact_help_hint(width) {
-        lines.push(hint.to_string());
-    }
-}
-
+#[cfg(test)]
 fn conversation_search_hint(width: u16) -> Option<&'static str> {
-    compact_global_search_hint(width)
+    crate::ui::compact_global_search_hint(width)
 }
 
 fn compact_message_count(count: usize) -> String {

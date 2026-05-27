@@ -13,7 +13,10 @@ use ratatui::{
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
-use crate::ui::{compact_global_search_hint_with_stacked, compact_help_hint};
+use crate::ui::{
+    compact_global_search_hint_with_stacked, compact_help_hint,
+    compact_prefixed_stacked_global_hint_lines,
+};
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
 
@@ -814,13 +817,10 @@ fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> 
 }
 
 fn workers_empty_message(mut lines: Vec<String>, width: u16, hint_prefix: &str) -> String {
-    let hint_width = width.saturating_sub(hint_prefix.width() as u16);
-    if let Some(hint) = workers_search_hint(hint_width) {
-        lines.extend(hint.lines().map(|line| format!("{hint_prefix}{line}")));
-    }
-    if let Some(hint) = compact_help_hint(hint_width) {
-        lines.push(format!("{hint_prefix}{hint}"));
-    }
+    lines.extend(compact_prefixed_stacked_global_hint_lines(
+        width,
+        hint_prefix,
+    ));
     lines.join("\n")
 }
 

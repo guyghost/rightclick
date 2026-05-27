@@ -14,7 +14,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::core::models::Theme;
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::{compact_global_search_hint, compact_help_hint};
+use crate::ui::compact_global_hint_lines;
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode, Worktree};
 
@@ -576,17 +576,13 @@ fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> 
 }
 
 fn workspace_empty_message(mut lines: Vec<String>, width: u16) -> String {
-    if let Some(hint) = workspace_search_hint(width) {
-        lines.push(hint.to_string());
-    }
-    if let Some(hint) = compact_help_hint(width) {
-        lines.push(hint.to_string());
-    }
+    lines.extend(compact_global_hint_lines(width));
     lines.join("\n")
 }
 
+#[cfg(test)]
 fn workspace_search_hint(width: u16) -> Option<&'static str> {
-    compact_global_search_hint(width)
+    crate::ui::compact_global_search_hint(width)
 }
 
 fn truncate_display(text: &str, max_width: usize) -> String {
