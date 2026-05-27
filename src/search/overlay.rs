@@ -23,6 +23,10 @@ const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab/Shift+Tab: Scope  
 const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
 const MIN_SEARCH_OVERLAY_HEIGHT: u16 = 8;
 const SEARCH_RESULT_SCROLL_WINDOW: usize = 10;
+const RESULT_ICON_PREFIX_WIDTH: usize = 5;
+const RESULT_PREVIEW_SEPARATOR_WIDTH: usize = 2;
+const MIN_RESULT_PREVIEW_WIDTH: usize = 10;
+const MIN_RESULT_TITLE_WITH_PREVIEW_WIDTH: usize = 8;
 
 /// State for the search overlay
 #[derive(Debug, Clone)]
@@ -577,18 +581,18 @@ fn render_results(
                 Style::default().fg(muted)
             };
 
-            let line = Line::from(vec![
+            let (title, preview) =
+                result_line_parts(&result.title, &result.preview, area.width as usize);
+            let mut line_spans = vec![
                 Span::styled(format!("{:<4} ", icon), preview_style),
-                Span::styled(
-                    display_result_title(&result.title, area.width as usize),
-                    title_style,
-                ),
-                Span::styled("  ", preview_style),
-                Span::styled(
-                    truncate_str(&result.preview, area.width as usize / 2),
-                    preview_style,
-                ),
-            ]);
+                Span::styled(title, title_style),
+            ];
+            if let Some(preview) = preview {
+                line_spans.push(Span::styled("  ", preview_style));
+                line_spans.push(Span::styled(preview, preview_style));
+            }
+
+            let line = Line::from(line_spans);
 
             ListItem::new(line)
         })
@@ -626,20 +630,26 @@ fn normalized_selection_window(
     (selected, scroll_offset)
 }
 
-fn display_result_title(title: &str, area_width: usize) -> String {
-    truncate_str(title, result_title_max_len(area_width))
-}
-
-fn result_title_max_len(area_width: usize) -> usize {
-    if area_width <= 12 {
-        return area_width.saturating_sub(5);
+fn result_line_parts(title: &str, preview: &str, area_width: usize) -> (String, Option<String>) {
+    let content_width = area_width.saturating_sub(RESULT_ICON_PREFIX_WIDTH);
+    if preview.is_empty() || content_width < 24 {
+        return (truncate_str(title, content_width), None);
     }
 
-    area_width
-        .saturating_sub(8)
-        .saturating_mul(2)
-        .saturating_div(5)
-        .clamp(8, 48)
+    let available = content_width.saturating_sub(RESULT_PREVIEW_SEPARATOR_WIDTH);
+    if available < MIN_RESULT_TITLE_WITH_PREVIEW_WIDTH + MIN_RESULT_PREVIEW_WIDTH {
+        return (truncate_str(title, content_width), None);
+    }
+
+    let preview_width = (available / 3)
+        .clamp(MIN_RESULT_PREVIEW_WIDTH, 40)
+        .min(available.saturating_sub(MIN_RESULT_TITLE_WITH_PREVIEW_WIDTH));
+    let title_width = available.saturating_sub(preview_width);
+
+    (
+        truncate_str(title, title_width),
+        Some(truncate_str(preview, preview_width)),
+    )
 }
 
 fn render_footer(area: Rect, buf: &mut Buffer, muted: Color) {
@@ -951,19 +961,60 @@ mod tests {
     }
 
     #[test]
-    fn test_display_result_title_truncates_long_titles() {
-        assert_eq!(
-            display_result_title("src/search/overlay.rs:123", 24),
-            "src/s..."
-        );
-        assert_eq!(display_result_title("src/main.rs:42", 80), "src/main.rs:42");
+    fn test_result_line_parts_prioritizes_title_when_narrow() {
+        let (title, preview) = result_line_parts("src/search/overlay.rs:123", "fn main() {}", 24);
+
+        assert_eq!(title, "src/search/overl...");
+        assert_eq!(preview, None);
+        assert!(title.width() <= 24 - RESULT_ICON_PREFIX_WIDTH);
     }
 
     #[test]
-    fn test_result_title_max_len_preserves_preview_space() {
-        assert_eq!(result_title_max_len(10), 5);
-        assert_eq!(result_title_max_len(80), 28);
-        assert_eq!(result_title_max_len(200), 48);
+    fn test_result_line_parts_includes_preview_when_roomy() {
+        let (title, preview) =
+            result_line_parts("src/search/overlay.rs:123", "fn render_results(state)", 80);
+
+        assert_eq!(title, "src/search/overlay.rs:123");
+        assert_eq!(preview, Some("fn render_results(state)".to_string()));
+        assert!(
+            title.width() + RESULT_PREVIEW_SEPARATOR_WIDTH + preview.as_deref().unwrap().width()
+                <= 80 - RESULT_ICON_PREFIX_WIDTH
+        );
+    }
+
+    #[test]
+    fn test_render_results_omits_preview_when_narrow() {
+        let mut state = SearchOverlayState::new();
+        state.set_results(vec![SearchResult {
+            kind: SearchResultKind::FileContent {
+                path: "src/search/overlay.rs".into(),
+                line: 123,
+                column: 1,
+            },
+            title: "src/search/overlay.rs:123".into(),
+            preview: "fn render_results(state)".into(),
+            score: 100,
+        }]);
+
+        let area = Rect::new(0, 0, 24, 1);
+        let mut buf = Buffer::empty(area);
+        render_results(
+            &state,
+            area,
+            &mut buf,
+            Color::White,
+            Color::Gray,
+            Color::Blue,
+            Color::Black,
+        );
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("src/search/overl..."));
+        assert!(!content.contains("fn render"));
     }
 
     #[test]
