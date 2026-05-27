@@ -884,7 +884,7 @@ fn empty_sessions_message(state: &PluginState) -> String {
             query, SEARCH_HINT
         ),
         None => format!(
-            "No sessions found\n\nr: Refresh sessions\nf: Filter sessions\n{}\n?: Toggle help\n\nSessions appear after supported adapters are detected.",
+            "No sessions yet\n\nr: Refresh sessions\nf: Filter sessions\n{}\n?: Toggle help\n\nSessions appear after supported adapters are detected.",
             SEARCH_HINT
         ),
     }
@@ -1050,13 +1050,14 @@ mod tests {
         let state = PluginState::new();
         let message = empty_sessions_message(&state);
 
-        assert!(message.contains("No sessions found"));
+        assert!(message.contains("No sessions yet"));
         assert!(message.contains("r: Refresh sessions"));
         assert!(message.contains("f: Filter sessions"));
         assert!(message.contains(SEARCH_HINT));
         assert!(!message.contains("/: Global search\n: Command search"));
         assert!(message.contains("?: Toggle help"));
         assert!(message.contains("Sessions appear after supported adapters are detected"));
+        assert!(!message.contains("No sessions found"));
     }
 
     #[test]
