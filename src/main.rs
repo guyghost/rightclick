@@ -953,10 +953,10 @@ fn build_footer_hints(
         (":", "Command search"),
         ("?", "Toggle help"),
         ("q/Ctrl+C", "Quit"),
-        ("1-9", "Plugin"),
+        ("1-9", "Focus plugin"),
     ];
     if plugin_uses_tab_for_panes(plugin_id) {
-        global_hints.insert(1, ("Ctrl+Tab", "Plugin"));
+        global_hints.insert(1, ("Ctrl+Tab", "Next plugin"));
     }
 
     for (key, label) in global_hints {
@@ -1410,7 +1410,7 @@ mod tests {
             &hints[..8],
             &[
                 ("Tab".to_string(), "Pane".to_string()),
-                ("Ctrl+Tab".to_string(), "Plugin".to_string()),
+                ("Ctrl+Tab".to_string(), "Next plugin".to_string()),
                 ("Enter".to_string(), "Select".to_string()),
                 ("Ctrl+R".to_string(), "Refresh current view".to_string()),
                 ("/".to_string(), "Global search".to_string()),
@@ -1419,7 +1419,7 @@ mod tests {
                 ("q/Ctrl+C".to_string(), "Quit".to_string()),
             ]
         );
-        assert!(hints.contains(&("1-9".to_string(), "Plugin".to_string())));
+        assert!(hints.contains(&("1-9".to_string(), "Focus plugin".to_string())));
         assert!(hints.contains(&("r".to_string(), "Refresh".to_string())));
         assert!(!hints.iter().any(|(key, _)| key == "j"));
     }
@@ -1515,14 +1515,20 @@ mod tests {
     fn test_build_footer_hints_labels_git_tab_as_pane() {
         let hints = build_footer_hints("git-status", &[]);
         assert_eq!(hints[0], ("Tab".to_string(), "Pane".to_string()));
-        assert_eq!(hints[1], ("Ctrl+Tab".to_string(), "Plugin".to_string()));
+        assert_eq!(
+            hints[1],
+            ("Ctrl+Tab".to_string(), "Next plugin".to_string())
+        );
     }
 
     #[test]
     fn test_build_footer_hints_labels_workers_tab_as_pane() {
         let hints = build_footer_hints("workers", &[]);
         assert_eq!(hints[0], ("Tab".to_string(), "Pane".to_string()));
-        assert_eq!(hints[1], ("Ctrl+Tab".to_string(), "Plugin".to_string()));
+        assert_eq!(
+            hints[1],
+            ("Ctrl+Tab".to_string(), "Next plugin".to_string())
+        );
     }
 
     #[test]
