@@ -29,6 +29,19 @@ fn keyboard_shortcuts_include_command_search() {
 }
 
 #[test]
+fn search_docs_explain_command_search_fields() {
+    assert!(
+        README
+            .contains("- **Commands**: search commands by name, shortcut, category, or command ID"),
+        "README search docs should match command palette search fields"
+    );
+    assert!(
+        !README.contains("search available commands with their current descriptions"),
+        "README search docs should not imply command search only uses descriptions"
+    );
+}
+
+#[test]
 fn keyboard_shortcuts_use_display_key_casing() {
     for row in [
         "| `q`, `Ctrl+C` | Quit |",
