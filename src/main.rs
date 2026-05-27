@@ -846,7 +846,7 @@ fn build_help_lines(
         String::new(),
         "Global shortcuts:".to_string(),
         "  /        Global search".to_string(),
-        "  ?        Toggle this help".to_string(),
+        "  ?        Help".to_string(),
         "  Tab      Switch plugin or pane".to_string(),
         "  Shift+Tab  Switch to previous plugin or pane".to_string(),
         "  1-9      Jump to plugin".to_string(),
@@ -888,7 +888,7 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         String::new(),
         "Global shortcuts:".to_string(),
         "  /        Global search".to_string(),
-        "  ?        Toggle this help".to_string(),
+        "  ?        Help".to_string(),
         "  q/Ctrl+C  Quit".to_string(),
         String::new(),
         "Diagnostics:".to_string(),
@@ -1093,6 +1093,8 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("/") && line.contains("Global search"))
         );
+        assert!(lines.iter().any(|line| line == "  ?        Help"));
+        assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
         assert!(
             lines
                 .iter()
@@ -1245,8 +1247,9 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|line| line.contains("?") && line.contains("Toggle this help"))
+                .any(|line| line.contains("?") && line.contains("Help"))
         );
+        assert!(!lines.iter().any(|line| line.contains("Toggle this help")));
         assert!(
             lines
                 .iter()
