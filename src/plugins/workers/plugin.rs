@@ -19,7 +19,7 @@ use crate::core::models::intent::{
 use crate::event::Event;
 use crate::keymap::registry::KeyBindingRegistry;
 use crate::keymap::{Action, FocusContext};
-use crate::ui::count_label;
+use crate::ui::{count_label, nonzero_count_label};
 
 use super::render::{render_workers, render_workers_status};
 use super::runner::{WorkerOutput, WorkerRunner};
@@ -1013,15 +1013,9 @@ fn workers_status_line(state: &PluginState) -> String {
         count_label(state.intents.len(), "intent", "intents"),
         count_label(state.workers.len(), "worker", "workers"),
     ];
-    if running > 0 {
-        parts.push(format!("{} running", running));
-    }
-    if failed > 0 {
-        parts.push(format!("{} failed", failed));
-    }
-    if completed > 0 {
-        parts.push(format!("{} completed", completed));
-    }
+    parts.extend(nonzero_count_label(running, "running", "running"));
+    parts.extend(nonzero_count_label(failed, "failed", "failed"));
+    parts.extend(nonzero_count_label(completed, "completed", "completed"));
 
     parts.join(" | ")
 }

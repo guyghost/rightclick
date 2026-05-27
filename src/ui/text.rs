@@ -26,6 +26,11 @@ pub fn count_label(count: usize, singular: &str, plural: &str) -> String {
     }
 }
 
+/// Return a count label only when `count` is non-zero.
+pub fn nonzero_count_label(count: usize, singular: &str, plural: &str) -> Option<String> {
+    (count > 0).then(|| count_label(count, singular, plural))
+}
+
 /// Truncate text to fit within `max_width` display columns.
 pub fn truncate_display(text: &str, max_width: usize) -> String {
     truncate_display_with_suffix(text, max_width, "...")
@@ -141,5 +146,18 @@ mod tests {
         assert_eq!(count_label(0, "directory", "directories"), "0 directories");
         assert_eq!(count_label(1, "directory", "directories"), "1 directory");
         assert_eq!(count_label(2, "directory", "directories"), "2 directories");
+    }
+
+    #[test]
+    fn nonzero_count_label_omits_zero_counts() {
+        assert_eq!(nonzero_count_label(0, "file", "files"), None);
+        assert_eq!(
+            nonzero_count_label(1, "directory", "directories"),
+            Some("1 directory".to_string())
+        );
+        assert_eq!(
+            nonzero_count_label(2, "directory", "directories"),
+            Some("2 directories".to_string())
+        );
     }
 }

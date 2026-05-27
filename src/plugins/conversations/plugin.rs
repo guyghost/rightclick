@@ -10,7 +10,7 @@ use crate::keymap::KeyBinding;
 use crate::plugins::conversations::render::ConversationsRenderer;
 use crate::plugins::conversations::state::{ConversationView, PluginState, SessionInfo};
 use crate::theme::get_current_theme;
-use crate::ui::count_label;
+use crate::ui::{count_label, nonzero_count_label};
 use anyhow::Result;
 use parking_lot::RwLock;
 use ratatui::buffer::Buffer;
@@ -1030,9 +1030,7 @@ fn conversations_status_line(state: &PluginState) -> String {
             format!("{} visible", count_label(visible, "session", "sessions")),
             format!("{} total", count_label(total, "session", "sessions")),
         ];
-        if messages > 0 {
-            parts.push(count_label(messages, "message", "messages"));
-        }
+        parts.extend(nonzero_count_label(messages, "message", "messages"));
         let mut status = parts.join(" | ");
         if let Some(adapter_type) = state.adapter_filter {
             status.push_str(&format!(" | adapter: {}", adapter_type.display_name()));
@@ -1043,9 +1041,7 @@ fn conversations_status_line(state: &PluginState) -> String {
         status
     } else {
         let mut parts = vec![count_label(total, "session", "sessions")];
-        if messages > 0 {
-            parts.push(count_label(messages, "message", "messages"));
-        }
+        parts.extend(nonzero_count_label(messages, "message", "messages"));
         parts.join(" | ")
     }
 }

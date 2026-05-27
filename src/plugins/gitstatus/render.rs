@@ -14,7 +14,7 @@ use ratatui::{
 use crate::core::models::Theme;
 use crate::core::models::{ChangeType, Diff, FileChange, FileDiff, FileStatus};
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::{count_label, global_hint_message, truncate_display};
+use crate::ui::{count_label, global_hint_message, nonzero_count_label, truncate_display};
 
 use super::state::{FocusPane, PluginState, ViewMode};
 
@@ -1289,15 +1289,9 @@ pub fn render_status_info(state: &PluginState) -> String {
     let unstaged = state.unstaged_files().len();
     let untracked = state.untracked_files().len();
 
-    if staged > 0 {
-        parts.push(format!("{} staged", staged));
-    }
-    if unstaged > 0 {
-        parts.push(format!("{} unstaged", unstaged));
-    }
-    if untracked > 0 {
-        parts.push(format!("{} untracked", untracked));
-    }
+    parts.extend(nonzero_count_label(staged, "staged", "staged"));
+    parts.extend(nonzero_count_label(unstaged, "unstaged", "unstaged"));
+    parts.extend(nonzero_count_label(untracked, "untracked", "untracked"));
 
     if staged == 0 && unstaged == 0 && untracked == 0 {
         parts.push("clean".to_string());

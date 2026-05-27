@@ -57,6 +57,6 @@ pub use selection::Selection;
 pub use spinner::Spinner;
 pub use text::{
     char_display_width, clip_display, count_label, display_width, display_width_u16,
-    truncate_display, truncate_display_with_suffix,
+    nonzero_count_label, truncate_display, truncate_display_with_suffix,
 };
 pub use text_input::TextInputWidget;
