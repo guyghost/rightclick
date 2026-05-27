@@ -176,6 +176,7 @@ case "$cmd" in
     ;;
   doctor)
     missing_required=0
+    optional_setup=()
     printf 'RightClick doctor\n'
     printf 'repo %s\n' "$repo_root"
 
@@ -193,6 +194,9 @@ case "$cmd" in
         printf 'ok   %s\n' "$1"
       else
         printf 'skip %s (optional; %s)\n' "$1" "$2"
+        if [ -n "${3:-}" ]; then
+          optional_setup+=("$3")
+        fi
       fi
     }
 
@@ -205,6 +209,7 @@ case "$cmd" in
         printf 'ok   td workspace\n'
       else
         printf 'skip td workspace (optional; run td init in %s to enable task tracking)\n' "$repo_root"
+        optional_setup+=("td init")
       fi
     }
 
@@ -236,10 +241,10 @@ case "$cmd" in
     require_cmd cargo-clippy
     require_cmd git
     require_cmd rg
-    optional_cmd_hint tmux "needed for embedded terminal sessions; install with brew install tmux"
-    optional_cmd_hint td "enables task tracking workflows; run td init in this checkout after installing"
+    optional_cmd_hint tmux "needed for embedded terminal sessions; install with brew install tmux" "brew install tmux"
+    optional_cmd_hint td "enables task tracking workflows; run td init in this checkout after installing" "install td, then run td init"
     optional_td_workspace
-    optional_cmd_hint just "enables shorter justfile commands; install with brew install just or cargo install just"
+    optional_cmd_hint just "enables shorter justfile commands; install with brew install just or cargo install just" "brew install just"
 
     if command -v cargo >/dev/null 2>&1; then
       cargo --version
@@ -264,6 +269,12 @@ case "$cmd" in
     fi
 
     echo "All required tools are available."
+    if [ "${#optional_setup[@]}" -ne 0 ]; then
+      echo "Optional setup:"
+      for setup_step in "${optional_setup[@]}"; do
+        echo "  $setup_step"
+      done
+    fi
     echo "Next checks:"
     echo "  bash scripts/dev.sh quick"
     echo "  bash scripts/dev.sh pre-push"
