@@ -814,6 +814,51 @@ fn build_app_header(subtitle: String, tab_titles: Vec<String>, active_plugin: us
     }
 }
 
+#[derive(Clone, Copy)]
+struct ShortcutHint {
+    key: &'static str,
+    label: &'static str,
+}
+
+impl ShortcutHint {
+    const fn new(key: &'static str, label: &'static str) -> Self {
+        Self { key, label }
+    }
+
+    fn inline_line(self) -> String {
+        if self.key == ":" {
+            format!("{} {}", self.key, self.label)
+        } else {
+            format!("{}: {}", self.key, self.label)
+        }
+    }
+
+    fn help_line(self) -> String {
+        format!("  {}", self.inline_line())
+    }
+
+    fn footer_pair(self) -> (String, String) {
+        (self.key.to_string(), self.label.to_string())
+    }
+}
+
+const GLOBAL_SEARCH_SHORTCUT: ShortcutHint = ShortcutHint::new("/", "Global search");
+const COMMAND_SEARCH_SHORTCUT: ShortcutHint = ShortcutHint::new(":", "Command search");
+const TOGGLE_HELP_SHORTCUT: ShortcutHint = ShortcutHint::new("?", "Toggle help");
+const QUIT_SHORTCUT: ShortcutHint = ShortcutHint::new("q/Ctrl+C", "Quit");
+const NO_PLUGINS_FOOTER_SHORTCUTS: [ShortcutHint; 4] = [
+    TOGGLE_HELP_SHORTCUT,
+    GLOBAL_SEARCH_SHORTCUT,
+    COMMAND_SEARCH_SHORTCUT,
+    QUIT_SHORTCUT,
+];
+const NO_PLUGINS_HELP_SHORTCUTS: [ShortcutHint; 4] = [
+    GLOBAL_SEARCH_SHORTCUT,
+    COMMAND_SEARCH_SHORTCUT,
+    TOGGLE_HELP_SHORTCUT,
+    QUIT_SHORTCUT,
+];
+
 fn search_plugin_entries(
     plugin_id: &str,
     plugin_name: &str,
@@ -879,33 +924,39 @@ fn build_help_lines(
         lines.push("  No view-specific plugin commands".to_string());
     }
 
-    lines.extend([
-        String::new(),
-        "Global shortcuts:".to_string(),
-        "  /: Global search".to_string(),
-        "  : Command search".to_string(),
-        "  ?: Toggle help".to_string(),
-        "  j/k or ↑/↓: Navigate items".to_string(),
-        "  Enter: Select".to_string(),
-        "  Ctrl+R: Refresh current view".to_string(),
-    ]);
+    lines.extend([String::new(), "Global shortcuts:".to_string()]);
+    lines.extend(global_shortcut_help_lines(plugin_id));
+
+    lines
+}
+
+fn global_shortcut_help_lines(plugin_id: &str) -> Vec<String> {
+    let mut lines = vec![
+        GLOBAL_SEARCH_SHORTCUT.help_line(),
+        COMMAND_SEARCH_SHORTCUT.help_line(),
+        TOGGLE_HELP_SHORTCUT.help_line(),
+        ShortcutHint::new("j/k or ↑/↓", "Navigate items").help_line(),
+        ShortcutHint::new("Enter", "Select").help_line(),
+        ShortcutHint::new("Ctrl+R", "Refresh current view").help_line(),
+    ];
+
     if plugin_uses_tab_for_panes(plugin_id) {
         lines.extend([
-            "  Tab: Switch pane".to_string(),
-            "  Shift+Tab: Previous pane".to_string(),
-            "  Ctrl+Tab: Next plugin".to_string(),
-            "  Ctrl+Shift+Tab: Previous plugin".to_string(),
+            ShortcutHint::new("Tab", "Switch pane").help_line(),
+            ShortcutHint::new("Shift+Tab", "Previous pane").help_line(),
+            ShortcutHint::new("Ctrl+Tab", "Next plugin").help_line(),
+            ShortcutHint::new("Ctrl+Shift+Tab", "Previous plugin").help_line(),
         ]);
     } else {
         lines.extend([
-            "  Tab: Next plugin".to_string(),
-            "  Shift+Tab: Previous plugin".to_string(),
+            ShortcutHint::new("Tab", "Next plugin").help_line(),
+            ShortcutHint::new("Shift+Tab", "Previous plugin").help_line(),
         ]);
     }
     lines.extend([
-        "  1-9: Jump to plugin".to_string(),
-        "  Esc: Back/close".to_string(),
-        "  q/Ctrl+C: Quit".to_string(),
+        ShortcutHint::new("1-9", "Jump to plugin").help_line(),
+        ShortcutHint::new("Esc", "Back/close").help_line(),
+        QUIT_SHORTCUT.help_line(),
     ]);
 
     lines
@@ -948,21 +999,29 @@ fn compact_help_overlay_text(width: u16) -> &'static str {
 }
 
 fn build_no_plugins_help_lines() -> Vec<String> {
-    vec![
+    let mut lines = vec![
         "No plugins loaded".to_string(),
         "RightClick is running without an active plugin.".to_string(),
         String::new(),
         "Global shortcuts:".to_string(),
-        "  /: Global search".to_string(),
-        "  : Command search".to_string(),
-        "  ?: Toggle help".to_string(),
-        "  q/Ctrl+C: Quit".to_string(),
+    ];
+    lines.extend(no_plugins_global_shortcut_help_lines());
+    lines.extend([
         String::new(),
         "Diagnostics:".to_string(),
         "  bash scripts/dev.sh doctor".to_string(),
         "  RUST_LOG=debug bash scripts/dev.sh run".to_string(),
         "  Check configuration if this state persists.".to_string(),
-    ]
+    ]);
+    lines
+}
+
+fn no_plugins_global_shortcut_help_lines() -> Vec<String> {
+    NO_PLUGINS_HELP_SHORTCUTS
+        .iter()
+        .copied()
+        .map(ShortcutHint::help_line)
+        .collect()
 }
 
 fn build_footer_hints(
@@ -978,22 +1037,22 @@ fn build_footer_hints(
     };
 
     let mut global_hints = vec![
-        ("Tab", tab_label),
-        ("Enter", "Select"),
-        ("Ctrl+R", "Refresh current view"),
-        ("/", "Global search"),
-        (":", "Command search"),
-        ("?", "Toggle help"),
-        ("q/Ctrl+C", "Quit"),
-        ("1-9", "Focus plugin"),
+        ShortcutHint::new("Tab", tab_label),
+        ShortcutHint::new("Enter", "Select"),
+        ShortcutHint::new("Ctrl+R", "Refresh current view"),
+        GLOBAL_SEARCH_SHORTCUT,
+        COMMAND_SEARCH_SHORTCUT,
+        TOGGLE_HELP_SHORTCUT,
+        QUIT_SHORTCUT,
+        ShortcutHint::new("1-9", "Focus plugin"),
     ];
     if plugin_uses_tab_for_panes(plugin_id) {
-        global_hints.insert(1, ("Ctrl+Tab", "Next plugin"));
+        global_hints.insert(1, ShortcutHint::new("Ctrl+Tab", "Next plugin"));
     }
 
-    for (key, label) in global_hints {
-        if seen.insert(key.to_string()) {
-            hints.push((key.to_string(), label.to_string()));
+    for hint in global_hints {
+        if seen.insert(hint.key.to_string()) {
+            hints.push(hint.footer_pair());
         }
     }
 
@@ -1024,7 +1083,7 @@ fn no_plugins_empty_message(width: u16) -> String {
         String::new(),
         "RightClick is running without an active plugin.".to_string(),
         String::new(),
-        fit_no_plugins_line("?: Toggle help", width),
+        fit_no_plugins_line(&TOGGLE_HELP_SHORTCUT.inline_line(), width),
     ];
 
     if let Some(search_hint) = no_plugins_search_hint(width) {
@@ -1032,7 +1091,7 @@ fn no_plugins_empty_message(width: u16) -> String {
     }
 
     lines.extend([
-        fit_no_plugins_line("q/Ctrl+C: Quit", width),
+        fit_no_plugins_line(&QUIT_SHORTCUT.inline_line(), width),
         String::new(),
         "Diagnostics:".to_string(),
         fit_no_plugins_line("bash scripts/dev.sh doctor", width),
@@ -1065,12 +1124,11 @@ fn no_plugins_footer_status() -> &'static str {
 }
 
 fn no_plugins_footer_hints() -> Vec<(String, String)> {
-    vec![
-        ("?".to_string(), "Toggle help".to_string()),
-        ("/".to_string(), "Global search".to_string()),
-        (":".to_string(), "Command search".to_string()),
-        ("q/Ctrl+C".to_string(), "Quit".to_string()),
-    ]
+    NO_PLUGINS_FOOTER_SHORTCUTS
+        .iter()
+        .copied()
+        .map(ShortcutHint::footer_pair)
+        .collect()
 }
 
 fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginCommand) -> String {
@@ -1208,6 +1266,13 @@ mod tests {
         assert_eq!(header.title, "RightClick");
         assert_eq!(header.tabs.len(), 2);
         assert_eq!(header.active_tab, 1);
+    }
+
+    #[test]
+    fn test_shortcut_hint_formats_command_search_without_extra_colon() {
+        assert_eq!(GLOBAL_SEARCH_SHORTCUT.help_line(), "  /: Global search");
+        assert_eq!(COMMAND_SEARCH_SHORTCUT.help_line(), "  : Command search");
+        assert_eq!(TOGGLE_HELP_SHORTCUT.inline_line(), "?: Toggle help");
     }
 
     #[test]
