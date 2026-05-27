@@ -14,6 +14,7 @@ use unicode_width::UnicodeWidthStr;
 
 const FOOTER_HINT_SEPARATOR: &str = "  |  ";
 const FOOTER_HINT_OVERFLOW: &str = "...";
+const HEADER_TAB_SEPARATOR: &str = " | ";
 
 /// A key hint displayed in the footer
 #[derive(Clone, Debug, PartialEq)]
@@ -208,13 +209,15 @@ impl Header {
         if !self.tabs.is_empty() {
             let active_style = style_for_ui_element(theme, UiElement::ActiveItem);
             let inactive_style = style_for_ui_element(theme, UiElement::InactiveItem);
+            let tabs_width = area.width.saturating_sub(2) as usize;
+            let (visible_tabs, visible_active_tab) =
+                visible_tab_window(&self.tabs, self.active_tab, tabs_width);
 
-            let tab_titles: Vec<Line> = self
-                .tabs
+            let tab_titles: Vec<Line> = visible_tabs
                 .iter()
                 .enumerate()
                 .map(|(i, title)| {
-                    let style = if i == self.active_tab {
+                    let style = if i == visible_active_tab {
                         active_style
                     } else {
                         inactive_style
@@ -224,10 +227,11 @@ impl Header {
                 .collect();
 
             let tabs_widget = Tabs::new(tab_titles)
-                .select(self.active_tab)
+                .select(visible_active_tab)
                 .style(inactive_style)
                 .highlight_style(active_style.add_modifier(Modifier::BOLD | Modifier::UNDERLINED))
-                .divider(Span::styled(" | ", text_style));
+                .padding("", "")
+                .divider(Span::styled(HEADER_TAB_SEPARATOR, text_style));
 
             let tabs_area = Rect {
                 x: area.x.saturating_add(1),
@@ -512,6 +516,62 @@ fn truncate_display(value: &str, max_width: usize) -> String {
     output
 }
 
+fn visible_tab_window(tabs: &[String], active: usize, max_width: usize) -> (Vec<String>, usize) {
+    if tabs.is_empty() || max_width == 0 {
+        return (Vec::new(), 0);
+    }
+
+    let active = active.min(tabs.len() - 1);
+    if tab_window_width(tabs) <= max_width {
+        return (tabs.to_vec(), active);
+    }
+
+    let mut start = active;
+    let mut end = active + 1;
+    let mut used = tabs[active].width();
+
+    loop {
+        let mut added = false;
+        if start > 0 {
+            let candidate = used + HEADER_TAB_SEPARATOR.width() + tabs[start - 1].width();
+            if candidate <= max_width {
+                start -= 1;
+                used = candidate;
+                added = true;
+            }
+        }
+
+        if end < tabs.len() {
+            let candidate = used + HEADER_TAB_SEPARATOR.width() + tabs[end].width();
+            if candidate <= max_width {
+                end += 1;
+                used = candidate;
+                added = true;
+            }
+        }
+
+        if !added {
+            break;
+        }
+    }
+
+    (tabs[start..end].to_vec(), active - start)
+}
+
+fn tab_window_width(tabs: &[String]) -> usize {
+    tabs.iter()
+        .enumerate()
+        .map(|(idx, tab)| {
+            let separator_width = if idx == 0 {
+                0
+            } else {
+                HEADER_TAB_SEPARATOR.width()
+            };
+            separator_width + tab.width()
+        })
+        .sum()
+}
+
 fn visible_hints(hints: &[KeyHint], max_width: usize) -> Vec<&KeyHint> {
     let mut visible = Vec::new();
     let mut used = 0;
@@ -646,6 +706,46 @@ mod tests {
 
         assert_eq!(title, "Rig...");
         assert_eq!(subtitle, None);
+    }
+
+    #[test]
+    fn test_visible_tab_window_keeps_active_tab_in_narrow_width() {
+        let tabs = vec![
+            "Git".to_string(),
+            "Conversations".to_string(),
+            "Workers".to_string(),
+            "Workspace".to_string(),
+            "Files".to_string(),
+        ];
+
+        let (visible, active) = visible_tab_window(&tabs, 3, 20);
+
+        assert_eq!(
+            visible,
+            vec!["Workers".to_string(), "Workspace".to_string()]
+        );
+        assert_eq!(active, 1);
+        assert!(tab_window_width(&visible) <= 20);
+    }
+
+    #[test]
+    fn test_header_render_keeps_active_tab_visible_when_narrow() {
+        let header = Header::new("RightClick").with_tabs(
+            vec!["Git", "Conversations", "Workers", "Workspace", "Files"],
+            3,
+        );
+        let area = ratatui::layout::Rect::new(0, 0, 22, 3);
+        let mut buf = ratatui::buffer::Buffer::empty(area);
+
+        header.render(area, &mut buf, &Theme::default());
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Workspace"));
+        assert!(!content.contains("Conversations"));
     }
 
     #[test]
