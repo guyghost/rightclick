@@ -532,7 +532,7 @@ fn output_empty_message(state: &PluginState) -> &'static str {
     if state.intents.is_empty() {
         "No output yet\n\nn: New intent\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
     } else if state.selected_intent().is_none() {
-        "No output selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
+        "No intent selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
     } else {
         "No output yet\n\nr: Run workers\nf: Reload intents\n/: Global search  |  : Command search\n?: Toggle help"
     }
@@ -1378,7 +1378,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("No output selected"));
+        assert!(content.contains("No intent selected"));
+        assert!(!content.contains("No output selected"));
         assert!(content.contains("j/k: Navigate intents"));
         assert!(content.contains("Enter/o: Open intent"));
         assert!(content.contains("Tab/Shift+Tab: Switch pane"));
