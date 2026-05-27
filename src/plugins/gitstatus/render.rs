@@ -1275,7 +1275,8 @@ pub fn render_status_info(state: &PluginState) -> String {
     let mut parts = Vec::new();
 
     if state.branch.is_empty() && state.files.is_empty() && state.commits.is_empty() {
-        return "No repository data loaded | r Refresh | / Global search | ? Help".to_string();
+        return "No repository data loaded | r Refresh git status | / Global search | ? Help"
+            .to_string();
     }
 
     // Branch status
@@ -1556,7 +1557,7 @@ mod tests {
 
         assert_eq!(
             info,
-            "No repository data loaded | r Refresh | / Global search | ? Help"
+            "No repository data loaded | r Refresh git status | / Global search | ? Help"
         );
     }
 
