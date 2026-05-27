@@ -892,8 +892,8 @@ fn build_no_plugins_help_lines() -> Vec<String> {
         "  q/Ctrl+C  Quit".to_string(),
         String::new(),
         "Diagnostics:".to_string(),
-        "  Run bash scripts/dev.sh doctor to verify local tools.".to_string(),
-        "  Restart with RUST_LOG=debug to inspect plugin startup.".to_string(),
+        "  bash scripts/dev.sh doctor".to_string(),
+        "  RUST_LOG=debug rightclick".to_string(),
         "  Check configuration if this state persists.".to_string(),
     ]
 }
@@ -1263,7 +1263,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("bash scripts/dev.sh doctor"))
         );
-        assert!(lines.iter().any(|line| line.contains("RUST_LOG=debug")));
+        assert!(lines.contains(&"  RUST_LOG=debug rightclick".to_string()));
         assert!(lines.iter().any(|line| line.contains("configuration")));
     }
 
