@@ -604,9 +604,14 @@ impl App {
                 let name_score = fuzzy_match_simple(&command.name, query).unwrap_or(0);
                 let desc_score = fuzzy_match_simple(&command.description, query).unwrap_or(0);
                 let id_score = fuzzy_match_simple(&command.id, query).unwrap_or(0);
+                let key_score = fuzzy_match_simple(&command.key.to_string(), query).unwrap_or(0);
                 let title = format!("{}: {}", plugin.name(), command.name);
                 let title_score = fuzzy_match_simple(&title, query).unwrap_or(0);
-                let score = name_score.max(desc_score).max(id_score).max(title_score);
+                let score = name_score
+                    .max(desc_score)
+                    .max(id_score)
+                    .max(key_score)
+                    .max(title_score);
                 if score == 0 {
                     continue;
                 }
@@ -1772,6 +1777,32 @@ mod tests {
             &results[0].kind,
             rightclick::search::SearchResultKind::Command { id } if id == "target:refresh"
         ));
+    }
+
+    #[test]
+    fn test_search_plugin_commands_matches_shortcut_key() {
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let commands = vec![rightclick::plugin::PluginCommand::with_context_description(
+            "rebuild",
+            "Build Project",
+            "Compile workspace",
+            'z',
+            rightclick::keymap::FocusContext::Global,
+        )];
+        let plugins: Vec<Box<dyn rightclick::plugin::Plugin>> = vec![Box::new(RecordingPlugin {
+            id: "builder",
+            name: "Builder",
+            commands,
+            events,
+            focused: false,
+        })];
+        let app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+
+        let results = app.search_plugin_commands("z", 10);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Builder: Build Project");
+        assert_eq!(results[0].preview, "Shortcut: z | Compile workspace");
     }
 
     #[test]
