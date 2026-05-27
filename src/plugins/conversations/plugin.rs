@@ -533,7 +533,11 @@ impl ConversationsPlugin {
                 ("Space", "Expand"),
                 ("e/c", "Expand/Collapse All"),
             ],
-            ConversationView::Search => vec![("Esc", "Clear filter"), ("Type", "Filter")],
+            ConversationView::Search => vec![
+                ("Type", "Filter"),
+                ("Backspace", "Edit"),
+                ("Esc", "Clear filter"),
+            ],
         }
     }
 
@@ -1106,6 +1110,7 @@ mod tests {
         let hints = plugin.key_hints();
         assert!(hints.contains(&("Esc", "Clear filter")));
         assert!(hints.contains(&("Type", "Filter")));
+        assert!(hints.contains(&("Backspace", "Edit")));
         assert!(!hints.iter().any(|(_, label)| *label == "Search"));
     }
 
