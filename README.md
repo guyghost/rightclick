@@ -98,7 +98,7 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 | `j/k`, `↓/↑` | Navigate items |
 | `Enter` | Select |
 | `Esc` | Back/close |
-| `r` | Refresh current view |
+| `r`, `Ctrl+R` | Refresh current view |
 | `?` | Toggle help |
 
 In pane-based views such as Git Status, Workspace, and Workers, `Tab` and

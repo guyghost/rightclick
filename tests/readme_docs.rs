@@ -3,12 +3,16 @@ const README: &str = include_str!("../README.md");
 #[test]
 fn keyboard_shortcuts_describe_contextual_refresh() {
     assert!(
-        README.contains("| `r` | Refresh current view |"),
-        "README keyboard shortcuts should describe refresh as view-scoped"
+        README.contains("| `r`, `Ctrl+R` | Refresh current view |"),
+        "README keyboard shortcuts should describe both refresh bindings as view-scoped"
     );
     assert!(
         !README.contains("| `r` | Refresh |"),
         "README keyboard shortcuts should not use the generic refresh label"
+    );
+    assert!(
+        !README.contains("| `r` | Refresh current view |"),
+        "README keyboard shortcuts should not omit the Ctrl+R refresh binding"
     );
 }
 
