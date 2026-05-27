@@ -352,23 +352,23 @@ impl ConversationsRenderer {
             primary_style.add_modifier(Modifier::BOLD),
         )]));
         text_lines.push(Line::from(vec![Span::styled(
-            "  ↑/↓ or j/k  Navigate sessions",
+            "  ↑/↓ or j/k: Navigate sessions",
             muted_style,
         )]));
         text_lines.push(Line::from(vec![Span::styled(
-            "  Enter/l/o     Open session",
+            "  Enter/l/o: Open session",
             muted_style,
         )]));
         text_lines.push(Line::from(vec![Span::styled(
-            "  f             Filter sessions",
+            "  f: Filter sessions",
             muted_style,
         )]));
         text_lines.push(Line::from(vec![Span::styled(
-            "  r             Refresh sessions",
+            "  r: Refresh sessions",
             muted_style,
         )]));
         text_lines.push(Line::from(vec![Span::styled(
-            "  g/G           First/Last session",
+            "  g/G: First/Last session",
             muted_style,
         )]));
 
@@ -1202,9 +1202,13 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("Enter/l/o"));
-        assert!(content.contains("Open session"));
+        assert!(content.contains("↑/↓ or j/k: Navigate sessions"));
+        assert!(content.contains("Enter/l/o: Open session"));
+        assert!(content.contains("f: Filter sessions"));
+        assert!(content.contains("r: Refresh sessions"));
+        assert!(content.contains("g/G: First/Last session"));
         assert!(!content.contains("Enter or l"));
+        assert!(!content.contains("Enter/l/o     Open session"));
     }
 
     #[test]
