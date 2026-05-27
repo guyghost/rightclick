@@ -18,6 +18,8 @@ use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
 
 const CREATE_INTENT_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
 const DELETE_INTENT_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
+const SEARCH_HINT_INLINE: &str = "/: Global search  |  : Command search";
+const SEARCH_HINT_STACKED: &str = "/: Global search\n: Command search";
 const MIN_WORKERS_MODAL_WIDTH: u16 = 24;
 const MIN_WORKERS_MODAL_HEIGHT: u16 = 7;
 
@@ -604,7 +606,7 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
         block.render(col_chunks[col_idx], buf);
 
         if worker_ids.is_empty() {
-            let empty_text = Paragraph::new(kanban_empty_column_message(state, title))
+            let empty_text = Paragraph::new(kanban_empty_column_message(state, title, inner.width))
                 .alignment(Alignment::Center)
                 .style(Style::default().fg(theme_comment(theme)))
                 .wrap(Wrap { trim: true });
@@ -705,23 +707,32 @@ fn first_chars(value: &str, max_chars: usize) -> String {
     value.chars().take(max_chars).collect()
 }
 
-fn kanban_empty_column_message(state: &PluginState, title: &str) -> String {
+fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> String {
     let status = title.to_lowercase();
+    let search_hint = kanban_search_hint(width);
 
     if state.workers.is_empty() {
         if state.selected_intent().is_some() {
             format!(
-                "No {status} workers\n\nr: Run workers\nf: Reload intents\n/: Global search\n: Command search\nv: Switch view\n?: Toggle help"
+                "No {status} workers\n\nr: Run workers\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
             )
         } else {
             format!(
-                "No {status} workers\n\nn: New intent\nf: Reload intents\n/: Global search\n: Command search\nv: Switch view\n?: Toggle help"
+                "No {status} workers\n\nn: New intent\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
             )
         }
     } else {
         format!(
-            "No {status} workers\n\nh/l: Move columns\nf: Reload intents\n/: Global search\n: Command search\nv: Switch view\n?: Toggle help"
+            "No {status} workers\n\nh/l: Move columns\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
         )
+    }
+}
+
+fn kanban_search_hint(width: u16) -> &'static str {
+    if width as usize >= SEARCH_HINT_INLINE.width() {
+        SEARCH_HINT_INLINE
+    } else {
+        SEARCH_HINT_STACKED
     }
 }
 
@@ -1083,8 +1094,12 @@ mod tests {
         use std::path::PathBuf;
 
         let assert_hint = |message: &str| {
-            assert!(message.contains("/: Global search"), "{message}");
-            assert!(message.contains(": Command search"), "{message}");
+            assert!(message.contains(SEARCH_HINT_INLINE), "{message}");
+            assert!(!message.contains(SEARCH_HINT_STACKED), "{message}");
+        };
+        let assert_kanban_hint = |message: &str| {
+            assert!(message.contains(SEARCH_HINT_STACKED), "{message}");
+            assert!(!message.contains(SEARCH_HINT_INLINE), "{message}");
         };
         let mut empty_state =
             PluginState::new(PathBuf::from(".rightclick/intents"), PathBuf::from("logs"));
@@ -1094,7 +1109,8 @@ mod tests {
         assert_hint(select_intent_details_message());
         assert_hint(select_intent_criteria_message());
         assert_hint(empty_criteria_message());
-        assert_hint(&kanban_empty_column_message(&empty_state, "Pending"));
+        assert_kanban_hint(&kanban_empty_column_message(&empty_state, "Pending", 28));
+        assert_hint(&kanban_empty_column_message(&empty_state, "Pending", 80));
 
         empty_state.add_intent(Intent::new(
             "Improve worker empty states",
@@ -1106,7 +1122,7 @@ mod tests {
 
         empty_state.selected_intent = Some(0);
         assert_hint(output_empty_message(&empty_state));
-        assert_hint(&kanban_empty_column_message(&empty_state, "Running"));
+        assert_kanban_hint(&kanban_empty_column_message(&empty_state, "Running", 28));
     }
 
     #[test]
