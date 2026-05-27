@@ -288,35 +288,35 @@ fn render_task_content(state: &PluginState, area: Rect, buf: &mut Buffer, theme:
 }
 
 fn empty_worktrees_message() -> &'static str {
-    "No worktrees found\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search\n?  Help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
+    "No worktrees found\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help\n\nUse worktrees to run agents in parallel without blocking the main checkout."
 }
 
 fn no_linked_task_message() -> &'static str {
-    "No linked task\n\nT  Link task\nr  Refresh worktrees\n/  Global search\n?  Help"
+    "No linked task\n\nT  Link task\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help"
 }
 
 fn task_details_missing_message(task_id: &str) -> String {
     format!(
-        "Task: {}\n\nNo details loaded\n\nT  Relink task\nr  Refresh worktrees\n/  Global search\n?  Help",
+        "Task: {}\n\nNo details loaded\n\nT  Relink task\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help",
         task_id
     )
 }
 
 fn create_worktree_for_task_message() -> &'static str {
-    "No worktree available\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search\n?  Help"
+    "No worktree available\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help"
 }
 
 fn select_worktree_message() -> &'static str {
-    "No worktree selected\n\nj/k  Navigate | Enter/o  Open\nTab  Focus sidebar\nr  Refresh worktrees\n/  Global search\n?  Help"
+    "No worktree selected\n\nj/k  Navigate | Enter/o  Open\nTab  Focus sidebar\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help"
 }
 
 fn output_empty_message(state: &PluginState) -> &'static str {
     if state.worktrees.is_empty() {
-        "No output yet\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search\n?  Help"
+        "No output yet\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help"
     } else if state.selected_worktree().is_none() {
-        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar\nr  Refresh worktrees\n/  Global search\n?  Help"
+        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help"
     } else {
-        "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task\nr  Refresh worktrees\n/  Global search\n?  Help"
+        "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help"
     }
 }
 
@@ -324,17 +324,17 @@ fn diff_empty_message(state: &PluginState) -> String {
     if let Some(worktree) = state.selected_worktree() {
         if worktree.is_dirty {
             format!(
-                "Diff not loaded yet for {}\n\nr  Refresh worktrees\nj/k  Navigate worktrees\n/  Global search\n?  Help",
+                "Diff not loaded yet for {}\n\nr  Refresh worktrees\nj/k  Navigate worktrees\n/  Global search  |  :  Command search\n?  Help",
                 worktree.name
             )
         } else {
             format!(
-                "Working tree clean: {}\n\nj/k  Navigate worktrees\nT  Link task\nr  Refresh worktrees\n/  Global search\n?  Help",
+                "Working tree clean: {}\n\nj/k  Navigate worktrees\nT  Link task\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help",
                 worktree.name
             )
         }
     } else if state.worktrees.is_empty() {
-        "No diff available\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search\n?  Help"
+        "No diff available\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Help"
             .to_string()
     } else {
         select_worktree_message().to_string()
@@ -925,7 +925,53 @@ mod tests {
         assert!(message.contains("n  Create worktree"));
         assert!(message.contains("r  Refresh worktrees"));
         assert!(message.contains("/  Global search"));
+        assert!(message.contains(":  Command search"));
         assert!(message.contains("?  Help"));
+    }
+
+    #[test]
+    fn test_workspace_empty_messages_surface_command_search() {
+        let assert_hint = |message: &str| {
+            assert!(message.contains("/  Global search"), "{message}");
+            assert!(message.contains(":  Command search"), "{message}");
+        };
+
+        assert_hint(empty_worktrees_message());
+        assert_hint(no_linked_task_message());
+        assert_hint(&task_details_missing_message("TASK-123"));
+        assert_hint(create_worktree_for_task_message());
+        assert_hint(select_worktree_message());
+
+        let empty_state = PluginState::new();
+        assert_hint(output_empty_message(&empty_state));
+        assert_hint(&diff_empty_message(&empty_state));
+
+        let mut unselected_state = PluginState::new();
+        unselected_state.worktrees.push(Worktree::new(
+            "feature",
+            PathBuf::from("/repo/feature"),
+            "feature-branch",
+        ));
+        unselected_state.selected = None;
+        assert_hint(output_empty_message(&unselected_state));
+        assert_hint(&diff_empty_message(&unselected_state));
+
+        let mut clean_state = PluginState::new();
+        clean_state.worktrees.push(Worktree::new(
+            "clean",
+            PathBuf::from("/repo/clean"),
+            "clean-branch",
+        ));
+        clean_state.selected = Some(0);
+        assert_hint(output_empty_message(&clean_state));
+        assert_hint(&diff_empty_message(&clean_state));
+
+        let mut dirty_state = PluginState::new();
+        let mut dirty = Worktree::new("dirty", PathBuf::from("/repo/dirty"), "dirty-branch");
+        dirty.is_dirty = true;
+        dirty_state.worktrees.push(dirty);
+        dirty_state.selected = Some(0);
+        assert_hint(&diff_empty_message(&dirty_state));
     }
 
     #[test]
@@ -946,6 +992,7 @@ mod tests {
         assert!(content.contains("Create worktree"));
         assert!(content.contains("Refresh worktrees"));
         assert!(content.contains("Global search"));
+        assert!(content.contains("Command search"));
     }
 
     #[test]
