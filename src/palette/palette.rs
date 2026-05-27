@@ -343,7 +343,7 @@ impl Palette {
         // Draw the main block
         let block_style = style_for_ui_element(theme, UiElement::Popup);
         let block = Block::default()
-            .title(self.build_title(theme))
+            .title(self.build_title(theme, popup_width))
             .borders(Borders::ALL)
             .border_style(block_style);
 
@@ -364,12 +364,9 @@ impl Palette {
     }
 
     /// Builds the title for the palette.
-    fn build_title(&self, theme: &Theme) -> Line<'_> {
-        let context_text = if self.show_all_contexts {
-            " (all contexts)"
-        } else {
-            ""
-        };
+    fn build_title(&self, theme: &Theme, width: u16) -> Line<'_> {
+        let (context_text, hint_text) =
+            palette_title_context_and_hint(self.show_all_contexts, width);
 
         Line::from(vec![
             Span::styled(
@@ -380,10 +377,7 @@ impl Palette {
                 context_text,
                 style_for_ui_element(theme, UiElement::MutedText),
             ),
-            Span::styled(
-                " (Tab: contexts)",
-                style_for_ui_element(theme, UiElement::MutedText),
-            ),
+            Span::styled(hint_text, style_for_ui_element(theme, UiElement::MutedText)),
         ])
     }
 
@@ -716,6 +710,29 @@ fn palette_empty_action_hint(width: u16, has_input: bool) -> &'static str {
         .into_iter()
         .find(|hint| hint.width() <= width)
         .unwrap_or("")
+    }
+}
+
+fn palette_title_context_and_hint(
+    show_all_contexts: bool,
+    width: u16,
+) -> (&'static str, &'static str) {
+    let width = width as usize;
+    let base = "Command Palette";
+
+    if show_all_contexts {
+        [
+            (" (all contexts)", " (Tab: contexts)"),
+            (" (all contexts)", ""),
+            (" (all)", ""),
+        ]
+        .into_iter()
+        .find(|(context, hint)| base.width() + context.width() + hint.width() <= width)
+        .unwrap_or(("", ""))
+    } else if base.width() + " (Tab: contexts)".width() <= width {
+        ("", " (Tab: contexts)")
+    } else {
+        ("", "")
     }
 }
 
@@ -1128,6 +1145,43 @@ mod tests {
             .map(|cell| cell.symbol().to_string())
             .collect();
         assert!(content.contains("Command Palette"));
+    }
+
+    #[test]
+    fn test_palette_title_hint_compacts_for_narrow_widths() {
+        assert_eq!(
+            palette_title_context_and_hint(false, 80),
+            ("", " (Tab: contexts)")
+        );
+        assert_eq!(palette_title_context_and_hint(false, 26), ("", ""));
+        assert_eq!(
+            palette_title_context_and_hint(true, 80),
+            (" (all contexts)", " (Tab: contexts)")
+        );
+        assert_eq!(
+            palette_title_context_and_hint(true, 40),
+            (" (all contexts)", "")
+        );
+        assert_eq!(palette_title_context_and_hint(true, 22), (" (all)", ""));
+        assert_eq!(palette_title_context_and_hint(true, 10), ("", ""));
+    }
+
+    #[test]
+    fn test_palette_title_render_hides_context_hint_when_narrow() {
+        let palette = test_palette();
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 30, 20);
+        let mut buf = Buffer::empty(area);
+
+        palette.render(area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Command Palette"));
+        assert!(!content.contains("(Tab: contexts)"));
     }
 
     #[test]
