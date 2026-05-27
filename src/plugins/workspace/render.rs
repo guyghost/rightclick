@@ -307,14 +307,14 @@ fn create_worktree_for_task_message() -> &'static str {
 }
 
 fn select_worktree_message() -> &'static str {
-    "No worktree selected\n\nj/k  Navigate | Enter/o  Open\nTab  Focus sidebar\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Toggle help"
+    "No worktree selected\n\nj/k  Navigate | Enter/o  Open\nTab: Focus sidebar\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Toggle help"
 }
 
 fn output_empty_message(state: &PluginState) -> &'static str {
     if state.worktrees.is_empty() {
         "No output yet\n\nn  Create worktree\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Toggle help"
     } else if state.selected_worktree().is_none() {
-        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab  Focus sidebar\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Toggle help"
+        "No output selected\n\nj/k  Navigate worktrees\nEnter/o  Open worktree\nTab: Focus sidebar\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Toggle help"
     } else {
         "No output yet\n\na  Launch agent\nEnter/o  Open interactive shell\nT  Link task\nr  Refresh worktrees\n/  Global search  |  :  Command search\n?  Toggle help"
     }
@@ -1074,7 +1074,7 @@ mod tests {
         assert!(content.contains("No output selected"));
         assert!(content.contains("j/k  Navigate worktrees"));
         assert!(content.contains("Enter/o  Open worktree"));
-        assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("Tab: Focus sidebar"));
         assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains("?  Toggle help"));
@@ -1292,7 +1292,7 @@ mod tests {
         assert!(content.contains("No worktree selected"));
         assert!(content.contains("j/k  Navigate"));
         assert!(content.contains("Enter/o  Open"));
-        assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("Tab: Focus sidebar"));
         assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains("?  Toggle help"));
@@ -1323,7 +1323,7 @@ mod tests {
         assert!(content.contains("No worktree selected"));
         assert!(content.contains("j/k  Navigate"));
         assert!(content.contains("Enter/o  Open"));
-        assert!(content.contains("Tab  Focus sidebar"));
+        assert!(content.contains("Tab: Focus sidebar"));
         assert!(content.contains("r  Refresh worktrees"));
         assert!(content.contains("/  Global search"));
         assert!(content.contains("?  Toggle help"));
