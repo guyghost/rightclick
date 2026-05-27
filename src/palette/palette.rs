@@ -23,12 +23,12 @@ use crate::palette::fuzzy::{FuzzyMatcher, MatchResult};
 use crate::theme::UiElement;
 use crate::theme::style_for_ui_element;
 
-const PALETTE_EMPTY_ACTION_HINT_SCOPED: &str = "Esc: Close | Tab: All contexts | ?: Toggle help";
-const PALETTE_EMPTY_ACTION_HINT_ALL: &str = "Esc: Close | Tab: Current context | ?: Toggle help";
+const PALETTE_EMPTY_ACTION_HINT_SCOPED: &str = "Esc: Close | Tab: All contexts";
+const PALETTE_EMPTY_ACTION_HINT_ALL: &str = "Esc: Close | Tab: Current context";
 const PALETTE_NO_MATCH_ACTION_HINT_SCOPED: &str =
-    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All | ?: Toggle help";
+    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: All";
 const PALETTE_NO_MATCH_ACTION_HINT_ALL: &str =
-    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current | ?: Toggle help";
+    "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab: Current";
 const MIN_VISIBLE_RESULTS: usize = 1;
 const MAX_RENDERABLE_VISIBLE_RESULTS: usize = u16::MAX as usize - 4;
 
@@ -740,11 +740,11 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
             detailed_context_hint,
             "Backspace: Edit | Ctrl+U: Clear | Esc: Close | Tab",
             "Backspace: Edit | Ctrl+U: Clear | Esc: Close",
-            "Edit/Clear | Esc/Tab/?",
+            "Edit/Clear | Esc/Tab",
+            "Esc/Tab",
             edit_context_hint,
             context_hint,
             short_context_hint,
-            "Edit/Clear  Close",
             "Esc",
         ]
         .into_iter()
@@ -781,10 +781,10 @@ fn palette_empty_action_hint(width: u16, has_input: bool, show_all_contexts: boo
             full_hint,
             close_context_hint,
             short_close_context_hint,
+            "Esc: Close | Tab",
+            "Esc/Tab",
             context_hint,
             short_context_hint,
-            "Esc: Close | Tab",
-            "Esc/Tab/?",
             "Esc",
             "",
         ]
@@ -1286,6 +1286,7 @@ mod tests {
         assert!(empty.contains(PALETTE_EMPTY_ACTION_HINT_SCOPED));
         assert!(!empty.contains("Esc  Close palette"));
         assert!(!empty.contains("Tab  Toggle contexts"));
+        assert!(!empty.contains("?: Toggle help"));
         assert!(empty.contains("Commands appear after plugins finish loading"));
 
         let context_empty = palette_empty_state_message("", 80, true, false);
@@ -1304,6 +1305,7 @@ mod tests {
         assert!(!no_match.contains("Ctrl+U  Clear search"));
         assert!(!no_match.contains("Esc  Close palette"));
         assert!(!no_match.contains("Tab  Toggle contexts"));
+        assert!(!no_match.contains("?: Toggle help"));
 
         let no_match_all_contexts = palette_empty_state_message("deploy", 80, true, true);
         assert!(no_match_all_contexts.contains(PALETTE_NO_MATCH_ACTION_HINT_ALL));
@@ -1323,7 +1325,7 @@ mod tests {
     fn test_palette_empty_action_hint_compacts_for_narrow_widths() {
         assert_eq!(palette_empty_action_hint(2, false, false), "");
         assert_eq!(palette_empty_action_hint(3, false, false), "Esc");
-        assert_eq!(palette_empty_action_hint(9, false, false), "Tab: All");
+        assert_eq!(palette_empty_action_hint(9, false, false), "Esc/Tab");
         assert_eq!(
             palette_empty_action_hint(17, false, false),
             "Esc | Tab: All"
@@ -1336,7 +1338,10 @@ mod tests {
             palette_empty_action_hint(28, false, false),
             "Esc: Close | Tab: All"
         );
-        assert_eq!(palette_empty_action_hint(17, false, true), "Tab: Current");
+        assert_eq!(
+            palette_empty_action_hint(17, false, true),
+            "Esc: Close | Tab"
+        );
         assert_eq!(
             palette_empty_action_hint(18, false, true),
             "Esc | Tab: Current"
@@ -1355,17 +1360,11 @@ mod tests {
         );
 
         assert_eq!(palette_empty_action_hint(3, true, false), "Esc");
-        assert_eq!(
-            palette_empty_action_hint(17, true, false),
-            "Tab: All contexts"
-        );
-        assert_eq!(
-            palette_empty_action_hint(18, true, false),
-            "Tab: All contexts"
-        );
+        assert_eq!(palette_empty_action_hint(17, true, false), "Esc/Tab");
+        assert_eq!(palette_empty_action_hint(18, true, false), "Esc/Tab");
         assert_eq!(
             palette_empty_action_hint(27, true, false),
-            "Edit/Clear | Esc/Tab/?"
+            "Edit/Clear | Esc/Tab"
         );
         assert_eq!(
             palette_empty_action_hint(55, true, false),
@@ -1444,7 +1443,7 @@ mod tests {
     fn test_palette_empty_state_render_uses_compact_hints_when_narrow() {
         let palette = Palette::new();
         let theme = Theme::default();
-        let area = Rect::new(0, 0, 44, 20);
+        let area = Rect::new(0, 0, 34, 20);
         let mut buf = Buffer::empty(area);
 
         palette.render(area, &mut buf, &theme);
@@ -1457,6 +1456,7 @@ mod tests {
         assert!(content.contains("No commands yet"));
         assert!(content.contains("Esc: Close | Tab"));
         assert!(!content.contains(PALETTE_EMPTY_ACTION_HINT_SCOPED));
+        assert!(!content.contains("?: Toggle help"));
     }
 
     #[test]
