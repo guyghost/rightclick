@@ -215,6 +215,9 @@ fn toast_area(area: Rect, index: usize, preferred_width: u16, height: u16) -> Op
         .saturating_add(1)
         .saturating_mul(height.saturating_add(1))
         .saturating_add(1);
+    if index > 0 && stack_height > area.height {
+        return None;
+    }
     let y_offset = area.height.saturating_sub(stack_height);
 
     Some(Rect {
@@ -463,6 +466,34 @@ mod tests {
         assert_eq!(toast.y, 7);
         assert_eq!(toast.width, 24);
         assert_eq!(toast.height, 3);
+    }
+
+    #[test]
+    fn toast_area_skips_stacked_toasts_that_would_overlap() {
+        let area = Rect::new(0, 0, 40, 5);
+
+        assert!(toast_area(area, 0, 40, 3).is_some());
+        assert!(toast_area(area, 1, 40, 3).is_none());
+    }
+
+    #[test]
+    fn render_toasts_skips_overflowing_stack_items() {
+        let mut manager = NotificationManager::new();
+        manager.info("first visible");
+        manager.error("second hidden");
+
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 40, 5);
+        let mut buf = Buffer::empty(area);
+        manager.render(area, &mut buf, &theme);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("first visible"));
+        assert!(!content.contains("second hidden"));
     }
 
     #[test]
