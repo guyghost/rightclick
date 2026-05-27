@@ -6,6 +6,7 @@
 use crate::core::models::Theme;
 use crate::core::models::text_input::{InputMode, TextInputState};
 use crate::theme::{UiElement, style_for_ui_element};
+use crate::ui::truncate_display;
 
 use super::types::{SearchResult, SearchScope};
 
@@ -17,7 +18,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget},
 };
 use std::str::FromStr;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthStr;
 
 const SEARCH_EMPTY_ACTION_HINT: &str = "Ctrl+U: Clear  |  Tab/Shift+Tab: Scope  |  Esc: Close";
 const MIN_SEARCH_OVERLAY_WIDTH: u16 = 20;
@@ -642,12 +643,12 @@ fn normalized_selection_window(
 fn result_line_parts(title: &str, preview: &str, area_width: usize) -> (String, Option<String>) {
     let content_width = area_width.saturating_sub(RESULT_ICON_PREFIX_WIDTH);
     if preview.is_empty() || content_width < 24 {
-        return (truncate_str(title, content_width), None);
+        return (truncate_display(title, content_width), None);
     }
 
     let available = content_width.saturating_sub(RESULT_PREVIEW_SEPARATOR_WIDTH);
     if available < MIN_RESULT_TITLE_WITH_PREVIEW_WIDTH + MIN_RESULT_PREVIEW_WIDTH {
-        return (truncate_str(title, content_width), None);
+        return (truncate_display(title, content_width), None);
     }
 
     let preview_width = (available / 3)
@@ -656,8 +657,8 @@ fn result_line_parts(title: &str, preview: &str, area_width: usize) -> (String, 
     let title_width = available.saturating_sub(preview_width);
 
     (
-        truncate_str(title, title_width),
-        Some(truncate_str(preview, preview_width)),
+        truncate_display(title, title_width),
+        Some(truncate_display(preview, preview_width)),
     )
 }
 
@@ -742,7 +743,7 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
 }
 
 fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
-    let query = truncate_str(query, 40);
+    let query = truncate_display(query, 40);
     let message = match scope {
         SearchScope::All => format!("No search results match \"{}\"", query),
         SearchScope::Files => format!("No file content matches \"{}\"", query),
@@ -800,36 +801,6 @@ fn search_result_icon(kind: &super::types::SearchResultKind) -> &'static str {
             _ => "item",
         },
         super::types::SearchResultKind::Command { .. } => ">",
-    }
-}
-
-fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.width() <= max_len {
-        s.to_string()
-    } else if max_len > 3 {
-        let mut output = String::new();
-        let mut width = 0;
-        for ch in s.chars() {
-            let ch_width = ch.width().unwrap_or(0);
-            if width + ch_width + 3 > max_len {
-                break;
-            }
-            output.push(ch);
-            width += ch_width;
-        }
-        format!("{}...", output)
-    } else {
-        let mut output = String::new();
-        let mut width = 0;
-        for ch in s.chars() {
-            let ch_width = ch.width().unwrap_or(0);
-            if width + ch_width > max_len {
-                break;
-            }
-            output.push(ch);
-            width += ch_width;
-        }
-        output
     }
 }
 
@@ -961,21 +932,29 @@ mod tests {
     }
 
     #[test]
-    fn test_truncate_str_handles_unicode_boundaries() {
-        assert_eq!(truncate_str("éclair", 4), "é...");
-        assert_eq!(truncate_str("abc", 2), "ab");
-        assert_eq!(truncate_str("検索query", 8), "検索q...");
-        assert_eq!(truncate_str("検索", 3), "検");
-        assert_eq!(truncate_str("abc", 0), "");
-    }
-
-    #[test]
     fn test_result_line_parts_prioritizes_title_when_narrow() {
         let (title, preview) = result_line_parts("src/search/overlay.rs:123", "fn main() {}", 24);
 
         assert_eq!(title, "src/search/overl...");
         assert_eq!(preview, None);
         assert!(title.width() <= 24 - RESULT_ICON_PREFIX_WIDTH);
+    }
+
+    #[test]
+    fn test_result_line_parts_truncates_unicode_by_display_width() {
+        let area_width = 34;
+        let (title, preview) = result_line_parts(
+            "検索検索query-with-a-very-long-tail.rs",
+            "プレビュー内容abcdef",
+            area_width,
+        );
+
+        assert!(title.ends_with("..."));
+        assert!(preview.as_deref().unwrap().ends_with("..."));
+        assert!(
+            title.width() + RESULT_PREVIEW_SEPARATOR_WIDTH + preview.as_deref().unwrap().width()
+                <= area_width - RESULT_ICON_PREFIX_WIDTH
+        );
     }
 
     #[test]
@@ -1224,13 +1203,6 @@ mod tests {
 
         assert!(second_row.contains("Command 1"));
         assert_eq!(buf.cell((5, 1)).unwrap().style().bg, Some(Color::Blue));
-    }
-
-    #[test]
-    fn test_truncate_str() {
-        assert_eq!(truncate_str("hello", 10), "hello");
-        assert_eq!(truncate_str("hello world", 8), "hello...");
-        assert_eq!(truncate_str("ab", 2), "ab");
     }
 
     #[test]
