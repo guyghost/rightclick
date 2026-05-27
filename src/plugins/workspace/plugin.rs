@@ -798,7 +798,7 @@ impl WorkspacePlugin {
             PluginCommand::new("agent", "Launch Agent", 'a'),
             PluginCommand::new("interactive", "Interactive Mode", 'o'),
             PluginCommand::new("merge", "Merge", 'm'),
-            PluginCommand::new("refresh", "Refresh worktrees", 'r'),
+            PluginCommand::new("refresh", "Refresh Worktrees", 'r'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
             PluginCommand::new("prev-tab", "Previous Tab", '['),
             PluginCommand::new("next-tab", "Next Tab", ']'),
@@ -1210,8 +1210,8 @@ impl Plugin for WorkspacePlugin {
             .with_footer_priority(4),
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
-                "Refresh worktrees",
-                "Reload worktree status",
+                "Refresh Worktrees",
+                "Reload worktree status from disk",
                 'r',
                 crate::keymap::FocusContext::Workspace,
             ),
@@ -1311,7 +1311,7 @@ mod tests {
             ("agent", 'a', "Launch Agent"),
             ("interactive", 'o', "Interactive Mode"),
             ("merge", 'm', "Merge"),
-            ("refresh", 'r', "Refresh worktrees"),
+            ("refresh", 'r', "Refresh Worktrees"),
             ("switch-view", 'v', "Switch View"),
             ("prev-tab", '[', "Previous Tab"),
             ("next-tab", ']', "Next Tab"),
@@ -1385,6 +1385,17 @@ mod tests {
         assert_eq!(next_tab_command.name, "Next Tab");
         assert_eq!(next_tab_command.key, ']');
 
+        let refresh_command = commands
+            .iter()
+            .find(|command| command.id == "refresh")
+            .expect("workspace refresh command");
+        assert_eq!(refresh_command.name, "Refresh Worktrees");
+        assert_eq!(refresh_command.key, 'r');
+        assert_eq!(
+            refresh_command.description,
+            "Reload worktree status from disk"
+        );
+
         let interactive_command = commands
             .iter()
             .find(|command| command.id == "interactive")
@@ -1442,6 +1453,18 @@ mod tests {
             plugin.pending_commands.pop_front(),
             Some(Command::SwitchMode(ViewMode::Kanban))
         );
+    }
+
+    #[test]
+    fn test_execute_refresh_command_uses_declared_shortcut() {
+        let mut plugin = WorkspacePlugin::new();
+
+        let execution = plugin
+            .execute_command("refresh")
+            .expect("refresh command should execute");
+
+        assert_eq!(execution.command_name, "Refresh Worktrees");
+        assert_eq!(plugin.pending_commands.pop_front(), Some(Command::Refresh));
     }
 
     #[test]
