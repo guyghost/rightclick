@@ -217,7 +217,7 @@ impl ConversationsRenderer {
 
             // Session name (truncated if needed)
             let name_width = inner_area.width.saturating_sub(6) as usize;
-            let name = truncate_string(session_info.title(), name_width);
+            let name = truncate_display(session_info.title(), name_width);
 
             let name_style = if is_selected {
                 style_for_ui_element(theme, UiElement::ActiveItem).add_modifier(Modifier::BOLD)
@@ -411,7 +411,7 @@ impl ConversationsRenderer {
             format!(
                 " {} {} - {} ",
                 session.adapter_icon,
-                truncate_string(session.title(), 30),
+                truncate_display(session.title(), 30),
                 compact_message_count(state.messages.len())
             )
         } else {
@@ -787,11 +787,6 @@ fn format_time(dt: &DateTime<chrono::Utc>) -> String {
     local.format("%H:%M:%S").to_string()
 }
 
-/// Truncate a string to a maximum display width.
-fn truncate_string(s: &str, max_len: usize) -> String {
-    truncate_display(s, max_len)
-}
-
 /// Wrap text to a maximum width
 fn wrap_text(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
@@ -858,7 +853,7 @@ fn empty_sessions_message(state: &PluginState, width: u16) -> String {
         .filter(|query| !query.is_empty())
     {
         Some(query) => {
-            let query = truncate_string(query, 40);
+            let query = truncate_display(query, 40);
             global_hint_message(
                 vec![
                     format!("No sessions match \"{query}\""),
@@ -984,16 +979,6 @@ mod tests {
         let mut buf = Buffer::empty(area);
 
         renderer.render_sidebar(&state, area, &mut buf, &theme, true);
-    }
-
-    #[test]
-    fn test_truncate_string() {
-        assert_eq!(truncate_string("Hello", 10), "Hello");
-        assert_eq!(truncate_string("Hello World", 8), "Hello...");
-        assert_eq!(truncate_string("Test", 3), "...");
-        assert_eq!(truncate_string("éclair session", 5), "éc...");
-        assert_eq!(truncate_string("éclair", 2), "..");
-        assert_eq!(truncate_string("éclair", 0), "");
     }
 
     #[test]

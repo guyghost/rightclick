@@ -496,7 +496,7 @@ impl Widget for SimplePreviewWidget<'_> {
             let line_idx = self.scroll_offset.saturating_add(i);
             if line_idx < lines.len() {
                 let line = format!("{:4} │ {}", line_idx + 1, lines[line_idx]);
-                let truncated = truncate_to_width(&line, inner.width as usize);
+                let truncated = clip_display(&line, inner.width as usize);
                 buf.set_string(
                     inner.x,
                     inner.y.saturating_add(i as u16),
@@ -506,10 +506,6 @@ impl Widget for SimplePreviewWidget<'_> {
             }
         }
     }
-}
-
-fn truncate_to_width(value: &str, max_width: usize) -> String {
-    clip_display(value, max_width)
 }
 
 #[cfg(test)]
@@ -644,13 +640,6 @@ mod tests {
                 .content
                 .contains(&format!("Line {}", MAX_PREVIEW_LINES))
         );
-    }
-
-    #[test]
-    fn test_truncate_to_width_handles_unicode_boundaries() {
-        assert_eq!(truncate_to_width("éclair", 4), "écla");
-        assert_eq!(truncate_to_width("éclair", 0), "");
-        assert_eq!(truncate_to_width("abc", 5), "abc");
     }
 
     #[test]
