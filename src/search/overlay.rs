@@ -681,7 +681,7 @@ fn search_input_placeholder(scope: SearchScope) -> &'static str {
         SearchScope::Files => "Search file contents...",
         SearchScope::Items => "Search sessions, worktrees, and intents...",
         SearchScope::Commands => {
-            "Search commands by plugin, name, description, shortcut, or command ID..."
+            "Search commands by plugin, category, name, description, shortcut, or command ID..."
         }
     }
 }
@@ -717,7 +717,7 @@ fn empty_query_hint(scope: SearchScope) -> &'static str {
         SearchScope::Files => "Search file contents with ripgrep",
         SearchScope::Items => "Search sessions, worktrees, and intents",
         SearchScope::Commands => {
-            "Search commands by plugin, name, description, shortcut, or command ID"
+            "Search commands by plugin, category, name, description, shortcut, or command ID"
         }
     }
 }
@@ -730,7 +730,7 @@ fn no_results_message(query: &str, scope: SearchScope, width: u16) -> String {
         SearchScope::Items => format!("No session, worktree, or intent matches \"{}\"", query),
         SearchScope::Commands => {
             format!(
-                "No command name, plugin, description, shortcut, or command ID matches \"{}\"",
+                "No command name, plugin, category, description, shortcut, or command ID matches \"{}\"",
                 query
             )
         }
@@ -1244,7 +1244,7 @@ mod tests {
         );
         assert_eq!(
             search_input_placeholder(SearchScope::Commands),
-            "Search commands by plugin, name, description, shortcut, or command ID..."
+            "Search commands by plugin, category, name, description, shortcut, or command ID..."
         );
     }
 
@@ -1342,7 +1342,7 @@ mod tests {
         );
         assert_eq!(
             empty_query_hint(SearchScope::Commands),
-            "Search commands by plugin, name, description, shortcut, or command ID"
+            "Search commands by plugin, category, name, description, shortcut, or command ID"
         );
     }
 
@@ -1371,9 +1371,7 @@ mod tests {
     fn test_no_results_message_uses_compact_hint_when_narrow() {
         let message = no_results_message("deploy", SearchScope::Commands, 14);
 
-        assert!(message.contains(
-            "No command name, plugin, description, shortcut, or command ID matches \"deploy\""
-        ));
+        assert!(message.contains("No command name, plugin, category, description, shortcut, or command ID matches \"deploy\""));
         assert!(message.contains("Ctrl+U/Tab/Esc"));
         assert!(!message.contains(SEARCH_EMPTY_ACTION_HINT));
     }
@@ -1550,10 +1548,7 @@ mod tests {
             .collect();
         assert!(content.contains("Command Search"));
         assert!(content.contains(":"));
-        assert!(
-            content
-                .contains("Search commands by plugin, name, description, shortcut, or command ID")
-        );
+        assert!(content.contains("Search commands by plugin, category"));
         assert!(!content.contains("Search files, commands, sessions, worktrees, and intents"));
     }
 
