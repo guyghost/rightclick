@@ -381,7 +381,7 @@ fn diff_content_status_label(file_diff: &FileDiff) -> Option<&'static str> {
     if file_diff.is_binary {
         Some("Binary file")
     } else if file_diff.hunks.is_empty() {
-        Some("No diff content available")
+        Some("No line changes to show")
     } else {
         None
     }
@@ -1347,7 +1347,7 @@ fn git_diff_empty_message(state: &PluginState) -> &'static str {
 
 fn git_file_no_diff_message(file: &FileChange) -> String {
     format!(
-        "No diff available for {}\n\nj/k: Navigate files\ns: Stage\nu: Unstage\nc: Commit\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help",
+        "Diff not loaded yet for {}\n\nj/k: Navigate files\ns: Stage\nu: Unstage\nc: Commit\nr: Refresh git status\n/: Global search  |  : Command search\n?: Toggle help",
         file.path
     )
 }
@@ -1834,7 +1834,8 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol().to_string())
             .collect();
-        assert!(content.contains("No diff available for src/main.rs"));
+        assert!(content.contains("Diff not loaded yet for src/main.rs"));
+        assert!(!content.contains("No diff available for src/main.rs"));
         assert!(content.contains("j/k: Navigate files"));
         assert!(content.contains("s: Stage"));
         assert!(content.contains("u: Unstage"));
@@ -1871,7 +1872,8 @@ mod tests {
             .collect();
         assert!(content.contains("File:"));
         assert!(content.contains("src/main.rs"));
-        assert!(content.contains("No diff content available"));
+        assert!(content.contains("No line changes to show"));
+        assert!(!content.contains("No diff content available"));
     }
 
     #[test]
@@ -1883,7 +1885,7 @@ mod tests {
         let empty = FileDiff::new("src/main.rs");
         assert_eq!(
             diff_content_status_label(&empty),
-            Some("No diff content available")
+            Some("No line changes to show")
         );
     }
 
