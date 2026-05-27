@@ -19,6 +19,10 @@ fn keyboard_shortcuts_describe_contextual_refresh() {
 #[test]
 fn keyboard_shortcuts_include_command_search() {
     assert!(
+        README.contains("| `/` | Global search |"),
+        "README keyboard shortcuts should use the UI global search label"
+    );
+    assert!(
         README.contains("| `:` | Command search |"),
         "README keyboard shortcuts should use the UI command search label"
     );

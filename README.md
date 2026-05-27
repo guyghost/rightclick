@@ -96,7 +96,7 @@ forwards extra arguments to `cargo install`, so flags like `--locked` or
 | `q`, `Ctrl+C` | Quit |
 | `Tab` / `Shift+Tab` | Navigate plugins or panes |
 | `1-9` | Focus plugin by number |
-| `/` | Search files, commands, sessions, worktrees, and intents |
+| `/` | Global search |
 | `:` | Command search |
 | `j/k`, `↓/↑` | Navigate items |
 | `Enter` | Select |
