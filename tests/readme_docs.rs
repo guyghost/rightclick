@@ -15,12 +15,12 @@ fn keyboard_shortcuts_describe_contextual_refresh() {
 #[test]
 fn keyboard_shortcuts_include_command_search() {
     assert!(
-        README.contains("| `:` | Search commands |"),
-        "README keyboard shortcuts should document the direct command search shortcut"
+        README.contains("| `:` | Command search |"),
+        "README keyboard shortcuts should use the UI command search label"
     );
     assert!(
-        README.contains("Press `/` to open global search, or `:` to open it directly on commands."),
-        "README search docs should explain the direct commands scope shortcut"
+        README.contains("Press `/` to open global search, or `:` to open command search directly."),
+        "README search docs should explain the direct command search shortcut"
     );
 }
 
