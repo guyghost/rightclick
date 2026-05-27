@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use unicode_width::UnicodeWidthStr;
 
 use crate::core::models::Theme;
+use crate::ui::text::truncate_display;
 
 /// Notification severity level
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,7 +260,7 @@ fn render_toast(area: Rect, buf: &mut Buffer, notification: &Notification, theme
     if inner.width > 0 && inner.height > 0 {
         let icon = notification.level.icon();
         let max_msg_width = (inner.width as usize).saturating_sub(UnicodeWidthStr::width(icon) + 1);
-        let msg = truncate_notification_message(&notification.message, max_msg_width);
+        let msg = truncate_display(&notification.message, max_msg_width);
 
         let line = Line::from(vec![
             Span::styled(
@@ -275,33 +276,6 @@ fn render_toast(area: Rect, buf: &mut Buffer, notification: &Notification, theme
 
         Paragraph::new(line).render(inner, buf);
     }
-}
-
-fn truncate_notification_message(message: &str, max_width: usize) -> String {
-    if max_width == 0 {
-        return String::new();
-    }
-
-    if UnicodeWidthStr::width(message) <= max_width {
-        return message.to_string();
-    }
-
-    if max_width <= 3 {
-        return ".".repeat(max_width);
-    }
-
-    let mut output = String::new();
-    let mut width = 0;
-    for ch in message.chars() {
-        let ch_width = UnicodeWidthStr::width(ch.to_string().as_str());
-        if width + ch_width + 3 > max_width {
-            break;
-        }
-        output.push(ch);
-        width += ch_width;
-    }
-    output.push_str("...");
-    output
 }
 
 #[cfg(test)]
@@ -494,13 +468,6 @@ mod tests {
             .collect();
         assert!(content.contains("first visible"));
         assert!(!content.contains("second hidden"));
-    }
-
-    #[test]
-    fn truncate_notification_message_handles_unicode_boundaries() {
-        assert_eq!(truncate_notification_message("éclair session", 5), "éc...");
-        assert_eq!(truncate_notification_message("ok", 5), "ok");
-        assert_eq!(truncate_notification_message("abcdef", 2), "..");
     }
 
     #[test]
