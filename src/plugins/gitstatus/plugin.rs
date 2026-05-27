@@ -1294,8 +1294,8 @@ impl Plugin for GitStatusPlugin {
         commands.extend(vec![
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
-                "Refresh git status",
-                "Reload git status",
+                "Refresh Git Status",
+                "Reload repository status from disk",
                 'r',
                 FocusContext::GitStatus,
             )
@@ -1475,12 +1475,18 @@ mod tests {
         let has_nav = commands
             .iter()
             .any(|c| matches!(c.id.as_str(), "nav-down" | "nav-up"));
-        let has_refresh = commands
+        let refresh_command = commands
             .iter()
-            .any(|c| c.id == "refresh" && c.name == "Refresh git status");
+            .find(|command| command.id == "refresh")
+            .expect("git status refresh command");
 
         assert!(has_nav);
-        assert!(has_refresh);
+        assert_eq!(refresh_command.name, "Refresh Git Status");
+        assert_eq!(
+            refresh_command.description,
+            "Reload repository status from disk"
+        );
+        assert_eq!(refresh_command.key, 'r');
     }
 
     #[test]
@@ -1999,6 +2005,19 @@ mod tests {
                 name: "feature".to_string()
             })
         );
+    }
+
+    #[test]
+    fn test_execute_refresh_command_uses_declared_shortcut() {
+        let mut plugin = GitStatusPlugin::new();
+
+        let execution = plugin
+            .execute_command("refresh")
+            .expect("refresh command should execute");
+
+        assert_eq!(execution.command_name, "Refresh Git Status");
+        assert!(execution.emitted_commands.is_empty());
+        assert_eq!(plugin.pending_commands.pop_front(), Some(Command::Refresh));
     }
 
     #[test]
