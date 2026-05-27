@@ -10,12 +10,12 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Tabs, Widget, Wrap},
 };
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthStr;
 
 use crate::core::models::Theme;
 use crate::ui::{
     compact_global_search_hint_with_stacked, compact_help_hint,
-    compact_prefixed_stacked_global_hint_lines,
+    compact_prefixed_stacked_global_hint_lines, truncate_display_with_suffix,
 };
 
 use super::state::{FocusPane, ModalState, PluginState, PreviewTab, ViewMode};
@@ -752,30 +752,7 @@ pub fn render_kanban(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &
 }
 
 fn truncate_with_suffix(value: &str, max_width: usize) -> String {
-    if max_width == 0 {
-        return String::new();
-    }
-
-    if value.width() <= max_width {
-        return value.to_string();
-    }
-
-    if max_width <= 2 {
-        return ".".repeat(max_width);
-    }
-
-    let mut output = String::new();
-    let mut width = 0;
-    for ch in value.chars() {
-        let ch_width = ch.width().unwrap_or(0);
-        if width + ch_width + 2 > max_width {
-            break;
-        }
-        output.push(ch);
-        width += ch_width;
-    }
-    output.push_str("..");
-    output
+    truncate_display_with_suffix(value, max_width, "..")
 }
 
 fn worker_card_separator(width: usize) -> String {

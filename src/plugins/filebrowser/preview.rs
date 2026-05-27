@@ -16,7 +16,8 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Widget};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
+use crate::ui::clip_display;
 
 /// Maximum file size to preview (5 MB)
 const MAX_PREVIEW_SIZE: u64 = 5 * 1024 * 1024;
@@ -508,25 +509,7 @@ impl Widget for SimplePreviewWidget<'_> {
 }
 
 fn truncate_to_width(value: &str, max_width: usize) -> String {
-    if max_width == 0 {
-        return String::new();
-    }
-
-    if value.width() <= max_width {
-        return value.to_string();
-    }
-
-    let mut output = String::new();
-    let mut width = 0;
-    for ch in value.chars() {
-        let ch_width = ch.width().unwrap_or(0);
-        if width + ch_width > max_width {
-            break;
-        }
-        output.push(ch);
-        width += ch_width;
-    }
-    output
+    clip_display(value, max_width)
 }
 
 #[cfg(test)]
