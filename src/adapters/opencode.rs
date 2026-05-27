@@ -137,8 +137,14 @@ impl OpenCodeAdapter {
             messages.push(metadata);
         }
 
-        // Sort by created timestamp
-        messages.sort_by(|a, b| a.time.created.cmp(&b.time.created));
+        // Sort by created timestamp with a stable tie-breaker for filesystems that
+        // return equal-timestamp messages in arbitrary directory order.
+        messages.sort_by(|a, b| {
+            a.time
+                .created
+                .cmp(&b.time.created)
+                .then_with(|| a.id.cmp(&b.id))
+        });
 
         Ok(messages)
     }
@@ -711,8 +717,13 @@ mod tests {
         let messages = adapter.messages("session-roles").await.unwrap();
         assert_eq!(messages.len(), 4);
 
-        for (i, expected_role) in roles.iter().enumerate() {
-            assert_eq!(messages[i].role, expected_role.1);
+        for (role_str, expected_role) in roles {
+            let id = format!("msg_{}", role_str);
+            let message = messages
+                .iter()
+                .find(|message| message.id == id)
+                .unwrap_or_else(|| panic!("missing message {id}"));
+            assert_eq!(message.role, expected_role);
         }
     }
 
@@ -823,6 +834,37 @@ mod tests {
         assert_eq!(loaded_messages[0].id, "msg_1"); // Earliest
         assert_eq!(loaded_messages[1].id, "msg_3"); // Middle
         assert_eq!(loaded_messages[2].id, "msg_2"); // Latest
+    }
+
+    #[tokio::test]
+    async fn test_messages_sorted_by_id_when_timestamps_match() {
+        let (adapter, _temp) = create_test_adapter();
+
+        let msg_dir = adapter.data_dir.join("message/session-same-time");
+        tokio::fs::create_dir_all(&msg_dir).await.unwrap();
+
+        for id in ["msg_c", "msg_a", "msg_b"] {
+            let msg_json = serde_json::json!({
+                "id": id,
+                "sessionID": "session-same-time",
+                "role": "user",
+                "time": {
+                    "created": 1700000000000i64,
+                    "completed": null
+                }
+            });
+            tokio::fs::write(msg_dir.join(format!("{}.json", id)), msg_json.to_string())
+                .await
+                .unwrap();
+        }
+
+        let loaded_messages = adapter.messages("session-same-time").await.unwrap();
+        let loaded_ids: Vec<&str> = loaded_messages
+            .iter()
+            .map(|message| message.id.as_str())
+            .collect();
+
+        assert_eq!(loaded_ids, vec!["msg_a", "msg_b", "msg_c"]);
     }
 
     #[tokio::test]
