@@ -92,3 +92,26 @@ fn dev_script_test_many_explains_missing_filters_before_cargo_args() {
         "dev script should still print test-many usage"
     );
 }
+
+#[test]
+fn dev_script_test_one_explains_missing_filter_before_cargo_args() {
+    let output = Command::new("bash")
+        .args(["scripts/dev.sh", "test-one", "--", "--nocapture"])
+        .output()
+        .expect("dev script test-one usage path should run");
+
+    assert!(
+        !output.status.success(),
+        "test-one should fail when no filter is provided"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("A test filter is required before --."),
+        "dev script should explain that a filter must come before cargo test args"
+    );
+    assert!(
+        stderr.contains("Usage: bash scripts/dev.sh test-one <test-filter>"),
+        "dev script should still print test-one usage"
+    );
+}

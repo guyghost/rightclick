@@ -211,6 +211,7 @@ ensure_test_filter_arg() {
   local filter="$3"
 
   if [ "$filter" = "--" ]; then
+    echo "A test filter is required before --." >&2
     echo "Usage: bash scripts/dev.sh $command_name $usage" >&2
     exit 2
   fi
