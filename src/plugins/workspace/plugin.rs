@@ -1047,7 +1047,7 @@ impl Default for WorkspacePlugin {
 
 fn workspace_status_line(state: &PluginState) -> String {
     if state.worktrees.is_empty() {
-        return "No worktrees | n: Create worktree | r: Refresh worktrees | /: Global search  |  : Command search | ?: Toggle help"
+        return "No worktrees yet | n: Create worktree | r: Refresh worktrees | /: Global search  |  : Command search | ?: Toggle help"
             .to_string();
     }
 
@@ -1527,7 +1527,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No worktrees | n: Create worktree | r: Refresh worktrees | /: Global search  |  : Command search | ?: Toggle help"
+                "No worktrees yet | n: Create worktree | r: Refresh worktrees | /: Global search  |  : Command search | ?: Toggle help"
                     .to_string()
             )
         );
