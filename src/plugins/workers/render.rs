@@ -537,18 +537,18 @@ fn output_empty_message(state: &PluginState) -> &'static str {
     if state.intents.is_empty() {
         "No output yet\n\nn: New intent\nf: Refresh intents\n/: Global search  |  :: Command search\n?: Toggle help"
     } else if state.selected_intent().is_none() {
-        "No output selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nf: Refresh intents\n/: Global search  |  :: Command search\n?: Toggle help"
+        "No output selected\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Refresh intents\n/: Global search  |  :: Command search\n?: Toggle help"
     } else {
         "No output yet\n\nr: Run workers\nf: Refresh intents\n/: Global search  |  :: Command search\n?: Toggle help"
     }
 }
 
 fn select_intent_details_message() -> &'static str {
-    "Select an intent to view details\n\nj/k: Navigate intents\nEnter/o: Open intent\nf: Refresh intents\n/: Global search  |  :: Command search\n?: Toggle help"
+    "Select an intent to view details\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Refresh intents\n/: Global search  |  :: Command search\n?: Toggle help"
 }
 
 fn select_intent_criteria_message() -> &'static str {
-    "Select an intent to view criteria\n\nj/k: Navigate intents\nEnter/o: Open intent\nf: Refresh intents\n/: Global search  |  :: Command search\n?: Toggle help"
+    "Select an intent to view criteria\n\nj/k: Navigate intents\nEnter/o: Open intent\nTab/Shift+Tab: Switch pane\nf: Refresh intents\n/: Global search  |  :: Command search\n?: Toggle help"
 }
 
 fn empty_criteria_message() -> &'static str {
@@ -1193,6 +1193,7 @@ mod tests {
         assert!(content.contains("Select an intent to view details"));
         assert!(content.contains("j/k: Navigate intents"));
         assert!(content.contains("Enter/o: Open intent"));
+        assert!(content.contains("Tab/Shift+Tab: Switch pane"));
         assert!(content.contains("f: Refresh intents"));
         assert!(content.contains("/: Global search"));
         assert!(content.contains(":: Command search"));
@@ -1280,6 +1281,7 @@ mod tests {
         assert!(content.contains("Select an intent to view criteria"));
         assert!(content.contains("j/k: Navigate intents"));
         assert!(content.contains("Enter/o: Open intent"));
+        assert!(content.contains("Tab/Shift+Tab: Switch pane"));
         assert!(content.contains("f: Refresh intents"));
         assert!(content.contains("/: Global search"));
         assert!(content.contains(":: Command search"));
@@ -1348,6 +1350,7 @@ mod tests {
         assert!(content.contains("No output selected"));
         assert!(content.contains("j/k: Navigate intents"));
         assert!(content.contains("Enter/o: Open intent"));
+        assert!(content.contains("Tab/Shift+Tab: Switch pane"));
         assert!(content.contains("f: Refresh intents"));
         assert!(content.contains("/: Global search"));
         assert!(content.contains(":: Command search"));
