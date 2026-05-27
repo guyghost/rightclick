@@ -250,6 +250,12 @@ ensure_test_filter_matches() {
     print_test_filter_hint "$filter"
     exit 2
   fi
+
+  if [ "$matches" -eq 1 ]; then
+    echo "Matched 1 test for filter: $filter" >&2
+  else
+    echo "Matched $matches tests for filter: $filter" >&2
+  fi
 }
 
 list_tests_for_filter() {

@@ -378,6 +378,10 @@ fn dev_script_test_one_reports_filter_validation_before_running() {
         "dev script should report the filter validation step"
     );
     assert!(
+        stderr.contains("Matched 1 test for filter: dev_script_help_explains_test_many"),
+        "dev script should report how many tests matched the filter"
+    );
+    assert!(
         stderr.contains("==> cargo test dev_script_help_explains_test_many -- --nocapture"),
         "dev script should still report the actual cargo test command"
     );
