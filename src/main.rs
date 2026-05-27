@@ -1034,11 +1034,19 @@ fn format_command_help_line(key: &str, command: &rightclick::plugin::PluginComma
 
 fn format_command_search_preview(command: &rightclick::plugin::PluginCommand) -> String {
     if command.description.is_empty() {
-        format!("Shortcut: {} | ID: {}", command.key, command.id)
+        format!(
+            "Shortcut: {} | Category: {} | ID: {}",
+            command.key,
+            command.category.display_name(),
+            command.id
+        )
     } else {
         format!(
-            "Shortcut: {} | ID: {} | {}",
-            command.key, command.id, command.description
+            "Shortcut: {} | Category: {} | ID: {} | {}",
+            command.key,
+            command.category.display_name(),
+            command.id,
+            command.description
         )
     }
 }
@@ -1408,7 +1416,7 @@ mod tests {
 
         assert_eq!(
             format_command_search_preview(&command),
-            "Shortcut: r | ID: refresh | Reload repository state"
+            "Shortcut: r | Category: System | ID: refresh | Reload repository state"
         );
     }
 
@@ -1423,7 +1431,7 @@ mod tests {
 
         assert_eq!(
             format_command_search_preview(&command),
-            "Shortcut: r | ID: refresh"
+            "Shortcut: r | Category: System | ID: refresh"
         );
     }
 
@@ -1838,7 +1846,7 @@ mod tests {
         assert_eq!(results[0].title, "Builder: Build Project");
         assert_eq!(
             results[0].preview,
-            "Shortcut: z | ID: rebuild | Compile workspace"
+            "Shortcut: z | Category: System | ID: rebuild | Compile workspace"
         );
     }
 
@@ -1867,6 +1875,10 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "Repository: Sync Changes");
+        assert_eq!(
+            results[0].preview,
+            "Shortcut: s | Category: Git | ID: sync | Fetch remote updates"
+        );
     }
 
     #[test]
@@ -1932,7 +1944,8 @@ mod tests {
                     id: "target:refresh".to_string(),
                 },
                 title: "Target: Refresh Target".to_string(),
-                preview: "Shortcut: r | ID: refresh | Reload target plugin data".to_string(),
+                preview: "Shortcut: r | Category: System | ID: refresh | Reload target plugin data"
+                    .to_string(),
                 score: 100,
             }]);
 
