@@ -719,7 +719,7 @@ fn kanban_empty_column_message(state: &PluginState, title: &str, width: u16) -> 
             )
         } else {
             format!(
-                "No {status} workers\n\nj/k: Select intent\no: Open intent\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
+                "No {status} workers\n\nj/k: Navigate intents\no: Open intent\nf: Reload intents\n{search_hint}\nv: Switch view\n?: Toggle help"
             )
         }
     } else {
@@ -1123,7 +1123,8 @@ mod tests {
         assert_hint(output_empty_message(&empty_state));
         let unselected_kanban = kanban_empty_column_message(&empty_state, "Pending", 80);
         assert_hint(&unselected_kanban);
-        assert!(unselected_kanban.contains("j/k: Select intent"));
+        assert!(unselected_kanban.contains("j/k: Navigate intents"));
+        assert!(!unselected_kanban.contains("j/k: Select intent"));
         assert!(unselected_kanban.contains("o: Open intent"));
         assert!(!unselected_kanban.contains("n: New intent"));
         assert!(!unselected_kanban.contains("r: Run workers"));
