@@ -356,7 +356,7 @@ impl ConversationsRenderer {
             muted_style,
         )]));
         text_lines.push(Line::from(vec![Span::styled(
-            "  Enter or l    Open session",
+            "  Enter/l/o     Open session",
             muted_style,
         )]));
         text_lines.push(Line::from(vec![Span::styled(
@@ -1181,6 +1181,26 @@ mod tests {
         assert!(content.contains("Messages: 1 msg"));
         assert!(!content.contains("Total Sessions: 1"));
         assert!(!content.contains("Total Messages: 1"));
+    }
+
+    #[test]
+    fn test_render_welcome_help_mentions_all_open_shortcuts() {
+        let renderer = ConversationsRenderer::new();
+        let state = PluginState::new();
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+
+        renderer.render(&state, area, &mut buf, &theme, true);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Enter/l/o"));
+        assert!(content.contains("Open session"));
+        assert!(!content.contains("Enter or l"));
     }
 
     #[test]

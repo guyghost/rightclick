@@ -1095,6 +1095,7 @@ mod tests {
 
         let hints = plugin.key_hints();
         assert!(!hints.is_empty());
+        assert!(hints.contains(&("Enter/l/o", "Open")));
         assert!(hints.contains(&("f", "Filter")));
         assert!(
             !hints
