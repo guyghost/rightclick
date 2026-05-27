@@ -65,7 +65,9 @@ bash scripts/dev.sh test-one test_plugin_commands -- --nocapture
 bash scripts/dev.sh test-many test_plugin_commands test_key_hints
 bash scripts/dev.sh test-many test_plugin_commands test_key_hints -- --nocapture
 bash scripts/dev.sh run
+bash scripts/dev.sh run -- --project ~/Developer/OSS/rightclick --debug
 bash scripts/dev.sh install-local
+bash scripts/dev.sh install-local --locked
 ```
 
 If you prefer `just`, run `just help` for the same command overview. The default
@@ -74,6 +76,10 @@ If you prefer `just`, run `just help` for the same command overview. The default
 `test-one`, `test-many`, and `test-list` pass filters through to Cargo as
 substring filters. If a filter does not match any test, the script prints the
 matching `test-list` command to help refine the filter.
+
+`run` forwards arguments after `--` to the RightClick binary. `install-local`
+forwards extra arguments to `cargo install`, so flags like `--locked` or
+`--force` work through the helper script.
 
 ## Keyboard Shortcuts
 

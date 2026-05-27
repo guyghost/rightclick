@@ -30,8 +30,8 @@ Commands:
   test-list      list available tests, optionally filtered by one or more filters
   test-one       run cargo test with a filter and optional cargo test args
   test-many      run cargo test once per filter, with optional shared cargo test args
-  run            run RightClick locally
-  install-local  install RightClick from this checkout
+  run            run RightClick locally, forwarding extra args to rightclick
+  install-local  install RightClick from this checkout, forwarding extra args to cargo install
 
 Examples:
   bash scripts/dev.sh doctor
@@ -43,6 +43,8 @@ Examples:
   bash scripts/dev.sh test-one test_plugin_commands -- --nocapture
   bash scripts/dev.sh test-many test_plugin_commands test_key_hints
   bash scripts/dev.sh test-many test_plugin_commands test_key_hints -- --nocapture
+  bash scripts/dev.sh run -- --project ~/Developer/OSS/rightclick --debug
+  bash scripts/dev.sh install-local --locked
 
 Test filters are passed to Cargo as substring filters. Use test-list first when
 you are unsure which module path or test name to target.
@@ -334,10 +336,15 @@ case "$cmd" in
     done
     ;;
   run)
-    run_step cargo run
+    shift
+    if [ "${1:-}" = "--" ]; then
+      shift
+    fi
+    run_step cargo run -- "$@"
     ;;
   install-local)
-    run_step cargo install --path .
+    shift
+    run_step cargo install --path . "$@"
     ;;
   help|--help|-h)
     print_help

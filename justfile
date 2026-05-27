@@ -63,8 +63,8 @@ test-one +args:
 test-many +filters:
     bash scripts/dev.sh test-many {{filters}}
 
-run:
-    bash scripts/dev.sh run
+run *args:
+    bash scripts/dev.sh run {{args}}
 
-install-local:
-    bash scripts/dev.sh install-local
+install-local *args:
+    bash scripts/dev.sh install-local {{args}}
