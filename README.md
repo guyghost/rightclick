@@ -82,6 +82,7 @@ matching `test-list` command plus broader token searches to help refine the
 filter. `test-list` only accepts filters; pass Cargo test args to `test-one` or
 `test-many` after `--`. Use `test-many` when you want to check several filters in one command;
 Cargo itself accepts only one substring filter per `cargo test` invocation.
+`test-list` reports `Listed N tests for filter: ...` for filtered lists.
 `test-one` and `test-many` print a `validate test filter` step before running
 Cargo, then report `Matched N tests for filter: ...` so long filter checks are
 visible and confirm the filter scope before the test run starts.

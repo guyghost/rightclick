@@ -53,6 +53,7 @@ test-list only accepts filters; pass cargo test args to test-one or test-many
 after --.
 Use test-many when you want to check several filters in one command; cargo test
 itself accepts only one substring filter per invocation.
+test-list reports "Listed N tests for filter: ..." for filtered lists.
 test-one and test-many print a "validate test filter" step before running Cargo
 and then report "Matched N tests for filter: ..." so long filter checks are
 visible and confirm the filter scope before the test run starts.
@@ -277,6 +278,11 @@ list_tests_for_filter() {
     exit 2
   fi
 
+  if [ "$matches" -eq 1 ]; then
+    echo "Listed 1 test for filter: $filter" >&2
+  else
+    echo "Listed $matches tests for filter: $filter" >&2
+  fi
   printf '%s\n' "$output"
 }
 

@@ -102,6 +102,36 @@ fn dev_script_help_explains_test_many() {
 }
 
 #[test]
+fn dev_script_test_list_reports_filter_match_count() {
+    let output = Command::new("bash")
+        .args([
+            "scripts/dev.sh",
+            "test-list",
+            "dev_script_help_explains_test_many",
+        ])
+        .output()
+        .expect("dev script test-list should run");
+
+    assert!(
+        output.status.success(),
+        "test-list should pass for a known filter: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Listed 1 test for filter: dev_script_help_explains_test_many"),
+        "test-list should report how many tests matched the filter"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("dev_script_help_explains_test_many: test"),
+        "test-list should still print the matching Cargo test list"
+    );
+}
+
+#[test]
 fn dev_script_unknown_command_suggests_hyphenated_match_for_underscore() {
     let output = Command::new("bash")
         .args(["scripts/dev.sh", "test_many"])
