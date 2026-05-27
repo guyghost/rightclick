@@ -26,7 +26,7 @@ use super::state::{FileOperationModal, PluginState};
 use super::tree::FileTreeWidget;
 
 const CREATE_ENTRY_MODAL_HINT: &str = "Enter: Create  |  Esc: Cancel";
-const DELETE_ENTRY_MODAL_HINT: &str = "Enter: Delete  |  Esc: Cancel";
+const DELETE_ENTRY_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
 const RENAME_ENTRY_MODAL_HINT: &str = "Enter: Rename  |  Esc: Cancel";
 const FILTER_FILES_MODAL_HINT: &str = "Enter: Apply  |  Empty: Clear  |  Esc: Cancel";
 const ERROR_MODAL_HINT: &str = "Enter/Esc: Close";
@@ -534,6 +534,9 @@ impl FileBrowserPlugin {
                             | FileOperationModal::Rename { .. }
                             | FileOperationModal::Filter => {
                                 self.state.input_buffer.push_str(key);
+                            }
+                            FileOperationModal::Delete { .. } if key == "d" || key == "D" => {
+                                self.confirm_modal_action();
                             }
                             FileOperationModal::Delete { .. }
                             | FileOperationModal::Error { .. } => {
@@ -1418,6 +1421,7 @@ mod tests {
         assert!(hints.iter().all(|hint| hint.contains("Enter")));
         assert!(hints.iter().all(|hint| !hint.contains(": create")));
         assert!(hints.iter().all(|hint| !hint.contains(": cancel")));
+        assert!(DELETE_ENTRY_MODAL_HINT.contains("Enter/D: Delete"));
         assert!(FILTER_FILES_MODAL_HINT.contains("Empty: Clear"));
     }
 
@@ -2072,6 +2076,68 @@ mod tests {
             plugin.pending_commands[0],
             FileCommand::DeletePath(test_file)
         );
+    }
+
+    #[test]
+    fn test_modal_d_confirms_delete() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("to_delete.txt");
+        fs::File::create(&test_file).unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.state.open_modal(FileOperationModal::Delete {
+            path: test_file.clone(),
+            is_dir: false,
+        });
+
+        let modifiers = crate::event::KeyModifiers::default();
+        plugin.handle_modal_key("D", &modifiers);
+
+        assert!(!plugin.state.modal_active);
+        assert_eq!(
+            plugin.pending_commands[0],
+            FileCommand::DeletePath(test_file)
+        );
+    }
+
+    #[test]
+    fn test_modal_d_still_types_in_text_modal() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.state.open_modal(FileOperationModal::CreateFile);
+
+        let modifiers = crate::event::KeyModifiers::default();
+        plugin.handle_modal_key("d", &modifiers);
+
+        assert!(plugin.state.modal_active);
+        assert_eq!(plugin.state.input_buffer, "d");
+        assert!(plugin.pending_commands.is_empty());
+    }
+
+    #[test]
+    fn test_render_delete_modal_uses_handled_key_hint() {
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("to_delete.txt");
+        fs::File::create(&test_file).unwrap();
+
+        let mut plugin = FileBrowserPlugin::new(temp_dir.path().to_path_buf());
+        plugin.state.open_modal(FileOperationModal::Delete {
+            path: test_file,
+            is_dir: false,
+        });
+        let area = Rect::new(0, 0, 100, 24);
+        let mut buf = Buffer::empty(area);
+
+        plugin.render_modal(area, &mut buf);
+
+        let content: String = buf
+            .content()
+            .iter()
+            .map(|cell| cell.symbol().to_string())
+            .collect();
+        assert!(content.contains("Delete file \"to_delete.txt\"?"));
+        assert!(content.contains(DELETE_ENTRY_MODAL_HINT));
+        assert!(!content.contains("Enter: Delete"));
     }
 
     #[test]
