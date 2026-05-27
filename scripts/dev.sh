@@ -130,14 +130,14 @@ list_tests_for_filter() {
     exit 1
   fi
 
-  printf '%s\n' "$output"
-
   matches="$(printf '%s\n' "$output" | grep -c ': test$' || true)"
   if [ "$matches" -eq 0 ]; then
     echo "No tests matched filter: $filter" >&2
     print_test_filter_hint "$filter"
     exit 2
   fi
+
+  printf '%s\n' "$output"
 }
 
 rust_version() {
