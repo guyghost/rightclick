@@ -1058,6 +1058,20 @@ impl Plugin for WorkersPlugin {
         Ok(())
     }
 
+    fn apply_config(&mut self, config: &crate::core::models::Config) {
+        let new_config = config.plugins.workers.clone();
+        // Reflect path changes in state if they changed.
+        let intents_changed = self.config.intents_dir != new_config.intents_dir;
+        let logs_changed = self.config.logs_dir != new_config.logs_dir;
+        self.config = new_config;
+        if intents_changed {
+            self.state.intents_dir = PathBuf::from(&self.config.intents_dir);
+        }
+        if logs_changed {
+            self.state.logs_dir = PathBuf::from(&self.config.logs_dir);
+        }
+    }
+
     fn handle_event(&mut self, event: crate::event::Event) -> Vec<PluginCmd> {
         let commands = self.handle_event_internal(event);
         for command in commands {

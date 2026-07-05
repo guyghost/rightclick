@@ -24,7 +24,8 @@ use rightclick::palette::fuzzy::fuzzy_match_simple;
 use rightclick::{
     adapters::create_default_registry,
     config,
-    core::models::Theme,
+    core::models::{Config, Theme},
+    event::{Dispatcher, Event, Topic},
     plugin::{
         Plugin, PluginCommandError, PluginCommandExecution, PluginContext, PluginSearchEntry,
     },
@@ -32,6 +33,7 @@ use rightclick::{
     search::{
         SearchOverlayAction, SearchOverlayState, SearchScope, render_search_overlay, search_files,
     },
+    settings::SettingsModal,
     state,
     theme::{self, resolve_theme},
     ui::{Footer, Header, NotificationManager, compact_global_search_hint},
@@ -139,6 +141,9 @@ async fn main() -> Result<()> {
         .unwrap_or_default();
     info!("Detected {} adapters", adapters.len());
 
+    // Shared event bus for both plugin context and the App shell.
+    let event_bus = std::sync::Arc::new(rightclick::event::Dispatcher::new());
+
     // Create plugin context
     let plugin_ctx = PluginContext {
         work_dir: work_dir.clone(),
@@ -146,7 +151,7 @@ async fn main() -> Result<()> {
         config_dir: config::config_dir().unwrap_or_else(|_| PathBuf::from("~/.config/rightclick")),
         config: config.clone(),
         adapters: adapters.into(),
-        event_bus: std::sync::Arc::new(rightclick::event::Dispatcher::new()),
+        event_bus: event_bus.clone(),
         logger: tracing::info_span!("plugin"),
     };
 
@@ -244,7 +249,7 @@ async fn main() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // Create app
-    let mut app = App::new(plugins, theme, work_dir.clone());
+    let mut app = App::new(plugins, theme, work_dir.clone(), config, event_bus);
 
     // Run main loop
     let result = run_app(&mut terminal, &mut app).await;
@@ -276,10 +281,26 @@ struct App {
     notifications: NotificationManager,
     search: SearchOverlayState,
     work_dir: PathBuf,
+    /// Authoritative application config. Edited via the settings modal and
+    /// persisted back to `config.json` on save.
+    config: Config,
+    /// Shared event bus. Used to broadcast `Event::ConfigChanged` after a
+    /// settings save so plugins can live-reload.
+    event_bus: std::sync::Arc<Dispatcher>,
+    /// Whether the settings modal is currently open.
+    settings_open: bool,
+    /// The settings modal state, present when open.
+    settings: Option<SettingsModal>,
 }
 
 impl App {
-    fn new(plugins: Vec<Box<dyn Plugin>>, theme: Theme, work_dir: PathBuf) -> Self {
+    fn new(
+        plugins: Vec<Box<dyn Plugin>>,
+        theme: Theme,
+        work_dir: PathBuf,
+        config: Config,
+        event_bus: std::sync::Arc<Dispatcher>,
+    ) -> Self {
         Self {
             plugins,
             theme,
@@ -289,7 +310,59 @@ impl App {
             notifications: NotificationManager::new(),
             search: SearchOverlayState::new(),
             work_dir,
+            config,
+            event_bus,
+            settings_open: false,
+            settings: None,
         }
+    }
+
+    /// Toggle the settings modal open/closed.
+    fn toggle_settings(&mut self) {
+        if self.settings_open {
+            self.close_settings();
+        } else {
+            self.settings = Some(SettingsModal::from_config(&self.config));
+            self.settings_open = true;
+        }
+    }
+
+    /// Close the settings modal, discarding any unapplied edits.
+    fn close_settings(&mut self) {
+        self.settings = None;
+        self.settings_open = false;
+    }
+
+    /// Persist the edited settings: build the new config from the modal,
+    /// save it to disk, apply it to live plugins, and broadcast the change.
+    fn save_settings(&mut self) {
+        let modal = match self.settings.take() {
+            Some(modal) => modal,
+            None => {
+                self.settings_open = false;
+                return;
+            }
+        };
+        let new_config = modal.into_config(&self.config);
+        // Persist to config.json.
+        if let Err(e) = config::save(&new_config) {
+            warn!("Failed to save config: {}", e);
+            self.notifications
+                .error(format!("Failed to save settings: {e}"));
+            self.settings_open = false;
+            return;
+        }
+        // Apply to live plugins.
+        self.config = new_config.clone();
+        for plugin in &mut self.plugins {
+            plugin.apply_config(&new_config);
+        }
+        // Broadcast so any other listeners (and future event-driven plugins)
+        // can react.
+        self.event_bus
+            .publish(Topic::ConfigChange, Event::ConfigChanged);
+        self.settings_open = false;
+        self.notifications.success("Settings saved");
     }
 
     async fn handle_event(&mut self, event: crossterm::event::Event) -> Result<()> {
@@ -305,6 +378,29 @@ impl App {
                 if is_ctrl_r_refresh_key(&key) {
                     if let Some(plugin) = self.plugins.get_mut(self.active_plugin) {
                         plugin.handle_event(rightclick::event::Event::RefreshNeeded);
+                    }
+                    return Ok(());
+                }
+
+                // Ctrl+, toggles the settings modal.
+                if is_ctrl_comma_key(&key) {
+                    self.toggle_settings();
+                    return Ok(());
+                }
+
+                // While the settings modal is open it captures all input.
+                if self.settings_open {
+                    if let Some(modal) = self.settings.as_mut() {
+                        match modal.handle_key(key) {
+                            rightclick::settings::SettingsAction::Save => {
+                                self.save_settings();
+                            }
+                            rightclick::settings::SettingsAction::Cancel => {
+                                self.close_settings();
+                            }
+                            rightclick::settings::SettingsAction::Handled
+                            | rightclick::settings::SettingsAction::Ignored => {}
+                        }
                     }
                     return Ok(());
                 }
@@ -639,6 +735,30 @@ impl App {
             }
         }
 
+        // App-level system commands exposed via the palette (app.*). These are
+        // routed by the shell, not by a plugin, so they are added separately.
+        for entry in rightclick::palette::standard_entries()
+            .into_iter()
+            .filter(|e| e.command_id.starts_with("app."))
+        {
+            let name_score = fuzzy_match_simple(&entry.name, query).unwrap_or(0);
+            let desc_score = fuzzy_match_simple(&entry.description, query).unwrap_or(0);
+            let id_score = fuzzy_match_simple(&entry.command_id, query).unwrap_or(0);
+            let key_score = fuzzy_match_simple(&entry.key, query).unwrap_or(0);
+            let score = name_score.max(desc_score).max(id_score).max(key_score);
+            if score == 0 {
+                continue;
+            }
+            results.push(SearchResult {
+                kind: SearchResultKind::Command {
+                    id: entry.command_id.clone(),
+                },
+                title: entry.name,
+                preview: entry.description,
+                score,
+            });
+        }
+
         results.sort_by_key(|r| std::cmp::Reverse(r.score));
         results.truncate(max_results);
         results
@@ -648,6 +768,19 @@ impl App {
         &mut self,
         id: &str,
     ) -> Result<PluginCommandExecution, SearchCommandError> {
+        // App-level commands (app.*) are handled by the shell directly.
+        if let Some(app_cmd) = id.strip_prefix("app.") {
+            return self
+                .execute_app_command(app_cmd)
+                .map(|_| PluginCommandExecution {
+                    plugin_id: "app".to_string(),
+                    command_id: id.to_string(),
+                    command_name: id.to_string(),
+                    emitted_commands: Vec::new(),
+                })
+                .map_err(SearchCommandError::PluginCommand);
+        }
+
         let Some((plugin_id, command_id)) = id.split_once(':') else {
             return Err(SearchCommandError::InvalidRoute(id.to_string()));
         };
@@ -663,6 +796,33 @@ impl App {
         plugin
             .execute_command(command_id)
             .map_err(SearchCommandError::PluginCommand)
+    }
+
+    /// Execute an app-level command (`app.<name>`).
+    ///
+    /// Handles the small set of system commands that the palette exposes with
+    /// the `app.` prefix: `quit`, `refresh`, and `settings`.
+    fn execute_app_command(&mut self, name: &str) -> Result<(), PluginCommandError> {
+        match name {
+            "quit" => {
+                self.should_quit = true;
+                Ok(())
+            }
+            "refresh" => {
+                if let Some(plugin) = self.plugins.get_mut(self.active_plugin) {
+                    plugin.handle_event(rightclick::event::Event::RefreshNeeded);
+                }
+                Ok(())
+            }
+            "settings" => {
+                self.toggle_settings();
+                Ok(())
+            }
+            other => Err(PluginCommandError::UnknownCommand {
+                plugin_id: "app".to_string(),
+                command_id: other.to_string(),
+            }),
+        }
     }
 
     fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
@@ -698,6 +858,13 @@ impl App {
             // Help overlay
             if self.show_help {
                 self.render_help_overlay(size, f.buffer_mut());
+            }
+
+            // Settings modal overlay
+            if self.settings_open {
+                if let Some(modal) = &self.settings {
+                    modal.render(size, f.buffer_mut(), &self.theme);
+                }
             }
 
             // Notification toasts (overlay on top of everything)
@@ -1176,6 +1343,12 @@ fn is_ctrl_r_refresh_key(key: &crossterm::event::KeyEvent) -> bool {
         && key.modifiers.contains(KeyModifiers::CONTROL)
 }
 
+fn is_ctrl_comma_key(key: &crossterm::event::KeyEvent) -> bool {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    matches!(key.code, KeyCode::Char(',')) && key.modifiers.contains(KeyModifiers::CONTROL)
+}
+
 fn plugin_shortcut_index(c: char) -> Option<usize> {
     c.to_digit(10)
         .and_then(|digit| digit.checked_sub(1))
@@ -1506,6 +1679,8 @@ mod tests {
             Vec::new(),
             Theme::default(),
             PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
         );
         let area = Rect::new(0, 0, 26, 3);
         let mut buf = ratatui::buffer::Buffer::empty(area);
@@ -1527,6 +1702,8 @@ mod tests {
             Vec::new(),
             Theme::default(),
             PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
         );
         let area = Rect::new(u16::MAX - 80, u16::MAX - 40, 80, 40);
         let mut buf = ratatui::buffer::Buffer::empty(area);
@@ -1789,7 +1966,13 @@ mod tests {
             Box::new(workers::WorkersPlugin::new()),
             Box::new(workspace::WorkspacePlugin::new()),
         ];
-        let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+        let mut app = App::new(
+            plugins,
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
+        );
 
         app.handle_event(CEvent::Key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)))
             .await
@@ -1813,7 +1996,13 @@ mod tests {
             Box::new(workers::WorkersPlugin::new()),
             Box::new(workspace::WorkspacePlugin::new()),
         ];
-        let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+        let mut app = App::new(
+            plugins,
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
+        );
 
         app.handle_event(CEvent::Key(KeyEvent::new(
             KeyCode::Tab,
@@ -1902,7 +2091,13 @@ mod tests {
             events: events.clone(),
             focused: false,
         })];
-        let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+        let mut app = App::new(
+            plugins,
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
+        );
 
         app.handle_event(CEvent::Key(KeyEvent::new(
             KeyCode::Char('r'),
@@ -2011,7 +2206,13 @@ mod tests {
             events,
             focused: false,
         })];
-        let app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+        let app = App::new(
+            plugins,
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
+        );
 
         let results = app.search_plugin_commands("target refresh", 10);
 
@@ -2040,7 +2241,13 @@ mod tests {
             events,
             focused: false,
         })];
-        let app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+        let app = App::new(
+            plugins,
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
+        );
 
         let results = app.search_plugin_commands("z", 10);
 
@@ -2071,7 +2278,13 @@ mod tests {
             events,
             focused: false,
         })];
-        let app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+        let app = App::new(
+            plugins,
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
+        );
 
         let results = app.search_plugin_commands("git", 10);
 
@@ -2100,7 +2313,13 @@ mod tests {
             events,
             focused: false,
         })];
-        let app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+        let app = App::new(
+            plugins,
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
+        );
 
         let results = app.search_plugin_commands("repo_tools:open-pr", 10);
 
@@ -2142,7 +2361,13 @@ mod tests {
                 focused: false,
             }),
         ];
-        let mut app = App::new(plugins, Theme::default(), PathBuf::from("/tmp/rightclick"));
+        let mut app = App::new(
+            plugins,
+            Theme::default(),
+            PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
+        );
 
         let search_result = rightclick::search::SearchResult {
             kind: rightclick::search::SearchResultKind::Command {
@@ -2179,6 +2404,8 @@ mod tests {
             Vec::new(),
             Theme::default(),
             PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
         );
         app.search
             .set_results(vec![rightclick::search::SearchResult {
@@ -2208,6 +2435,8 @@ mod tests {
             Vec::new(),
             Theme::default(),
             PathBuf::from("/tmp/rightclick"),
+            Config::default(),
+            std::sync::Arc::new(Dispatcher::new()),
         );
         app.search
             .set_results(vec![rightclick::search::SearchResult {
