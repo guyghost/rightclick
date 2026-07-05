@@ -1114,6 +1114,10 @@ impl Plugin for GitStatusPlugin {
         Ok(())
     }
 
+    fn apply_config(&mut self, config: &Config) {
+        self.config = Some(config.clone());
+    }
+
     fn handle_event(&mut self, event: Event) -> Vec<PluginCommandTrait> {
         let commands = self.handle_event_internal(event);
         for cmd in commands {

@@ -903,6 +903,16 @@ pub trait Plugin: Send + Sync + std::fmt::Debug {
         vec![]
     }
 
+    /// Re-apply configuration after the user edited settings at runtime.
+    ///
+    /// Called by the shell whenever the authoritative [`Config`] changes (for
+    /// example after the settings modal saves). Plugins should re-extract their
+    /// slice of the config and update any affected state. The default
+    /// implementation is a no-op for plugins that do not read config.
+    ///
+    /// [`Config`]: crate::core::models::Config
+    fn apply_config(&mut self, _config: &crate::core::models::Config) {}
+
     /// Update the plugin state asynchronously.
     ///
     /// This method is called regularly by the application loop to allow

@@ -169,20 +169,18 @@ Key crates used:
 
 ## Stats
 
-- **84 Rust source files**
-- **~20,000 lines of code**
+- **111 Rust source files**
+- **~61,500 lines of code**
 - **5 active plugins**
-- **112 state manager tests**
-- **3 AI adapters implemented**
+- **1,500+ tests passing** (state manager unit tests plus plugin, adapter, search, and integration coverage)
+- **8 AI adapters implemented** (Claude Code, Cursor, Codex, Gemini, Warp, Amp, Kiro, OpenCode)
 - **4 built-in themes**
 
 ## Next Steps (Future Enhancements)
 
-1. **More AI Adapters**: Gemini, Warp, Amp, Kiro, OpenCode
-2. **Enhanced UI**: More visual polish, animations
-3. **Plugin Configuration**: Per-plugin settings in config file
-4. **Search**: Global search across all content
-5. **Integration Tests**: Comprehensive test coverage
+1. **Enhanced UI**: More visual polish, animations
+2. **Plugin Configuration**: Per-plugin settings in config file
+3. **More AI Adapters**: Additional sources beyond the eight already supported
 
 ## Credits
 

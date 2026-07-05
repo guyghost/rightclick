@@ -17,6 +17,7 @@ pub mod shell;
 pub mod keymap;
 pub mod modal;
 pub mod palette;
+pub mod settings;
 pub mod ui;
 
 // Search system

@@ -125,6 +125,14 @@ impl Plugin for FileBrowserPlugin {
         Ok(())
     }
 
+    fn apply_config(&mut self, config: &crate::core::models::Config) {
+        let show_hidden = config.plugins.file_browser.show_hidden;
+        if self.state.show_hidden != show_hidden {
+            self.state.show_hidden = show_hidden;
+            self.refresh();
+        }
+    }
+
     fn handle_event(&mut self, event: Event) -> Vec<Command> {
         let commands = Vec::new();
 

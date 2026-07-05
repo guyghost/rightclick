@@ -29,6 +29,9 @@ fn create_repo() -> (tempfile::TempDir, PathBuf) {
     run_git(&repo, &["init"]);
     run_git(&repo, &["config", "user.email", "rightclick@example.com"]);
     run_git(&repo, &["config", "user.name", "RightClick Test"]);
+    // Neutralize host-level signing settings so commits succeed without gpg.
+    run_git(&repo, &["config", "commit.gpgsign", "false"]);
+    run_git(&repo, &["config", "tag.gpgsign", "false"]);
 
     std::fs::write(repo.join("README.md"), "initial\n").expect("seed file");
     run_git(&repo, &["add", "README.md"]);
