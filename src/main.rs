@@ -518,7 +518,7 @@ impl App {
         }
 
         // Sort all results by score descending
-        all_results.sort_by(|a, b| b.score.cmp(&a.score));
+        all_results.sort_by_key(|r| std::cmp::Reverse(r.score));
         all_results.truncate(50);
         self.search.set_results(all_results);
     }
@@ -639,7 +639,7 @@ impl App {
             }
         }
 
-        results.sort_by(|a, b| b.score.cmp(&a.score));
+        results.sort_by_key(|r| std::cmp::Reverse(r.score));
         results.truncate(max_results);
         results
     }
@@ -895,7 +895,7 @@ fn search_plugin_entries(
         })
         .collect();
 
-    results.sort_by(|a, b| b.score.cmp(&a.score));
+    results.sort_by_key(|r| std::cmp::Reverse(r.score));
     results.truncate(max_results);
     results
 }
@@ -1058,7 +1058,7 @@ fn build_footer_hints(
 
     let mut prioritized_commands: Vec<&rightclick::plugin::PluginCommand> =
         commands.iter().collect();
-    prioritized_commands.sort_by(|left, right| right.priority.cmp(&left.priority));
+    prioritized_commands.sort_by_key(|c| std::cmp::Reverse(c.priority));
 
     for command in prioritized_commands {
         let key = command.key.to_string();

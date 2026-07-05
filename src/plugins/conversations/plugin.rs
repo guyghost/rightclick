@@ -228,7 +228,7 @@ impl ConversationsPlugin {
         }
 
         // Sort sessions by updated_at (newest first)
-        all_sessions.sort_by(|a, b| b.session.updated_at.cmp(&a.session.updated_at));
+        all_sessions.sort_by_key(|s| std::cmp::Reverse(s.session.updated_at));
 
         self.state.set_sessions(all_sessions);
         self.state.set_loading(false);
@@ -737,17 +737,14 @@ impl Plugin for ConversationsPlugin {
                                 }
                             }
                         }
-                        "c" => {
-                            // Exit search mode
-                            if self.state.view == ConversationView::Search {
-                                self.state.clear_search();
-                                self.state
-                                    .list_nav
-                                    .set_total_items(self.state.sessions.len());
-                                if self.state.list_nav.selected < self.state.sessions.len() {
-                                    self.state.selected_session =
-                                        Some(self.state.list_nav.selected);
-                                }
+                        // Exit search mode
+                        "c" if self.state.view == ConversationView::Search => {
+                            self.state.clear_search();
+                            self.state
+                                .list_nav
+                                .set_total_items(self.state.sessions.len());
+                            if self.state.list_nav.selected < self.state.sessions.len() {
+                                self.state.selected_session = Some(self.state.list_nav.selected);
                             }
                         }
                         _ => {}

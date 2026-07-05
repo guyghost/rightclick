@@ -753,10 +753,8 @@ impl WorkspacePlugin {
                     }
                 }
             }
-            ModalState::LinkTask => {
-                if c.is_alphanumeric() || c == '-' || c == '_' {
-                    self.state.task_id_buffer.push(c);
-                }
+            ModalState::LinkTask if c.is_alphanumeric() || c == '-' || c == '_' => {
+                self.state.task_id_buffer.push(c);
             }
             _ => {}
         }
