@@ -180,6 +180,7 @@ mod integration_tests {
             FocusContext::FileBrowser,
             FocusContext::Conversations,
             FocusContext::Workspace,
+            FocusContext::Workers,
         ];
 
         for context in root_contexts {

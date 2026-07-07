@@ -32,6 +32,9 @@ pub enum FocusContext {
     /// Workspace panel is focused.
     Workspace,
 
+    /// Workers plugin is focused.
+    Workers,
+
     /// Workspace in interactive mode (e.g., editing).
     WorkspaceInteractive,
 
@@ -72,6 +75,7 @@ impl FocusContext {
                 | Self::FileBrowserTree
                 | Self::Conversations
                 | Self::Workspace
+                | Self::Workers
         )
     }
 }
@@ -89,6 +93,7 @@ mod tests {
         assert!(FocusContext::is_root_context(FocusContext::FileBrowserTree));
         assert!(FocusContext::is_root_context(FocusContext::Conversations));
         assert!(FocusContext::is_root_context(FocusContext::Workspace));
+        assert!(FocusContext::is_root_context(FocusContext::Workers));
     }
 
     #[test]

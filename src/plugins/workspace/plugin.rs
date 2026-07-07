@@ -475,28 +475,6 @@ impl WorkspacePlugin {
                             self.state.view_mode = new_mode;
                             commands.push(Command::SwitchMode(new_mode));
                         }
-                        "]" => {
-                            // Cycle to next preview tab (Output -> Diff -> Task -> Output)
-                            let new_tab = match self.state.preview_tab {
-                                PreviewTab::Output => PreviewTab::Diff,
-                                PreviewTab::Diff => PreviewTab::Task,
-                                PreviewTab::Task => PreviewTab::Output,
-                            };
-                            self.state.preview_tab = new_tab;
-                            self.pending_preview_update = true;
-                            commands.push(Command::Refresh);
-                        }
-                        "[" => {
-                            // Cycle to previous preview tab (Output <- Diff <- Task <- Output)
-                            let new_tab = match self.state.preview_tab {
-                                PreviewTab::Output => PreviewTab::Task,
-                                PreviewTab::Diff => PreviewTab::Output,
-                                PreviewTab::Task => PreviewTab::Diff,
-                            };
-                            self.state.preview_tab = new_tab;
-                            self.pending_preview_update = true;
-                            commands.push(Command::Refresh);
-                        }
                         "n" => {
                             // Create new worktree
                             self.state.modal_state = ModalState::CreateWorktree;
@@ -799,8 +777,6 @@ impl WorkspacePlugin {
             PluginCommand::new("merge", "Merge", 'm'),
             PluginCommand::new("refresh", "Refresh Worktrees", 'r'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
-            PluginCommand::new("prev-tab", "Previous Tab", '['),
-            PluginCommand::new("next-tab", "Next Tab", ']'),
         ]
     }
 
@@ -1180,20 +1156,6 @@ impl Plugin for WorkspacePlugin {
                 crate::keymap::FocusContext::Workspace,
             ),
             crate::plugin::PluginCommand::with_context_description(
-                "prev-tab",
-                "Previous Tab",
-                "Switch to the previous worktree tab",
-                '[',
-                crate::keymap::FocusContext::Workspace,
-            ),
-            crate::plugin::PluginCommand::with_context_description(
-                "next-tab",
-                "Next Tab",
-                "Switch to the next worktree tab",
-                ']',
-                crate::keymap::FocusContext::Workspace,
-            ),
-            crate::plugin::PluginCommand::with_context_description(
                 "interactive",
                 "Interactive Mode",
                 "Open an interactive shell for the worktree",
@@ -1307,8 +1269,6 @@ mod tests {
             ("merge", 'm', "Merge"),
             ("refresh", 'r', "Refresh Worktrees"),
             ("switch-view", 'v', "Switch View"),
-            ("prev-tab", '[', "Previous Tab"),
-            ("next-tab", ']', "Next Tab"),
         ] {
             assert!(
                 commands
@@ -1362,22 +1322,6 @@ mod tests {
             switch_view_command.description,
             "Toggle workspace view mode"
         );
-
-        let previous_tab_command = commands
-            .iter()
-            .find(|command| command.id == "prev-tab")
-            .expect("workspace previous tab command");
-
-        assert_eq!(previous_tab_command.name, "Previous Tab");
-        assert_eq!(previous_tab_command.key, '[');
-
-        let next_tab_command = commands
-            .iter()
-            .find(|command| command.id == "next-tab")
-            .expect("workspace next tab command");
-
-        assert_eq!(next_tab_command.name, "Next Tab");
-        assert_eq!(next_tab_command.key, ']');
 
         let refresh_command = commands
             .iter()

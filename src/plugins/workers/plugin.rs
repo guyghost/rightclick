@@ -142,29 +142,26 @@ impl WorkersPlugin {
     /// Register default key bindings
     fn register_default_bindings(registry: &mut KeyBindingRegistry) {
         // Navigation
-        registry.bind("j", Action::NavigateDown, FocusContext::Workspace);
-        registry.bind("k", Action::NavigateUp, FocusContext::Workspace);
-        registry.bind("h", Action::NavigateLeft, FocusContext::Workspace);
-        registry.bind("l", Action::NavigateRight, FocusContext::Workspace);
-        registry.bind("tab", Action::Toggle, FocusContext::Workspace);
+        registry.bind("j", Action::NavigateDown, FocusContext::Workers);
+        registry.bind("k", Action::NavigateUp, FocusContext::Workers);
+        registry.bind("h", Action::NavigateLeft, FocusContext::Workers);
+        registry.bind("l", Action::NavigateRight, FocusContext::Workers);
+        registry.bind("tab", Action::Toggle, FocusContext::Workers);
 
         // View modes
-        registry.bind("v", Action::SwitchView, FocusContext::Workspace);
+        registry.bind("v", Action::SwitchView, FocusContext::Workers);
 
         // Intent operations
-        registry.bind("n", Action::NewFile, FocusContext::Workspace); // Create intent
-        registry.bind("D", Action::Delete, FocusContext::Workspace); // Delete intent
-        registry.bind("f", Action::Filter, FocusContext::Workspace); // Reload intents
-        registry.bind("r", Action::Refresh, FocusContext::Workspace); // Run workers
-        // Stop workers is handled directly by the plugin because Action has no Stop variant.
-        registry.bind("enter", Action::Enter, FocusContext::Workspace); // Open intent
-
-        // Note: Preview tab switching uses [ and ] keys (handled in handle_event)
-        // to avoid conflict with global navigation keys 1-5
+        registry.bind("n", Action::NewFile, FocusContext::Workers); // Create intent
+        registry.bind("D", Action::Delete, FocusContext::Workers); // Delete intent
+        registry.bind("r", Action::Refresh, FocusContext::Workers); // Reload intents
+        // Run workers (R) and Stop workers (s) are handled directly by the plugin
+        // because Action has no Run/Stop variant.
+        registry.bind("enter", Action::Enter, FocusContext::Workers); // Open intent
 
         // Pane switching
-        registry.bind("left", Action::NavigateLeft, FocusContext::Workspace);
-        registry.bind("right", Action::NavigateRight, FocusContext::Workspace);
+        registry.bind("left", Action::NavigateLeft, FocusContext::Workers);
+        registry.bind("right", Action::NavigateRight, FocusContext::Workers);
     }
 
     /// Get the plugin ID.
@@ -179,7 +176,7 @@ impl WorkersPlugin {
 
     /// Get the plugin icon
     pub fn icon(&self) -> char {
-        '🤖'
+        'R'
     }
 
     /// Initialize the plugin
@@ -654,33 +651,9 @@ impl WorkersPlugin {
                             self.state.view_mode = new_mode;
                             commands.push(Command::SwitchMode(new_mode));
                         }
-                        "]" => {
-                            // Cycle to next preview tab (Spec -> Output -> Criteria -> Spec)
-                            let new_tab = match self.state.preview_tab {
-                                PreviewTab::Spec => PreviewTab::Output,
-                                PreviewTab::Output => PreviewTab::Criteria,
-                                PreviewTab::Criteria => PreviewTab::Spec,
-                            };
-                            self.state.preview_tab = new_tab;
-                            commands.push(Command::Refresh);
-                        }
-                        "[" => {
-                            // Cycle to previous preview tab (Spec <- Output <- Criteria <- Spec)
-                            let new_tab = match self.state.preview_tab {
-                                PreviewTab::Spec => PreviewTab::Criteria,
-                                PreviewTab::Output => PreviewTab::Spec,
-                                PreviewTab::Criteria => PreviewTab::Output,
-                            };
-                            self.state.preview_tab = new_tab;
-                            commands.push(Command::Refresh);
-                        }
                         "n" => {
                             // Create new intent
                             self.state.modal_state = ModalState::CreateIntent;
-                        }
-                        "f" => {
-                            // Reload intents from disk
-                            commands.push(Command::Refresh);
                         }
                         "D" => {
                             // Delete intent
@@ -689,6 +662,10 @@ impl WorkersPlugin {
                             }
                         }
                         "r" => {
+                            // Reload intents from disk
+                            commands.push(Command::Refresh);
+                        }
+                        "R" => {
                             // Run workers
                             if let Some(intent) = self.state.selected_intent() {
                                 commands.push(Command::RunWorkers(intent.intent.id.clone()));
@@ -823,11 +800,6 @@ impl WorkersPlugin {
                 }
             }
             Action::Refresh => {
-                if let Some(intent) = self.state.selected_intent() {
-                    commands.push(Command::RunWorkers(intent.intent.id.clone()));
-                }
-            }
-            Action::Filter => {
                 commands.push(Command::Refresh);
             }
             Action::Enter => {
@@ -915,13 +887,11 @@ impl WorkersPlugin {
         vec![
             PluginCommand::new("create", "New Intent", 'n'),
             PluginCommand::new("delete", "Delete", 'D'),
-            PluginCommand::new("run", "Run Workers", 'r'),
+            PluginCommand::new("run", "Run Workers", 'R'),
             PluginCommand::new("stop", "Stop Workers", 's'),
             PluginCommand::new("open", "Open Intent", 'o'),
-            PluginCommand::new("refresh", "Reload Intents", 'f'),
+            PluginCommand::new("refresh", "Reload Intents", 'r'),
             PluginCommand::new("switch-view", "Switch View", 'v'),
-            PluginCommand::new("prev-tab", "Previous Tab", '['),
-            PluginCommand::new("next-tab", "Next Tab", ']'),
         ]
     }
 
@@ -941,8 +911,8 @@ impl WorkersPlugin {
             FocusContext::Modal
         } else {
             match self.focus_pane {
-                FocusPane::Sidebar => FocusContext::Workspace,
-                FocusPane::Preview => FocusContext::Workspace,
+                FocusPane::Sidebar => FocusContext::Workers,
+                FocusPane::Preview => FocusContext::Workers,
             }
         }
     }
@@ -991,7 +961,7 @@ impl super::state::PluginState {
 fn workers_status_line(state: &PluginState) -> String {
     if state.intents.is_empty() {
         return format!(
-            "No intents yet | n: New intent | f: Reload intents | specs: {}",
+            "No intents yet | n: New intent | r: Reload intents | specs: {}",
             workers_specs_status_path(state)
         );
     }
@@ -1042,7 +1012,7 @@ impl Plugin for WorkersPlugin {
     }
 
     fn icon(&self) -> char {
-        '🤖'
+        'R'
     }
 
     async fn init(&mut self, ctx: &PluginCtx) -> anyhow::Result<()> {
@@ -1099,7 +1069,7 @@ impl Plugin for WorkersPlugin {
                 "New Intent",
                 "Create a new implementation intent",
                 'n',
-                crate::keymap::FocusContext::Workspace,
+                crate::keymap::FocusContext::Workers,
             )
             .with_footer_priority(1),
             crate::plugin::PluginCommand::with_context_description(
@@ -1107,14 +1077,14 @@ impl Plugin for WorkersPlugin {
                 "Delete",
                 "Delete the selected intent",
                 'D',
-                crate::keymap::FocusContext::Workspace,
+                crate::keymap::FocusContext::Workers,
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "run",
                 "Run Workers",
                 "Run workers for the selected intent",
-                'r',
-                crate::keymap::FocusContext::Workspace,
+                'R',
+                crate::keymap::FocusContext::Workers,
             )
             .with_footer_priority(4),
             crate::plugin::PluginCommand::with_context_description(
@@ -1122,7 +1092,7 @@ impl Plugin for WorkersPlugin {
                 "Stop Workers",
                 "Stop running workers",
                 's',
-                crate::keymap::FocusContext::Workspace,
+                crate::keymap::FocusContext::Workers,
             )
             .with_footer_priority(2),
             crate::plugin::PluginCommand::with_context_description(
@@ -1130,7 +1100,7 @@ impl Plugin for WorkersPlugin {
                 "Open Intent",
                 "Open the selected intent",
                 'o',
-                crate::keymap::FocusContext::Workspace,
+                crate::keymap::FocusContext::Workers,
             )
             .with_footer_priority(3),
             crate::plugin::PluginCommand::with_context_description(
@@ -1138,28 +1108,14 @@ impl Plugin for WorkersPlugin {
                 "Switch View",
                 "Switch workers view mode",
                 'v',
-                crate::keymap::FocusContext::Workspace,
-            ),
-            crate::plugin::PluginCommand::with_context_description(
-                "prev-tab",
-                "Previous Tab",
-                "Switch to the previous tab",
-                '[',
-                crate::keymap::FocusContext::Workspace,
-            ),
-            crate::plugin::PluginCommand::with_context_description(
-                "next-tab",
-                "Next Tab",
-                "Switch to the next tab",
-                ']',
-                crate::keymap::FocusContext::Workspace,
+                crate::keymap::FocusContext::Workers,
             ),
             crate::plugin::PluginCommand::with_context_description(
                 "refresh",
                 "Reload Intents",
                 "Reload intents from disk",
-                'f',
-                crate::keymap::FocusContext::Workspace,
+                'r',
+                crate::keymap::FocusContext::Workers,
             )
             .with_footer_priority(5),
         ]
@@ -1211,7 +1167,7 @@ impl Plugin for WorkersPlugin {
     }
 
     fn focus_context(&self) -> crate::keymap::FocusContext {
-        crate::keymap::FocusContext::Workspace
+        crate::keymap::FocusContext::Workers
     }
 
     async fn update(&mut self) -> anyhow::Result<()> {
@@ -1236,7 +1192,7 @@ mod tests {
         let plugin = WorkersPlugin::new();
         assert_eq!(plugin.id(), "workers");
         assert_eq!(plugin.name(), "Workers");
-        assert_eq!(plugin.icon(), '🤖');
+        assert_eq!(plugin.icon(), 'R');
     }
 
     #[test]
@@ -1261,26 +1217,18 @@ mod tests {
         assert_eq!(switch_view_command.name, "Switch View");
         assert_eq!(switch_view_command.key, 'v');
 
-        let previous_tab_command = commands
-            .iter()
-            .find(|command| command.id == "prev-tab")
-            .expect("workers previous tab command");
-        assert_eq!(previous_tab_command.name, "Previous Tab");
-        assert_eq!(previous_tab_command.key, '[');
-
-        let next_tab_command = commands
-            .iter()
-            .find(|command| command.id == "next-tab")
-            .expect("workers next tab command");
-        assert_eq!(next_tab_command.name, "Next Tab");
-        assert_eq!(next_tab_command.key, ']');
-
         let refresh_command = commands
             .iter()
             .find(|command| command.id == "refresh")
             .expect("workers refresh command");
         assert_eq!(refresh_command.name, "Reload Intents");
-        assert_eq!(refresh_command.key, 'f');
+        assert_eq!(refresh_command.key, 'r');
+
+        let run_command = commands
+            .iter()
+            .find(|command| command.id == "run")
+            .expect("workers run command");
+        assert_eq!(run_command.key, 'R');
 
         let trait_commands = <WorkersPlugin as crate::plugin::Plugin>::commands(&plugin);
         let trait_refresh_command = trait_commands
@@ -1327,7 +1275,7 @@ mod tests {
         let mut plugin = WorkersPlugin::new();
 
         let commands = plugin.handle_event_internal(Event::Key {
-            code: "f".to_string(),
+            code: "r".to_string(),
             modifiers: crate::event::KeyModifiers::default(),
         });
 
@@ -1504,7 +1452,7 @@ mod tests {
         assert_eq!(
             plugin.status_line(),
             Some(
-                "No intents yet | n: New intent | f: Reload intents | specs: .rightclick/intents"
+                "No intents yet | n: New intent | r: Reload intents | specs: .rightclick/intents"
                     .to_string()
             )
         );
@@ -1523,7 +1471,7 @@ mod tests {
         );
         assert_eq!(
             workers_status_line(&state),
-            "No intents yet | n: New intent | f: Reload intents | specs: .rightclick/intents/very-long-directo..."
+            "No intents yet | n: New intent | r: Reload intents | specs: .rightclick/intents/very-long-directo..."
         );
     }
 
