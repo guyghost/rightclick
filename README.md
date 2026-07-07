@@ -2,7 +2,7 @@
 
 You might never open your editor again.
 
-**Status: In Development**
+**Status: Working** — builds cleanly, 1,581 tests passing (0 failures), clippy-clean.
 
 RightClick puts your entire development workflow in one shell: plan tasks, chat with AI agents, review diffs, stage commits, review past conversations, and manage workspaces—all without leaving RightClick.
 

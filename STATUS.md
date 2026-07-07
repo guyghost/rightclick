@@ -126,8 +126,12 @@ src/
 # Build release version
 cargo build --release
 
-# Run
+# Run the built binary
 ./target/release/rightclick
+
+# Or install locally and run from anywhere
+bash scripts/dev.sh install-local
+rightclick
 
 # With options
 ./target/release/rightclick --project /path/to/project --debug
@@ -172,7 +176,7 @@ Key crates used:
 - **111 Rust source files**
 - **~61,500 lines of code**
 - **5 active plugins**
-- **1,500+ tests passing** (state manager unit tests plus plugin, adapter, search, and integration coverage)
+- **1,581 tests passing** (1,256 lib unit + 82 main/integration + 243 doctests, 0 failures)
 - **8 AI adapters implemented** (Claude Code, Cursor, Codex, Gemini, Warp, Amp, Kiro, OpenCode)
 - **4 built-in themes**
 
