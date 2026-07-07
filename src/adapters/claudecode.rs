@@ -1,8 +1,11 @@
 //! Claude Code adapter
 //!
-//! This adapter integrates with Anthropic's Claude Code CLI tool.
-//! It reads conversation data from the local storage directory at
-//! `~/.claude/projects/{encoded-path}/`.
+//! Integrates with Anthropic's Claude Code CLI tool. Claude Code stores one
+//! JSONL transcript per session, flat under
+//! `~/.claude/projects/{encode_path(project_root)}/<session-uuid>.jsonl`.
+//! Each line is a JSON object whose `type` discriminates the entry kind
+//! (`user`, `assistant`, `file-history-snapshot`, `progress`, ...); the actual
+//! message payload lives under a nested `message` object.
 
 use crate::adapters::types::{Adapter, AdapterError, AdapterType, Result, encode_path};
 use crate::core::models::conversation::{ContentBlock, Message, Role, Session, TokenUsage};
@@ -34,52 +37,85 @@ impl ClaudeCodeAdapter {
         Self { base_dir }
     }
 
-    /// Get the projects directory path
+    /// Get the projects directory path (`~/.claude/projects`)
     fn projects_dir(&self) -> PathBuf {
         self.base_dir.join("projects")
     }
 
-    /// Get the project storage directory for a given project root
+    /// Get the project storage directory for a given project root.
+    ///
+    /// This is `~/.claude/projects/{encode_path(project_root)}`, the directory
+    /// that holds the flat `<session-uuid>.jsonl` transcripts.
     fn project_dir(&self, project_root: &Path) -> PathBuf {
         let encoded = encode_path(project_root);
         self.projects_dir().join(encoded)
     }
 
-    /// Get the sessions directory for a project
-    fn sessions_dir(&self, project_root: &Path) -> PathBuf {
+    /// Legacy `sessions/` subdir used by older Claude Code layouts.
+    fn legacy_sessions_dir(&self, project_root: &Path) -> PathBuf {
         self.project_dir(project_root).join("sessions")
     }
 
-    /// Get the conversation file path for a session
-    fn conversation_file(&self, project_root: &Path, session_id: &str) -> PathBuf {
-        self.sessions_dir(project_root)
-            .join(session_id)
-            .join("conversation.jsonl")
+    /// Parse a transcript file into renderable messages.
+    async fn parse_messages_file(&self, path: &Path, session_id: &str) -> Result<Vec<Message>> {
+        let content = tokio::fs::read_to_string(path).await?;
+        Ok(parse_transcript(&content, session_id))
     }
 
-    /// Read and parse a JSONL file
-    async fn read_jsonl<T: for<'de> Deserialize<'de>>(&self, path: &Path) -> Result<Vec<T>> {
-        if !path.exists() {
+    /// Parse a legacy `conversation.jsonl` (flat top-level `role`/`content`).
+    async fn parse_legacy_messages(&self, path: &Path, session_id: &str) -> Result<Vec<Message>> {
+        let content = tokio::fs::read_to_string(path).await?;
+        Ok(parse_legacy_transcript(&content, session_id))
+    }
+
+    /// Enumerate legacy `sessions/<id>/` directories (older layout).
+    async fn legacy_sessions(&self, project_root: &Path) -> Result<Vec<Session>> {
+        let sessions_dir = self.legacy_sessions_dir(project_root);
+        if !sessions_dir.exists() {
             return Ok(Vec::new());
         }
 
-        let content = tokio::fs::read_to_string(path).await?;
-        let mut items = Vec::new();
-
-        for line in content.lines() {
-            let line = line.trim();
-            if line.is_empty() {
+        let mut sessions = Vec::new();
+        let mut entries = tokio::fs::read_dir(&sessions_dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            if !entry.file_type().await?.is_dir() {
                 continue;
             }
-            match serde_json::from_str::<T>(line) {
-                Ok(item) => items.push(item),
-                Err(e) => {
-                    tracing::warn!("Failed to parse JSONL line in {}: {}", path.display(), e);
-                }
-            }
+
+            let session_id = entry.file_name().to_string_lossy().to_string();
+            let session_dir = entry.path();
+
+            let (name, created_at, updated_at) =
+                match tokio::fs::read_to_string(session_dir.join("metadata.json")).await {
+                    Ok(content) => match serde_json::from_str::<ClaudeSessionMetadata>(&content) {
+                        Ok(metadata) => (
+                            metadata.name.unwrap_or_else(|| session_id.clone()),
+                            metadata.created_at,
+                            metadata.updated_at,
+                        ),
+                        Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
+                    },
+                    Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
+                };
+
+            let conversation_path = session_dir.join("conversation.jsonl");
+            let message_count = if conversation_path.exists() {
+                tokio::fs::read_to_string(&conversation_path)
+                    .await
+                    .map(|c| inspect_transcript(&c).0)
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+
+            let mut session = Session::new(&session_id, name, self.id());
+            session.created_at = created_at;
+            session.updated_at = updated_at;
+            session.message_count = message_count;
+            sessions.push(session);
         }
 
-        Ok(items)
+        Ok(sessions)
     }
 }
 
@@ -110,16 +146,20 @@ impl Adapter for ClaudeCodeAdapter {
     }
 
     async fn detect(&self, project_root: &Path) -> Result<bool> {
-        let sessions_dir = self.sessions_dir(project_root);
-        if !sessions_dir.exists() {
-            return Ok(false);
+        // Primary: flat `<uuid>.jsonl` transcripts in the encoded project dir.
+        let project_dir = self.project_dir(project_root);
+        if project_dir.exists() && has_flat_transcripts(&project_dir).await {
+            return Ok(true);
         }
 
-        // Check if there are any session directories
-        let mut entries = tokio::fs::read_dir(&sessions_dir).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            if entry.file_type().await?.is_dir() {
-                return Ok(true);
+        // Backward compat: older layouts used a non-empty `sessions/` subdir.
+        let sessions_dir = self.legacy_sessions_dir(project_root);
+        if sessions_dir.exists() {
+            let mut entries = tokio::fs::read_dir(&sessions_dir).await?;
+            while let Some(entry) = entries.next_entry().await? {
+                if entry.file_type().await?.is_dir() {
+                    return Ok(true);
+                }
             }
         }
 
@@ -127,55 +167,39 @@ impl Adapter for ClaudeCodeAdapter {
     }
 
     async fn sessions(&self, project_root: &Path) -> Result<Vec<Session>> {
-        let sessions_dir = self.sessions_dir(project_root);
-        if !sessions_dir.exists() {
-            return Ok(Vec::new());
+        let project_dir = self.project_dir(project_root);
+        let mut sessions = Vec::new();
+
+        // Primary: enumerate flat `<uuid>.jsonl` transcripts.
+        if project_dir.exists() {
+            let mut entries = tokio::fs::read_dir(&project_dir).await?;
+            while let Some(entry) = entries.next_entry().await? {
+                let path = entry.path();
+                if !is_jsonl_file(&path).await {
+                    continue;
+                }
+
+                let Some(id) = path.file_stem().and_then(|s| s.to_str()) else {
+                    continue;
+                };
+                let id = id.to_string();
+
+                let content = tokio::fs::read_to_string(&path).await.unwrap_or_default();
+                let (message_count, first_user_text) = inspect_transcript(&content);
+                let name = first_user_text.unwrap_or_else(|| id.clone());
+                let (created_at, updated_at) = file_times(&path).await;
+
+                let mut session = Session::new(&id, name, self.id());
+                session.created_at = created_at;
+                session.updated_at = updated_at;
+                session.message_count = message_count;
+                sessions.push(session);
+            }
         }
 
-        let mut sessions = Vec::new();
-        let mut entries = tokio::fs::read_dir(&sessions_dir).await?;
-
-        while let Some(entry) = entries.next_entry().await? {
-            let file_type = entry.file_type().await?;
-            if !file_type.is_dir() {
-                continue;
-            }
-
-            let session_id = entry.file_name().to_string_lossy().to_string();
-
-            // Try to read session metadata
-            let metadata_path = entry.path().join("metadata.json");
-            let (name, created_at, updated_at) = if metadata_path.exists() {
-                match tokio::fs::read_to_string(&metadata_path).await {
-                    Ok(content) => match serde_json::from_str::<ClaudeSessionMetadata>(&content) {
-                        Ok(metadata) => (
-                            metadata.name.unwrap_or_else(|| session_id.clone()),
-                            metadata.created_at,
-                            metadata.updated_at,
-                        ),
-                        Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
-                    },
-                    Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
-                }
-            } else {
-                (session_id.clone(), Utc::now(), Utc::now())
-            };
-
-            // Count messages by reading conversation file
-            let conversation_path = self.conversation_file(project_root, &session_id);
-            let message_count = if conversation_path.exists() {
-                let raw_messages: Vec<ClaudeMessage> = self.read_jsonl(&conversation_path).await?;
-                raw_messages.len()
-            } else {
-                0
-            };
-
-            let mut session = Session::new(&session_id, name, self.id());
-            session.created_at = created_at;
-            session.updated_at = updated_at;
-            session.message_count = message_count;
-
-            sessions.push(session);
+        // Backward compat: older `sessions/<id>/conversation.jsonl` layout.
+        if sessions.is_empty() {
+            sessions = self.legacy_sessions(project_root).await?;
         }
 
         // Sort by updated_at, newest first
@@ -185,9 +209,7 @@ impl Adapter for ClaudeCodeAdapter {
     }
 
     async fn messages(&self, session_id: &str) -> Result<Vec<Message>> {
-        // We need to find the project for this session
-        // This is a bit tricky since we store sessions per project
-        // For now, we'll scan all project directories
+        // Scan all project directories for the requested session transcript.
         let projects_dir = self.projects_dir();
         if !projects_dir.exists() {
             return Ok(Vec::new());
@@ -195,24 +217,25 @@ impl Adapter for ClaudeCodeAdapter {
 
         let mut entries = tokio::fs::read_dir(&projects_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
-            let file_type = entry.file_type().await?;
-            if !file_type.is_dir() {
+            if !entry.file_type().await?.is_dir() {
                 continue;
             }
 
-            let conversation_path = entry
-                .path()
+            let dir = entry.path();
+
+            // Primary: flat `<id>.jsonl`.
+            let flat = dir.join(format!("{}.jsonl", session_id));
+            if flat.exists() {
+                return self.parse_messages_file(&flat, session_id).await;
+            }
+
+            // Backward compat: `sessions/<id>/conversation.jsonl`.
+            let legacy = dir
                 .join("sessions")
                 .join(session_id)
                 .join("conversation.jsonl");
-            if conversation_path.exists() {
-                let raw_messages: Vec<ClaudeMessage> = self.read_jsonl(&conversation_path).await?;
-
-                return Ok(raw_messages
-                    .into_iter()
-                    .enumerate()
-                    .map(|(idx, msg)| msg.into_message(format!("{}-{}", session_id, idx)))
-                    .collect());
+            if legacy.exists() {
+                return self.parse_legacy_messages(&legacy, session_id).await;
             }
         }
 
@@ -220,7 +243,6 @@ impl Adapter for ClaudeCodeAdapter {
     }
 
     async fn usage(&self, session_id: &str) -> Result<Option<TokenUsage>> {
-        // Get messages and calculate usage from them
         let messages = self.messages(session_id).await?;
 
         let mut total_prompt = 0usize;
@@ -243,7 +265,7 @@ impl Adapter for ClaudeCodeAdapter {
     }
 }
 
-/// Claude session metadata structure
+/// Claude session metadata structure (legacy `metadata.json` layout)
 #[derive(Debug, Deserialize)]
 struct ClaudeSessionMetadata {
     name: Option<String>,
@@ -253,45 +275,52 @@ struct ClaudeSessionMetadata {
     updated_at: DateTime<Utc>,
 }
 
-/// Claude message structure (internal format)
+/// A single JSONL line in a Claude Code transcript.
+#[derive(Debug, Deserialize)]
+struct ClaudeLine {
+    #[serde(rename = "type", default)]
+    kind: Option<String>,
+    #[serde(default)]
+    message: Option<ClaudeMessage>,
+}
+
+/// The `message` body shared by `user`/`assistant` transcript lines.
 #[derive(Debug, Deserialize)]
 struct ClaudeMessage {
-    #[serde(rename = "type")]
-    #[allow(dead_code)]
-    msg_type: Option<String>,
     role: Option<String>,
-    content: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_blocks")]
+    content: Vec<ClaudeContentBlock>,
     #[serde(default)]
-    content_blocks: Vec<ClaudeContentBlock>,
-    #[serde(with = "chrono::serde::ts_seconds_option", default)]
-    timestamp: Option<DateTime<Utc>>,
+    model: Option<String>,
     #[serde(default)]
     usage: Option<ClaudeTokenUsage>,
-    model: Option<String>,
 }
 
 impl ClaudeMessage {
+    /// First textual snippet, used as a best-effort session display name.
+    fn first_text(&self) -> Option<String> {
+        self.content
+            .iter()
+            .find_map(|block| block.as_text())
+            .map(|s| s.to_string())
+    }
+
     fn into_message(self, id: String) -> Message {
         let role = match self.role.as_deref() {
-            Some("user") => Role::User,
             Some("assistant") => Role::Assistant,
             Some("system") => Role::System,
             _ => Role::User,
         };
 
-        let content = if !self.content_blocks.is_empty() {
-            // Build content from content blocks
-            self.content_blocks
-                .iter()
-                .filter_map(|block| block.as_text())
-                .collect::<Vec<_>>()
-                .join("\n")
-        } else {
-            self.content.unwrap_or_default()
-        };
+        let content = self
+            .content
+            .iter()
+            .filter_map(|block| block.as_text())
+            .collect::<Vec<_>>()
+            .join("\n");
 
         let content_blocks = self
-            .content_blocks
+            .content
             .into_iter()
             .filter_map(|block| block.into_content_block())
             .collect();
@@ -304,7 +333,7 @@ impl ClaudeMessage {
             id,
             role,
             content,
-            timestamp: self.timestamp.unwrap_or_else(Utc::now),
+            timestamp: Utc::now(),
             model: self.model,
             tool_uses: Vec::new(),
             content_blocks,
@@ -315,7 +344,7 @@ impl ClaudeMessage {
     }
 }
 
-/// Claude content block
+/// Claude content block (Anthropic message content shapes).
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 enum ClaudeContentBlock {
@@ -336,6 +365,7 @@ enum ClaudeContentBlock {
     },
     #[serde(rename = "code")]
     Code {
+        #[serde(default)]
         language: Option<String>,
         code: String,
     },
@@ -385,6 +415,211 @@ struct ClaudeTokenUsage {
     output_tokens: usize,
 }
 
+/// Deserialize `message.content`, which may be a plain string or an array of
+/// content blocks. Unknown block variants are skipped rather than failing to
+/// deserialize the entire message.
+fn deserialize_blocks<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<ClaudeContentBlock>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value =
+        Option::<serde_json::Value>::deserialize(deserializer)?.unwrap_or(serde_json::Value::Null);
+    match value {
+        serde_json::Value::Null => Ok(Vec::new()),
+        serde_json::Value::String(s) => Ok(vec![ClaudeContentBlock::Text { text: s }]),
+        serde_json::Value::Array(arr) => {
+            let mut blocks = Vec::with_capacity(arr.len());
+            for item in arr {
+                if let Ok(block) = serde_json::from_value::<ClaudeContentBlock>(item) {
+                    blocks.push(block);
+                }
+            }
+            Ok(blocks)
+        }
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// True when `path` is a regular `.jsonl` file.
+async fn is_jsonl_file(path: &Path) -> bool {
+    matches!(path.extension().and_then(|e| e.to_str()), Some("jsonl"))
+        && tokio::fs::metadata(path)
+            .await
+            .is_ok_and(|metadata| metadata.is_file())
+}
+
+/// True when `dir` contains at least one flat `*.jsonl` transcript.
+async fn has_flat_transcripts(dir: &Path) -> bool {
+    let mut entries = match tokio::fs::read_dir(dir).await {
+        Ok(e) => e,
+        Err(_) => return false,
+    };
+    loop {
+        match entries.next_entry().await {
+            Ok(Some(entry)) => {
+                if is_jsonl_file(&entry.path()).await {
+                    return true;
+                }
+            }
+            _ => return false,
+        }
+    }
+}
+
+/// Best-effort `(created, updated)` timestamps from file metadata.
+async fn file_times(path: &Path) -> (DateTime<Utc>, DateTime<Utc>) {
+    let metadata = match tokio::fs::metadata(path).await {
+        Ok(m) => m,
+        Err(_) => return (Utc::now(), Utc::now()),
+    };
+
+    let to_dt = |time: Option<std::time::SystemTime>| -> DateTime<Utc> {
+        time.and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .and_then(|d| DateTime::from_timestamp(d.as_secs() as i64, d.subsec_nanos()))
+            .unwrap_or_else(Utc::now)
+    };
+
+    let updated = to_dt(metadata.modified().ok());
+    let created = to_dt(metadata.created().ok().or(metadata.modified().ok()));
+    (created, updated)
+}
+
+/// Returns `(non_empty_line_count, first_user_text)` for a transcript.
+fn inspect_transcript(content: &str) -> (usize, Option<String>) {
+    let mut count = 0usize;
+    let mut first_user_text: Option<String> = None;
+
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        count += 1;
+
+        if first_user_text.is_some() {
+            continue;
+        }
+
+        if let Ok(line) = serde_json::from_str::<ClaudeLine>(line) {
+            if line.kind.as_deref() == Some("user") {
+                if let Some(body) = line.message {
+                    first_user_text = body.first_text();
+                }
+            }
+        }
+    }
+
+    (count, first_user_text)
+}
+
+/// Parse a transcript into messages, keeping only `user`/`assistant`/`system`
+/// lines that carry a `message` body.
+fn parse_transcript(content: &str, session_id: &str) -> Vec<Message> {
+    let mut messages = Vec::new();
+    let mut index = 0usize;
+
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let parsed: ClaudeLine = match serde_json::from_str(line) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                tracing::warn!("Failed to parse Claude transcript line: {}", e);
+                continue;
+            }
+        };
+
+        match parsed.kind.as_deref() {
+            Some("user") | Some("assistant") | Some("system") => {}
+            _ => continue,
+        }
+
+        if let Some(body) = parsed.message {
+            messages.push(body.into_message(format!("{}-{}", session_id, index)));
+            index += 1;
+        }
+    }
+
+    messages
+}
+
+/// Parse a legacy `conversation.jsonl` whose lines carry top-level
+/// `role`/`content`/`content_blocks`/`model`/`usage` fields.
+fn parse_legacy_transcript(content: &str, session_id: &str) -> Vec<Message> {
+    let mut messages = Vec::new();
+    let mut index = 0usize;
+
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+
+        let role = match value.get("role").and_then(|r| r.as_str()).unwrap_or("user") {
+            "assistant" => Role::Assistant,
+            "system" => Role::System,
+            _ => Role::User,
+        };
+
+        let mut blocks = match value.get("content") {
+            Some(serde_json::Value::String(s)) => {
+                vec![ClaudeContentBlock::Text { text: s.clone() }]
+            }
+            Some(serde_json::Value::Array(items)) => items
+                .iter()
+                .filter_map(|item| serde_json::from_value::<ClaudeContentBlock>(item.clone()).ok())
+                .collect(),
+            _ => Vec::new(),
+        };
+        if let Some(extra) = value
+            .get("content_blocks")
+            .and_then(|v| serde_json::from_value::<Vec<ClaudeContentBlock>>(v.clone()).ok())
+        {
+            blocks.extend(extra);
+        }
+
+        let content = blocks
+            .iter()
+            .filter_map(|block| block.as_text())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let content_blocks = blocks
+            .into_iter()
+            .filter_map(|block| block.into_content_block())
+            .collect();
+
+        let model = value
+            .get("model")
+            .and_then(|m| m.as_str())
+            .map(String::from);
+        let tokens = value
+            .get("usage")
+            .and_then(|u| serde_json::from_value::<ClaudeTokenUsage>(u.clone()).ok())
+            .map(|u| TokenUsage::new(u.input_tokens, u.output_tokens));
+
+        messages.push(Message {
+            id: format!("{}-{}", session_id, index),
+            role,
+            content,
+            timestamp: Utc::now(),
+            model,
+            tool_uses: Vec::new(),
+            content_blocks,
+            tokens,
+            is_streaming: false,
+            metadata: None,
+        });
+        index += 1;
+    }
+
+    messages
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -394,6 +629,15 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let adapter = ClaudeCodeAdapter::with_base_dir(temp_dir.path().to_path_buf());
         (adapter, temp_dir)
+    }
+
+    /// Realistic transcript: user + assistant message lines plus a bookkeeping
+    /// line that must be ignored when parsing messages but still counted.
+    fn sample_transcript() -> &'static str {
+        r#"{"type":"file-history-snapshot","snapshot":{}}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Fix the git diff preview"}]}}
+{"type":"assistant","message":{"role":"assistant","model":"claude-opus-4-6","content":[{"type":"thinking","thinking":"Planning the change."},{"type":"text","text":"On it."}],"usage":{"input_tokens":12,"output_tokens":34}}}
+{"type":"progress","progress":{}}"#
     }
 
     #[tokio::test]
@@ -406,13 +650,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_detect_with_session() {
+    async fn test_detect_flat_transcript() {
         let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
-        // Create a session directory
-        let sessions_dir = adapter.sessions_dir(project);
-        tokio::fs::create_dir_all(sessions_dir.join("test-session"))
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+        tokio::fs::write(project_dir.join("abc.jsonl"), "{}\n")
+            .await
+            .unwrap();
+
+        let detected = adapter.detect(project).await.unwrap();
+        assert!(detected);
+    }
+
+    #[tokio::test]
+    async fn test_detect_legacy_sessions_dir() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let sessions_dir = adapter.legacy_sessions_dir(project);
+        tokio::fs::create_dir_all(sessions_dir.join("legacy-session"))
             .await
             .unwrap();
 
@@ -430,35 +688,82 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sessions_with_data() {
+    async fn test_sessions_flat_layout() {
         let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
-        // Create a session with conversation
-        let sessions_dir = adapter.sessions_dir(project);
-        let session_dir = sessions_dir.join("test-session");
-        tokio::fs::create_dir_all(&session_dir).await.unwrap();
-
-        // Create metadata
-        let metadata = serde_json::json!({
-            "name": "Test Session",
-            "created_at": Utc::now().timestamp(),
-            "updated_at": Utc::now().timestamp()
-        });
-        tokio::fs::write(session_dir.join("metadata.json"), metadata.to_string())
-            .await
-            .unwrap();
-
-        // Create conversation
-        let conversation = r#"{"type": "message", "role": "user", "content": "Hello", "timestamp": 1700000000}
-{"type": "message", "role": "assistant", "content": "Hi there!", "timestamp": 1700000001}"#;
-        tokio::fs::write(session_dir.join("conversation.jsonl"), conversation)
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+        tokio::fs::write(project_dir.join("sess-1.jsonl"), sample_transcript())
             .await
             .unwrap();
 
         let sessions = adapter.sessions(project).await.unwrap();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].name, "Test Session");
-        assert_eq!(sessions[0].message_count, 2);
+        assert_eq!(sessions[0].id, "sess-1");
+        assert_eq!(sessions[0].name, "Fix the git diff preview");
+        // Four non-empty lines in the transcript.
+        assert_eq!(sessions[0].message_count, 4);
+    }
+
+    #[tokio::test]
+    async fn test_sessions_name_falls_back_to_id() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+        // No user line -> name should fall back to the file stem.
+        tokio::fs::write(
+            project_dir.join("only-snapshot.jsonl"),
+            "{\"type\":\"file-history-snapshot\",\"snapshot\":{}}\n",
+        )
+        .await
+        .unwrap();
+
+        let sessions = adapter.sessions(project).await.unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].name, "only-snapshot");
+    }
+
+    #[tokio::test]
+    async fn test_messages_flat_layout() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+        tokio::fs::write(project_dir.join("sess-1.jsonl"), sample_transcript())
+            .await
+            .unwrap();
+
+        let messages = adapter.messages("sess-1").await.unwrap();
+        // Only user + assistant lines become messages.
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].role, Role::User);
+        assert_eq!(messages[0].content, "Fix the git diff preview");
+        assert_eq!(messages[1].role, Role::Assistant);
+        assert_eq!(messages[1].model.as_deref(), Some("claude-opus-4-6"));
+        let tokens = messages[1].tokens.expect("assistant has usage");
+        assert_eq!(tokens.total_tokens, 46);
+    }
+
+    #[tokio::test]
+    async fn test_messages_legacy_conversation() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let session_dir = adapter.legacy_sessions_dir(project).join("legacy-session");
+        tokio::fs::create_dir_all(&session_dir).await.unwrap();
+        let conversation = r#"{"type":"message","role":"user","content":"Hello","timestamp":1700000000}
+{"type":"message","role":"assistant","content":"Hi there!","timestamp":1700000001}"#;
+        tokio::fs::write(session_dir.join("conversation.jsonl"), conversation)
+            .await
+            .unwrap();
+
+        let messages = adapter.messages("legacy-session").await.unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].role, Role::User);
+        assert_eq!(messages[1].role, Role::Assistant);
     }
 }
