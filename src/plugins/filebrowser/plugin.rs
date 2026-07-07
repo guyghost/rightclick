@@ -113,7 +113,7 @@ impl Plugin for FileBrowserPlugin {
     }
 
     fn icon(&self) -> char {
-        '📁'
+        'F'
     }
 
     async fn init(&mut self, _ctx: &PluginContext) -> anyhow::Result<()> {
