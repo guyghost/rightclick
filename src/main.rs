@@ -1931,7 +1931,15 @@ mod tests {
         let commands = <workers::WorkersPlugin as Plugin>::commands(&plugin);
         let hints = build_footer_hints(plugin.id(), &commands);
 
-        assert!(hints.contains(&("f".to_string(), "Reload Intents".to_string())));
+        // After the workers command reshuffle the reload-intents command moves
+        // from `f` to `r`, the `f` reload entry is removed, and "Run Workers"
+        // moves to `R`. Global `Ctrl+R` ("Refresh current view") is a distinct
+        // key, so the plugin-scoped `r` hint still surfaces here.
+        assert!(hints.contains(&("r".to_string(), "Reload Intents".to_string())));
+        // TODO(merge): the lead described this as "Refresh/Reload Intents". If
+        // the descriptors branch keeps the label "Reload Intents" this passes
+        // as-is; if it renames to "Refresh Intents", update the assertion above.
+        assert!(!hints.iter().any(|(key, _)| key == "f"));
     }
 
     #[test]
