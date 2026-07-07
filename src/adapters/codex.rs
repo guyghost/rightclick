@@ -1,14 +1,18 @@
 //! Codex CLI adapter
 //!
-//! This adapter integrates with OpenAI's Codex CLI tool.
-//! It reads conversation data from the local storage directory at
-//! `~/.codex/sessions/`.
+//! Integrates with OpenAI's Codex CLI. Codex keeps a global session index at
+//! `~/.codex/session_index.jsonl` (one `{id, thread_name, updated_at}` object
+//! per line) and stores each session's rollout payload under
+//! `~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<session-uuid>.jsonl`. Each
+//! payload line is `{timestamp, type, payload}`; conversational messages are
+//! `response_item` lines whose `payload.type` is `message`.
 
 use crate::adapters::types::{Adapter, AdapterError, AdapterType, Result};
 use crate::core::models::conversation::{ContentBlock, Message, Role, Session, TokenUsage};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Codex CLI adapter implementation
@@ -34,57 +38,177 @@ impl CodexAdapter {
         Self { base_dir }
     }
 
-    /// Get the sessions directory path
-    fn sessions_dir(&self) -> PathBuf {
+    /// Global session index: `~/.codex/session_index.jsonl`
+    fn session_index_file(&self) -> PathBuf {
+        self.base_dir.join("session_index.jsonl")
+    }
+
+    /// Sessions root: `~/.codex/sessions`
+    fn sessions_root(&self) -> PathBuf {
         self.base_dir.join("sessions")
     }
 
-    /// Get the session directory for a specific session
+    // --- Legacy (`project_mappings.json`) helpers --------------------------
+
     fn session_dir(&self, session_id: &str) -> PathBuf {
-        self.sessions_dir().join(session_id)
+        self.sessions_root().join(session_id)
     }
 
-    /// Get the conversation file path for a session
     fn conversation_file(&self, session_id: &str) -> PathBuf {
         self.session_dir(session_id).join("conversation.jsonl")
     }
 
-    /// Get the metadata file path for a session
     fn metadata_file(&self, session_id: &str) -> PathBuf {
         self.session_dir(session_id).join("metadata.json")
     }
 
-    /// Get the project mapping file path
     fn project_mapping_file(&self) -> PathBuf {
         self.base_dir.join("project_mappings.json")
     }
 
-    /// Read and parse a JSONL file
-    async fn read_jsonl<T: for<'de> Deserialize<'de>>(&self, path: &Path) -> Result<Vec<T>> {
+    /// Read and parse the global session index. Returns an empty list when the
+    /// index file is missing.
+    async fn read_index(&self) -> Result<Vec<CodexIndexRow>> {
+        let path = self.session_index_file();
         if !path.exists() {
             return Ok(Vec::new());
         }
 
-        let content = tokio::fs::read_to_string(path).await?;
-        let mut items = Vec::new();
-
+        let content = tokio::fs::read_to_string(&path).await?;
+        let mut rows = Vec::new();
         for line in content.lines() {
             let line = line.trim();
             if line.is_empty() {
                 continue;
             }
-            match serde_json::from_str::<T>(line) {
-                Ok(item) => items.push(item),
-                Err(e) => {
-                    tracing::warn!("Failed to parse JSONL line in {}: {}", path.display(), e);
-                }
+            match serde_json::from_str::<CodexIndexRow>(line) {
+                Ok(row) => rows.push(row),
+                Err(e) => tracing::warn!("Failed to parse Codex index row: {}", e),
             }
         }
-
-        Ok(items)
+        Ok(rows)
     }
 
-    /// Find sessions associated with a project
+    /// Build a map of `session_id -> payload path` by scanning `sessions/`.
+    async fn build_payload_index(&self) -> HashMap<String, PathBuf> {
+        let mut map = HashMap::new();
+        collect_payload_files(&self.sessions_root(), &mut map).await;
+        map
+    }
+
+    /// Locate the rollout payload for a single session id (targeted walk).
+    async fn find_payload(&self, session_id: &str) -> Option<PathBuf> {
+        find_payload_file(&self.sessions_root(), session_id).await
+    }
+
+    /// Parse a rollout payload file into renderable messages.
+    async fn parse_payload_messages(&self, path: &Path, session_id: &str) -> Result<Vec<Message>> {
+        let content = tokio::fs::read_to_string(path).await?;
+        Ok(parse_rollout(&content, session_id))
+    }
+
+    /// Parse a legacy `conversation.jsonl` (top-level `role`/`content` lines).
+    async fn parse_legacy_messages(&self, path: &Path, session_id: &str) -> Result<Vec<Message>> {
+        let content = tokio::fs::read_to_string(path).await?;
+        let mut messages = Vec::new();
+        let mut index = 0usize;
+
+        for line in content.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+
+            let role = value.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+            let role = match role {
+                "assistant" => Role::Assistant,
+                "system" => Role::System,
+                _ => Role::User,
+            };
+
+            let text = match value.get("content") {
+                Some(serde_json::Value::String(s)) => s.clone(),
+                Some(serde_json::Value::Array(items)) => items
+                    .iter()
+                    .filter_map(|item| {
+                        item.get("text")
+                            .and_then(|t| t.as_str())
+                            .or_else(|| item.as_str())
+                    })
+                    .map(String::from)
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                _ => String::new(),
+            };
+
+            let id = format!("{}-{}", session_id, index);
+            index += 1;
+            messages.push(Message {
+                id,
+                role,
+                content: text.clone(),
+                timestamp: Utc::now(),
+                model: None,
+                tool_uses: Vec::new(),
+                content_blocks: vec![ContentBlock::Text { content: text }],
+                tokens: None,
+                is_streaming: false,
+                metadata: None,
+            });
+        }
+
+        Ok(messages)
+    }
+
+    /// Enumerate sessions using the legacy `project_mappings.json` layout.
+    async fn legacy_sessions(&self, project_root: &Path) -> Result<Vec<Session>> {
+        let session_ids = self.find_project_sessions(project_root).await?;
+        let mut sessions = Vec::new();
+
+        for session_id in session_ids {
+            let session_dir = self.session_dir(&session_id);
+            if !session_dir.exists() {
+                continue;
+            }
+
+            let metadata_path = self.metadata_file(&session_id);
+            let (name, created_at, updated_at) =
+                match tokio::fs::read_to_string(&metadata_path).await {
+                    Ok(content) => match serde_json::from_str::<CodexMetadata>(&content) {
+                        Ok(metadata) => (
+                            metadata.name.unwrap_or_else(|| session_id.clone()),
+                            metadata.created_at,
+                            metadata.updated_at,
+                        ),
+                        Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
+                    },
+                    Err(_) => {
+                        let (created, updated) = file_times(&session_dir).await;
+                        (session_id.clone(), created, updated)
+                    }
+                };
+
+            let conversation_path = self.conversation_file(&session_id);
+            let message_count = if conversation_path.exists() {
+                count_nonempty_lines(&conversation_path).await
+            } else {
+                0
+            };
+
+            let mut session = Session::new(&session_id, name, self.id());
+            session.created_at = created_at;
+            session.updated_at = updated_at;
+            session.message_count = message_count;
+            sessions.push(session);
+        }
+
+        sessions.sort_by_key(|s| std::cmp::Reverse(s.updated_at));
+        Ok(sessions)
+    }
+
+    /// Find sessions associated with a project (legacy mapping file).
     async fn find_project_sessions(&self, project_root: &Path) -> Result<Vec<String>> {
         let mapping_file = self.project_mapping_file();
         if !mapping_file.exists() {
@@ -133,133 +257,96 @@ impl Adapter for CodexAdapter {
     }
 
     async fn detect(&self, project_root: &Path) -> Result<bool> {
-        // Check if there's a project mapping for this project
-        let sessions = self.find_project_sessions(project_root).await?;
-        if sessions.is_empty() {
+        // Backward compat: honor project_mappings.json if present.
+        if self.project_mapping_file().exists() {
+            let session_ids = self.find_project_sessions(project_root).await?;
+            for session_id in session_ids {
+                if self.session_dir(&session_id).exists() {
+                    return Ok(true);
+                }
+            }
             return Ok(false);
         }
 
-        // Verify at least one session directory exists
-        for session_id in sessions {
-            let session_dir = self.session_dir(&session_id);
-            if session_dir.exists() {
-                return Ok(true);
-            }
-        }
-
-        Ok(false)
+        // Default: detected when the global session index has any rows.
+        let rows = self.read_index().await?;
+        Ok(!rows.is_empty())
     }
 
     async fn sessions(&self, project_root: &Path) -> Result<Vec<Session>> {
-        let session_ids = self.find_project_sessions(project_root).await?;
-        let mut sessions = Vec::new();
+        // Backward compat: project_mappings.json layout.
+        if self.project_mapping_file().exists() {
+            return self.legacy_sessions(project_root).await;
+        }
 
-        for session_id in session_ids {
-            let session_dir = self.session_dir(&session_id);
-            if !session_dir.exists() {
-                continue;
-            }
+        let rows = self.read_index().await?;
+        if rows.is_empty() {
+            return Ok(Vec::new());
+        }
 
-            // Read metadata
-            let metadata_path = self.metadata_file(&session_id);
-            let (name, created_at, updated_at) = if metadata_path.exists() {
-                match tokio::fs::read_to_string(&metadata_path).await {
-                    Ok(content) => match serde_json::from_str::<CodexMetadata>(&content) {
-                        Ok(metadata) => (
-                            metadata.name.unwrap_or_else(|| session_id.clone()),
-                            metadata.created_at,
-                            metadata.updated_at,
-                        ),
-                        Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
-                    },
-                    Err(_) => (session_id.clone(), Utc::now(), Utc::now()),
+        let payload_map = self.build_payload_index().await;
+        let mut sessions = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let name = row.thread_name.unwrap_or_else(|| row.id.clone());
+            let updated_at = row
+                .updated_at
+                .as_deref()
+                .and_then(parse_iso)
+                .unwrap_or_else(Utc::now);
+
+            let (created_at, message_count) = match payload_map.get(&row.id) {
+                Some(path) => {
+                    let (created, _) = file_times(path).await;
+                    (created, count_nonempty_lines(path).await)
                 }
-            } else {
-                // Try to get timestamps from directory
-                let metadata = tokio::fs::metadata(&session_dir).await.ok();
-                let created = metadata.as_ref().and_then(|m| m.created().ok());
-                let modified = metadata.as_ref().and_then(|m| m.modified().ok());
-
-                let created_at = created
-                    .and_then(|t| {
-                        DateTime::from_timestamp(
-                            t.duration_since(std::time::UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs() as i64,
-                            0,
-                        )
-                    })
-                    .unwrap_or_else(Utc::now);
-                let updated_at = modified
-                    .and_then(|t| {
-                        DateTime::from_timestamp(
-                            t.duration_since(std::time::UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs() as i64,
-                            0,
-                        )
-                    })
-                    .unwrap_or_else(Utc::now);
-
-                (session_id.clone(), created_at, updated_at)
+                None => (updated_at, 0),
             };
 
-            // Count messages
-            let conversation_path = self.conversation_file(&session_id);
-            let message_count = if conversation_path.exists() {
-                let messages: Vec<CodexMessage> = self.read_jsonl(&conversation_path).await?;
-                messages.len()
-            } else {
-                0
-            };
-
-            let mut session = Session::new(&session_id, name, self.id());
+            let mut session = Session::new(&row.id, name, self.id());
             session.created_at = created_at;
             session.updated_at = updated_at;
             session.message_count = message_count;
-
             sessions.push(session);
         }
 
-        // Sort by updated_at, newest first
         sessions.sort_by_key(|s| std::cmp::Reverse(s.updated_at));
-
         Ok(sessions)
     }
 
     async fn messages(&self, session_id: &str) -> Result<Vec<Message>> {
-        let conversation_path = self.conversation_file(session_id);
-        if !conversation_path.exists() {
-            return Ok(Vec::new());
+        // Backward compat: legacy `sessions/<id>/conversation.jsonl`.
+        let legacy = self.conversation_file(session_id);
+        if legacy.exists() {
+            return self.parse_legacy_messages(&legacy, session_id).await;
         }
 
-        let raw_messages: Vec<CodexMessage> = self.read_jsonl(&conversation_path).await?;
+        // Default: locate the rollout payload by id.
+        if let Some(path) = self.find_payload(session_id).await {
+            return self.parse_payload_messages(&path, session_id).await;
+        }
 
-        Ok(raw_messages
-            .into_iter()
-            .enumerate()
-            .map(|(idx, msg)| msg.into_message(format!("{}-{}", session_id, idx)))
-            .collect())
+        Ok(Vec::new())
     }
 
     async fn usage(&self, session_id: &str) -> Result<Option<TokenUsage>> {
-        // Check metadata for total usage
+        // Legacy metadata.json may carry aggregate usage.
         let metadata_path = self.metadata_file(session_id);
         if metadata_path.exists() {
-            let content = tokio::fs::read_to_string(&metadata_path).await?;
-            if let Ok(metadata) = serde_json::from_str::<CodexMetadata>(&content) {
-                if let Some(usage) = metadata.total_usage {
-                    return Ok(Some(TokenUsage::new(
-                        usage.prompt_tokens,
-                        usage.completion_tokens,
-                    )));
+            if let Ok(content) = tokio::fs::read_to_string(&metadata_path).await {
+                if let Ok(metadata) = serde_json::from_str::<CodexMetadata>(&content) {
+                    if let Some(usage) = metadata.total_usage {
+                        return Ok(Some(TokenUsage::new(
+                            usage.prompt_tokens,
+                            usage.completion_tokens,
+                        )));
+                    }
                 }
             }
         }
 
-        // Fall back to calculating from messages
+        // Fall back to summing per-message usage.
         let messages = self.messages(session_id).await?;
-
         let mut total_prompt = 0usize;
         let mut total_completion = 0usize;
         let mut has_usage = false;
@@ -280,14 +367,14 @@ impl Adapter for CodexAdapter {
     }
 }
 
-/// Project mappings structure
+/// Project mappings structure (legacy)
 #[derive(Debug, Deserialize)]
 struct ProjectMappings {
     #[serde(default)]
-    projects: std::collections::HashMap<String, Vec<String>>,
+    projects: HashMap<String, Vec<String>>,
 }
 
-/// Codex session metadata
+/// Codex session metadata (legacy layout)
 #[derive(Debug, Deserialize)]
 struct CodexMetadata {
     name: Option<String>,
@@ -306,128 +393,250 @@ struct CodexTokenUsage {
     completion_tokens: usize,
 }
 
-/// Codex message structure (internal format)
+/// One row of `~/.codex/session_index.jsonl`.
 #[derive(Debug, Deserialize)]
-struct CodexMessage {
-    role: String,
-    content: Option<String>,
-    #[serde(default)]
-    content_blocks: Vec<CodexContentBlock>,
-    #[serde(with = "chrono::serde::ts_seconds_option", default)]
-    timestamp: Option<DateTime<Utc>>,
-    #[serde(default)]
-    usage: Option<CodexTokenUsage>,
-    model: Option<String>,
+struct CodexIndexRow {
+    id: String,
+    thread_name: Option<String>,
+    updated_at: Option<String>,
 }
 
-impl CodexMessage {
-    fn into_message(self, id: String) -> Message {
-        let role = match self.role.as_str() {
-            "user" => Role::User,
-            "assistant" => Role::Assistant,
-            "system" => Role::System,
+/// A single JSONL line in a Codex rollout payload.
+#[derive(Debug, Deserialize)]
+struct CodexLine {
+    #[serde(default)]
+    timestamp: Option<String>,
+    #[serde(rename = "type", default)]
+    kind: Option<String>,
+    #[serde(default)]
+    payload: Option<CodexPayload>,
+}
+
+/// Payload of a `response_item` line carrying a `message`.
+#[derive(Debug, Deserialize)]
+struct CodexPayload {
+    #[serde(rename = "type", default)]
+    kind: Option<String>,
+    #[serde(default)]
+    role: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_text_array")]
+    content: Vec<String>,
+}
+
+impl CodexPayload {
+    fn into_message(self, timestamp: Option<&str>, id: String) -> Message {
+        let role = match self.role.as_deref() {
+            Some("assistant") => Role::Assistant,
+            Some("system") | Some("developer") => Role::System,
             _ => Role::User,
         };
 
-        let content = if !self.content_blocks.is_empty() {
-            self.content_blocks
-                .iter()
-                .filter_map(|block| block.as_text())
-                .collect::<Vec<_>>()
-                .join("\n")
-        } else {
-            self.content.unwrap_or_default()
-        };
-
+        let content = self.content.join("\n");
         let content_blocks = self
-            .content_blocks
+            .content
             .into_iter()
-            .filter_map(|block| block.into_content_block())
+            .map(|text| ContentBlock::Text { content: text })
             .collect();
-
-        let tokens = self
-            .usage
-            .map(|u| TokenUsage::new(u.prompt_tokens, u.completion_tokens));
 
         Message {
             id,
             role,
             content,
-            timestamp: self.timestamp.unwrap_or_else(Utc::now),
-            model: self.model,
+            timestamp: timestamp.and_then(parse_iso).unwrap_or_else(Utc::now),
+            model: None,
             tool_uses: Vec::new(),
             content_blocks,
-            tokens,
+            tokens: None,
             is_streaming: false,
             metadata: None,
         }
     }
 }
 
-/// Codex content block
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-enum CodexContentBlock {
-    #[serde(rename = "text")]
-    Text { text: String },
-    #[serde(rename = "reasoning")]
-    Reasoning { content: String },
-    #[serde(rename = "tool_call")]
-    ToolCall { id: String, function: CodexFunction },
-    #[serde(rename = "tool_result")]
-    ToolResult {
-        tool_call_id: String,
-        output: String,
-    },
-    #[serde(rename = "code")]
-    Code {
-        language: Option<String>,
-        code: String,
-    },
+/// Deserialize a message `content` array into the text it carries. Elements
+/// without a `text` field are ignored; a bare string is accepted too.
+fn deserialize_text_array<'de, D>(deserializer: D) -> std::result::Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value =
+        Option::<serde_json::Value>::deserialize(deserializer)?.unwrap_or(serde_json::Value::Null);
+    let mut out = Vec::new();
+    match value {
+        serde_json::Value::Null => {}
+        serde_json::Value::String(s) => out.push(s),
+        serde_json::Value::Array(items) => {
+            for item in items {
+                if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
+                    out.push(text.to_string());
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(out)
 }
 
-impl CodexContentBlock {
-    fn as_text(&self) -> Option<&str> {
-        match self {
-            CodexContentBlock::Text { text } => Some(text),
-            CodexContentBlock::Reasoning { content } => Some(content),
-            _ => None,
-        }
-    }
+/// Parse an ISO-8601 / RFC-3339 timestamp into UTC.
+fn parse_iso(value: &str) -> Option<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|dt| dt.with_timezone(&Utc))
+}
 
-    fn into_content_block(self) -> Option<ContentBlock> {
-        match self {
-            CodexContentBlock::Text { text } => Some(ContentBlock::Text { content: text }),
-            CodexContentBlock::Reasoning { content } => Some(ContentBlock::Markdown {
-                content: format!("*Reasoning:* {}", content),
-            }),
-            CodexContentBlock::ToolCall { id, function } => Some(ContentBlock::ToolUse {
-                id,
-                name: function.name,
-                input: function.arguments,
-            }),
-            CodexContentBlock::ToolResult {
-                tool_call_id,
-                output,
-            } => Some(ContentBlock::ToolResult {
-                tool_use_id: tool_call_id,
-                content: output,
-                is_error: false,
-            }),
-            CodexContentBlock::Code { language, code } => Some(ContentBlock::Code {
-                language,
-                code,
-                file_path: None,
-            }),
-        }
+/// Count non-empty lines in a file (best-effort: 0 on read failure).
+async fn count_nonempty_lines(path: &Path) -> usize {
+    match tokio::fs::read_to_string(path).await {
+        Ok(content) => content
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count(),
+        Err(_) => 0,
     }
 }
 
-/// Codex function call
-#[derive(Debug, Deserialize)]
-struct CodexFunction {
-    name: String,
-    arguments: String,
+/// Best-effort `(created, updated)` timestamps from file metadata.
+async fn file_times(path: &Path) -> (DateTime<Utc>, DateTime<Utc>) {
+    let metadata = match tokio::fs::metadata(path).await {
+        Ok(m) => m,
+        Err(_) => return (Utc::now(), Utc::now()),
+    };
+
+    let to_dt = |time: Option<std::time::SystemTime>| -> DateTime<Utc> {
+        time.and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .and_then(|d| DateTime::from_timestamp(d.as_secs() as i64, d.subsec_nanos()))
+            .unwrap_or_else(Utc::now)
+    };
+
+    let updated = to_dt(metadata.modified().ok());
+    let created = to_dt(metadata.created().ok().or(metadata.modified().ok()));
+    (created, updated)
+}
+
+/// Extract the trailing session uuid from a rollout file stem.
+///
+/// Rollout files are named `rollout-<ts>-<uuid>.jsonl`, where `<uuid>` is the
+/// trailing 36-character `8-4-4-4-12` identifier.
+fn session_id_from_stem(stem: &str) -> Option<&str> {
+    if stem.len() < 36 {
+        return None;
+    }
+    let candidate = &stem[stem.len() - 36..];
+    let bytes = candidate.as_bytes();
+    let hyphens_at = [8usize, 13, 18, 23];
+    let shaped = hyphens_at.iter().all(|&i| bytes.get(i) == Some(&b'-'));
+    shaped.then_some(candidate)
+}
+
+/// Recursively collect rollout payload files into `map`, keyed by session id.
+async fn collect_payload_files(dir: &Path, map: &mut HashMap<String, PathBuf>) {
+    let mut entries = match tokio::fs::read_dir(dir).await {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    loop {
+        let entry = match entries.next_entry().await {
+            Ok(Some(e)) => e,
+            _ => return,
+        };
+
+        let file_type = match entry.file_type().await {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+
+        if file_type.is_dir() {
+            Box::pin(collect_payload_files(&path, map)).await;
+            continue;
+        }
+
+        if !file_type.is_file() {
+            continue;
+        }
+        if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+            continue;
+        }
+
+        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+            if let Some(id) = session_id_from_stem(stem) {
+                map.entry(id.to_string()).or_insert(path);
+            }
+        }
+    }
+}
+
+/// Recursively locate the rollout payload for `session_id`, stopping at the
+/// first match.
+async fn find_payload_file(dir: &Path, session_id: &str) -> Option<PathBuf> {
+    let mut entries = tokio::fs::read_dir(dir).await.ok()?;
+
+    let suffix = format!("-{}.jsonl", session_id);
+    while let Some(entry) = entries.next_entry().await.ok()? {
+        let file_type = match entry.file_type().await {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+
+        if file_type.is_dir() {
+            if let Some(found) = Box::pin(find_payload_file(&path, session_id)).await {
+                return Some(found);
+            }
+            continue;
+        }
+
+        if file_type.is_file()
+            && path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|name| name.ends_with(&suffix))
+        {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+/// Parse a rollout payload into messages, keeping only `response_item` lines
+/// whose payload is a `message`.
+fn parse_rollout(content: &str, session_id: &str) -> Vec<Message> {
+    let mut messages = Vec::new();
+    let mut index = 0usize;
+
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let parsed: CodexLine = match serde_json::from_str(line) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                tracing::warn!("Failed to parse Codex rollout line: {}", e);
+                continue;
+            }
+        };
+
+        if parsed.kind.as_deref() != Some("response_item") {
+            continue;
+        }
+        let Some(payload) = parsed.payload else {
+            continue;
+        };
+        if payload.kind.as_deref() != Some("message") {
+            continue;
+        }
+
+        messages.push(payload.into_message(
+            parsed.timestamp.as_deref(),
+            format!("{}-{}", session_id, index),
+        ));
+        index += 1;
+    }
+
+    messages
 }
 
 #[cfg(test)]
@@ -435,10 +644,37 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    const SESSION_ID: &str = "11111111-2222-3333-4444-555555555555";
+
     fn create_test_adapter() -> (CodexAdapter, TempDir) {
         let temp_dir = TempDir::new().unwrap();
         let adapter = CodexAdapter::with_base_dir(temp_dir.path().to_path_buf());
         (adapter, temp_dir)
+    }
+
+    fn sample_rollout() -> String {
+        format!(
+            r#"{{"timestamp":"2026-02-03T09:57:42.068Z","type":"session_meta","payload":{{"id":"{id}","cwd":"/proj"}}}}
+{{"timestamp":"2026-02-03T09:57:43.000Z","type":"response_item","payload":{{"type":"message","role":"user","content":[{{"type":"input_text","text":"Build the feature"}}]}}}}
+{{"timestamp":"2026-02-03T09:57:44.000Z","type":"response_item","payload":{{"type":"message","role":"assistant","content":[{{"type":"output_text","text":"On it."}}]}}}}
+{{"timestamp":"2026-02-03T09:57:45.000Z","type":"event_msg","payload":{{}}}}"#,
+            id = SESSION_ID
+        )
+    }
+
+    /// Write a rollout payload at the real on-disk path shape.
+    async fn write_rollout(adapter: &CodexAdapter, contents: &str) -> PathBuf {
+        let path = adapter
+            .sessions_root()
+            .join("2026")
+            .join("02")
+            .join("03")
+            .join(format!("rollout-2026-02-03T09-57-42-{}.jsonl", SESSION_ID));
+        tokio::fs::create_dir_all(path.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(&path, contents).await.unwrap();
+        path
     }
 
     #[tokio::test]
@@ -451,131 +687,119 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_detect_with_mapping() {
+    async fn test_detect_with_index() {
         let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
-        // Create project mapping
-        let mapping = serde_json::json!({
-            "projects": {
-                project.to_string_lossy().to_string(): ["test-session"]
-            }
-        });
-        tokio::fs::write(adapter.project_mapping_file(), mapping.to_string())
-            .await
-            .unwrap();
-
-        // Create session directory
-        let session_dir = adapter.session_dir("test-session");
-        tokio::fs::create_dir_all(&session_dir).await.unwrap();
+        tokio::fs::write(
+            adapter.session_index_file(),
+            format!(
+                "{{\"id\":\"{id}\",\"thread_name\":\"T\",\"updated_at\":\"2026-02-03T09:57:42Z\"}}\n",
+                id = SESSION_ID
+            ),
+        )
+        .await
+        .unwrap();
 
         let detected = adapter.detect(project).await.unwrap();
         assert!(detected);
     }
 
     #[tokio::test]
-    async fn test_sessions_empty() {
+    async fn test_sessions_from_index() {
         let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
+        tokio::fs::write(
+            adapter.session_index_file(),
+            format!(
+                "{{\"id\":\"{id}\",\"thread_name\":\"Build the feature\",\"updated_at\":\"2026-02-03T09:57:42Z\"}}\n",
+                id = SESSION_ID
+            ),
+        )
+        .await
+        .unwrap();
+        write_rollout(&adapter, &sample_rollout()).await;
+
         let sessions = adapter.sessions(project).await.unwrap();
-        assert!(sessions.is_empty());
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].id, SESSION_ID);
+        assert_eq!(sessions[0].name, "Build the feature");
+        // Four non-empty lines in the rollout payload.
+        assert_eq!(sessions[0].message_count, 4);
     }
 
     #[tokio::test]
-    async fn test_sessions_with_data() {
+    async fn test_sessions_index_without_payload() {
         let (adapter, _temp) = create_test_adapter();
         let project = Path::new("/test/project");
 
-        // Create project mapping
+        // Index row present but payload missing -> still listed, count 0.
+        tokio::fs::write(
+            adapter.session_index_file(),
+            format!(
+                "{{\"id\":\"{id}\",\"thread_name\":\"Orphan\",\"updated_at\":\"2026-02-03T09:57:42Z\"}}\n",
+                id = SESSION_ID
+            ),
+        )
+        .await
+        .unwrap();
+
+        let sessions = adapter.sessions(project).await.unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].message_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_messages_from_payload() {
+        let (adapter, _temp) = create_test_adapter();
+        write_rollout(&adapter, &sample_rollout()).await;
+
+        let messages = adapter.messages(SESSION_ID).await.unwrap();
+        // Only the two `response_item`/`message` lines become messages.
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].role, Role::User);
+        assert_eq!(messages[0].content, "Build the feature");
+        assert_eq!(messages[1].role, Role::Assistant);
+        assert_eq!(messages[1].content, "On it.");
+    }
+
+    #[tokio::test]
+    async fn test_detect_legacy_project_mappings() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
         let mapping = serde_json::json!({
             "projects": {
-                project.to_string_lossy().to_string(): ["test-session"]
+                project.to_string_lossy().to_string(): ["legacy-session"]
             }
         });
         tokio::fs::write(adapter.project_mapping_file(), mapping.to_string())
             .await
             .unwrap();
-
-        // Create session with data
-        let session_dir = adapter.session_dir("test-session");
-        tokio::fs::create_dir_all(&session_dir).await.unwrap();
-
-        // Create metadata
-        let metadata = serde_json::json!({
-            "name": "Test Session",
-            "created_at": Utc::now().timestamp(),
-            "updated_at": Utc::now().timestamp(),
-            "total_usage": {
-                "prompt_tokens": 100,
-                "completion_tokens": 50
-            }
-        });
-        tokio::fs::write(adapter.metadata_file("test-session"), metadata.to_string())
+        tokio::fs::create_dir_all(adapter.session_dir("legacy-session"))
             .await
             .unwrap();
 
-        // Create conversation
-        let conversation = r#"{"role": "user", "content": "Hello", "timestamp": 1700000000}
-{"role": "assistant", "content": "Hi!", "timestamp": 1700000001}"#;
-        tokio::fs::write(adapter.conversation_file("test-session"), conversation)
-            .await
-            .unwrap();
-
-        let sessions = adapter.sessions(project).await.unwrap();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].name, "Test Session");
-        assert_eq!(sessions[0].message_count, 2);
+        let detected = adapter.detect(project).await.unwrap();
+        assert!(detected);
     }
 
     #[tokio::test]
-    async fn test_messages() {
+    async fn test_messages_legacy_conversation() {
         let (adapter, _temp) = create_test_adapter();
 
-        // Create session with data
-        let session_dir = adapter.session_dir("test-session");
+        let session_dir = adapter.session_dir("legacy-session");
         tokio::fs::create_dir_all(&session_dir).await.unwrap();
-
-        // Create conversation with content blocks
-        let conversation = r#"{"role": "user", "content": "Hello", "timestamp": 1700000000}
-{"role": "assistant", "content": "Hi there!", "timestamp": 1700000001, "model": "gpt-4", "usage": {"prompt_tokens": 10, "completion_tokens": 5}}"#;
-        tokio::fs::write(adapter.conversation_file("test-session"), conversation)
+        let conversation = r#"{"role":"user","content":"Hello","timestamp":1700000000}
+{"role":"assistant","content":"Hi!","timestamp":1700000001}"#;
+        tokio::fs::write(adapter.conversation_file("legacy-session"), conversation)
             .await
             .unwrap();
 
-        let messages = adapter.messages("test-session").await.unwrap();
+        let messages = adapter.messages("legacy-session").await.unwrap();
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0].role, Role::User);
         assert_eq!(messages[1].role, Role::Assistant);
-        assert_eq!(messages[1].model, Some("gpt-4".to_string()));
-        assert!(messages[1].tokens.is_some());
-        assert_eq!(messages[1].tokens.unwrap().total_tokens, 15);
-    }
-
-    #[tokio::test]
-    async fn test_usage_from_metadata() {
-        let (adapter, _temp) = create_test_adapter();
-
-        // Create session directory
-        let session_dir = adapter.session_dir("test-session");
-        tokio::fs::create_dir_all(&session_dir).await.unwrap();
-
-        // Create metadata with total usage
-        let metadata = serde_json::json!({
-            "name": "Test",
-            "created_at": Utc::now().timestamp(),
-            "updated_at": Utc::now().timestamp(),
-            "total_usage": {
-                "prompt_tokens": 500,
-                "completion_tokens": 200
-            }
-        });
-        tokio::fs::write(adapter.metadata_file("test-session"), metadata.to_string())
-            .await
-            .unwrap();
-
-        let usage = adapter.usage("test-session").await.unwrap();
-        assert!(usage.is_some());
-        assert_eq!(usage.unwrap().total_tokens, 700);
     }
 }
