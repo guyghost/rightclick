@@ -763,8 +763,8 @@ mod tests {
 
         let messages = adapter.messages("legacy-session").await.unwrap();
         assert_eq!(messages.len(), 2);
-       assert_eq!(messages[0].role, Role::User);
-       assert_eq!(messages[1].role, Role::Assistant);
+        assert_eq!(messages[0].role, Role::User);
+        assert_eq!(messages[1].role, Role::Assistant);
     }
 
     #[tokio::test]

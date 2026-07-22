@@ -493,12 +493,12 @@ mod tests {
     }
 
     #[test]
-   fn test_repo_status_default() {
-       let status = RepoStatus::default();
-       assert_eq!(status.branch, "main");
-       assert!(!status.is_dirty);
-       assert_eq!(status.ahead, 0);
-       assert_eq!(status.behind, 0);
+    fn test_repo_status_default() {
+        let status = RepoStatus::default();
+        assert_eq!(status.branch, "main");
+        assert!(!status.is_dirty);
+        assert_eq!(status.ahead, 0);
+        assert_eq!(status.behind, 0);
     }
 
     #[test]
@@ -521,12 +521,7 @@ mod tests {
 
     #[test]
     fn test_commit_serde_roundtrip() {
-        let commit = Commit::new(
-            "abcdef1234567890",
-            "feat: add tests",
-            "Alice",
-            Utc::now(),
-        );
+        let commit = Commit::new("abcdef1234567890", "feat: add tests", "Alice", Utc::now());
         let json = serde_json::to_string(&commit).unwrap();
         let back: Commit = serde_json::from_str(&json).unwrap();
         assert_eq!(commit, back);

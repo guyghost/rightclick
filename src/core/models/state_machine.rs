@@ -452,9 +452,9 @@ mod tests {
 
     #[test]
     fn test_state_machine_can_execute() {
-       let sm = StateMachine::new();
-       assert!(sm.can_execute(ActionId::Refresh));
-       assert!(!sm.can_execute(ActionId::Stage));
+        let sm = StateMachine::new();
+        assert!(sm.can_execute(ActionId::Refresh));
+        assert!(!sm.can_execute(ActionId::Stage));
     }
 
     #[test]

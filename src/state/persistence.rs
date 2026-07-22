@@ -225,7 +225,7 @@ mod tests {
             version: 999,
             ..State::default()
         };
-       assert!(migrate(bad_state).is_err());
+        assert!(migrate(bad_state).is_err());
     }
 
     #[test]
@@ -249,10 +249,13 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let path = temp_dir.path().join("state.json");
 
-        let mut state = State::default();
-        state.git_graph_enabled = false;
-        state.line_wrap_enabled = true;
-        state.active_plugins
+        let mut state = State {
+            git_graph_enabled: false,
+            line_wrap_enabled: true,
+            ..Default::default()
+        };
+        state
+            .active_plugins
             .insert("/proj".to_string(), "gitstatus".to_string());
 
         let json = serde_json::to_string_pretty(&state).unwrap();
@@ -283,10 +286,9 @@ mod tests {
         let path = temp_dir.path().join("state.json");
         fs::write(&path, "not json {{{").unwrap();
 
-        let result: Result<State> = serde_json::from_str::<State>(
-            &fs::read_to_string(&path).unwrap(),
-        )
-        .map_err(|e| anyhow::anyhow!("{}", e));
+        let result: Result<State> =
+            serde_json::from_str::<State>(&fs::read_to_string(&path).unwrap())
+                .map_err(|e| anyhow::anyhow!("{}", e));
         assert!(result.is_err());
     }
 }

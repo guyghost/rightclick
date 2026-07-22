@@ -127,9 +127,9 @@ mod tests {
         dispatcher.publish(Topic::All, Event::RefreshNeeded);
 
         // Event should be received
-       let event = sub.receiver.recv().await;
-       assert!(matches!(event, Some(Event::RefreshNeeded)));
-   }
+        let event = sub.receiver.recv().await;
+        assert!(matches!(event, Some(Event::RefreshNeeded)));
+    }
 
     #[tokio::test]
     async fn test_multiple_subscribers_all_receive() {
