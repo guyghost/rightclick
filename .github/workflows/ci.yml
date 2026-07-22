@@ -4,22 +4,67 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel stale runs on the same PR/branch to free up CI capacity.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
 
 jobs:
-  rust:
+  # Primary gate: formatting, clippy (-D warnings), and the full test suite.
+  # Mirrors `bash scripts/dev.sh ci` so local and CI run identical checks.
+  check:
+    name: fmt + clippy + test (ubuntu)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Install Rust (pinned to Cargo.toml rust-version)
         run: |
           RUST_VERSION="$(bash scripts/dev.sh rust-version)"
           rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt --component clippy
           rustup default "$RUST_VERSION"
+          rustc --version
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Run checks
+      - name: Verify Cargo.lock is in sync
+        run: cargo fetch --locked
+
+      - name: Run checks (fmt, clippy, tests)
         run: bash scripts/dev.sh ci
+
+  # Cross-platform compile gate. The project targets macOS (notify macos_fsevent,
+  # arboard clipboard) but CI lint/test runs on Linux; ensure it still builds on macOS.
+  build-macos:
+    name: build (macos)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (pinned to Cargo.toml rust-version)
+        run: |
+          RUST_VERSION="$(bash scripts/dev.sh rust-version)"
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup default "$RUST_VERSION"
+          rustc --version
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build all targets
+        run: cargo build --locked --all-targets
