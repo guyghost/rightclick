@@ -112,9 +112,9 @@ pub fn save_config(config: &Config) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::loader::load_from;
     use std::io::Read;
     use tempfile::TempDir;
-    use crate::config::loader::load_from;
 
     #[test]
     fn save_creates_file() {
@@ -179,7 +179,7 @@ mod tests {
         save_to(&config, &path).unwrap();
         let loaded: Config = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
-       assert_eq!(config, loaded);
+        assert_eq!(config, loaded);
     }
 
     #[test]

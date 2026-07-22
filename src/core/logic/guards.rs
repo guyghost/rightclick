@@ -382,11 +382,11 @@ mod tests {
             0,
         );
         let result = check_guard(&ctx);
-       assert!(matches!(
-           result,
-           GuardResult::Denied(GuardError::InvalidSelection { .. })
-       ));
-   }
+        assert!(matches!(
+            result,
+            GuardResult::Denied(GuardError::InvalidSelection { .. })
+        ));
+    }
 
     // --- Diff guard ---
 

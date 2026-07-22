@@ -799,8 +799,8 @@ mod tests {
 
         let messages = adapter.messages("legacy-session").await.unwrap();
         assert_eq!(messages.len(), 2);
-       assert_eq!(messages[0].role, Role::User);
-       assert_eq!(messages[1].role, Role::Assistant);
+        assert_eq!(messages[0].role, Role::User);
+        assert_eq!(messages[1].role, Role::Assistant);
     }
 
     #[tokio::test]
@@ -808,12 +808,11 @@ mod tests {
         let (adapter, _temp) = create_test_adapter();
 
         // Mix valid and corrupt lines — corrupt ones must be skipped
-        let rollout = format!(
-            r#"this is not json
-{{"timestamp":"2026-02-03T09:57:43.000Z","type":"response_item","payload":{{"type":"message","role":"user","content":[{{"type":"input_text","text":"valid"}}]}}}}
-{{"broken": }}
-{{"timestamp":"2026-02-03T09:57:44.000Z","type":"response_item","payload":{{"type":"message","role":"assistant","content":[{{"type":"output_text","text":"ok"}}]}}}}"#,
-        );
+        let rollout = r#"this is not json
+{"timestamp":"2026-02-03T09:57:43.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"valid"}]}}
+{"broken": }
+{"timestamp":"2026-02-03T09:57:44.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}}"#
+            .to_string();
         write_rollout(&adapter, &rollout).await;
 
         let messages = adapter.messages(SESSION_ID).await.unwrap();
@@ -878,12 +877,9 @@ mod tests {
             "updated_at": 1700000100i64,
             "total_usage": { "prompt_tokens": 500, "completion_tokens": 200 }
         });
-        tokio::fs::write(
-            adapter.metadata_file("usage-session"),
-            metadata.to_string(),
-        )
-        .await
-        .unwrap();
+        tokio::fs::write(adapter.metadata_file("usage-session"), metadata.to_string())
+            .await
+            .unwrap();
 
         let usage = adapter.usage("usage-session").await.unwrap();
         assert!(usage.is_some());

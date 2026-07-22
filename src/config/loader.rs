@@ -182,9 +182,9 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let path = temp_dir.path().join("config.json");
 
-       fs::write(&path, "invalid json {{{").unwrap();
+        fs::write(&path, "invalid json {{{").unwrap();
 
-       assert!(load_from(&path).is_err());
+        assert!(load_from(&path).is_err());
     }
 
     #[test]

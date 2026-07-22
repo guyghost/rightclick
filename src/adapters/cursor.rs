@@ -527,7 +527,7 @@ mod tests {
         assert!(tokens.is_none());
         assert_eq!(blocks.len(), 2);
         assert!(matches!(blocks[0], ContentBlock::Text { .. }));
-       assert!(matches!(blocks[1], ContentBlock::Code { .. }));
+        assert!(matches!(blocks[1], ContentBlock::Code { .. }));
     }
 
     #[test]
