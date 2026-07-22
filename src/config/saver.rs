@@ -114,6 +114,7 @@ mod tests {
     use super::*;
     use std::io::Read;
     use tempfile::TempDir;
+    use crate::config::loader::load_from;
 
     #[test]
     fn save_creates_file() {
@@ -178,6 +179,39 @@ mod tests {
         save_to(&config, &path).unwrap();
         let loaded: Config = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
+       assert_eq!(config, loaded);
+    }
+
+    #[test]
+    fn save_to_nested_directory() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir
+            .path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("config.json");
+
+        save_to(&Config::default(), &path).unwrap();
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn save_and_load_roundtrip_modified_config() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("config.json");
+
+        let mut config = Config::default();
+        config.ui.compact_mode = true;
+        config.ui.theme = "light".to_string();
+        config.plugins.git_status.refresh_interval = 10;
+
+        save_to(&config, &path).unwrap();
+        let loaded = load_from(&path).unwrap();
+
         assert_eq!(config, loaded);
+        assert!(loaded.ui.compact_mode);
+        assert_eq!(loaded.ui.theme, "light");
+        assert_eq!(loaded.plugins.git_status.refresh_interval, 10);
     }
 }

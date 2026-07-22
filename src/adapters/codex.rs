@@ -799,7 +799,97 @@ mod tests {
 
         let messages = adapter.messages("legacy-session").await.unwrap();
         assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0].role, Role::User);
-        assert_eq!(messages[1].role, Role::Assistant);
+       assert_eq!(messages[0].role, Role::User);
+       assert_eq!(messages[1].role, Role::Assistant);
+    }
+
+    #[tokio::test]
+    async fn test_messages_corrupt_lines_are_skipped() {
+        let (adapter, _temp) = create_test_adapter();
+
+        // Mix valid and corrupt lines — corrupt ones must be skipped
+        let rollout = format!(
+            r#"this is not json
+{{"timestamp":"2026-02-03T09:57:43.000Z","type":"response_item","payload":{{"type":"message","role":"user","content":[{{"type":"input_text","text":"valid"}}]}}}}
+{{"broken": }}
+{{"timestamp":"2026-02-03T09:57:44.000Z","type":"response_item","payload":{{"type":"message","role":"assistant","content":[{{"type":"output_text","text":"ok"}}]}}}}"#,
+        );
+        write_rollout(&adapter, &rollout).await;
+
+        let messages = adapter.messages(SESSION_ID).await.unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].content, "valid");
+        assert_eq!(messages[1].content, "ok");
+    }
+
+    #[tokio::test]
+    async fn test_messages_empty_payload_returns_empty() {
+        let (adapter, _temp) = create_test_adapter();
+
+        // Payload file exists but contains no response_item/message lines
+        let rollout = r#"{"timestamp":"2026-01-01T00:00:00Z","type":"session_meta","payload":{}}
+{"timestamp":"2026-01-01T00:00:01Z","type":"event_msg","payload":{}}"#;
+        write_rollout(&adapter, rollout).await;
+
+        let messages = adapter.messages(SESSION_ID).await.unwrap();
+        assert!(messages.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_messages_unknown_session_returns_empty() {
+        let (adapter, _temp) = create_test_adapter();
+
+        let messages = adapter.messages("nonexistent-id").await.unwrap();
+        assert!(messages.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_sessions_sorted_newest_first() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        // Two sessions with different updated_at timestamps
+        tokio::fs::write(
+            adapter.session_index_file(),
+            format!(
+                "{{\"id\":\"older-id\",\"thread_name\":\"Older\",\"updated_at\":\"2026-01-01T00:00:00Z\"}}\n{{\"id\":\"{id}\",\"thread_name\":\"Newer\",\"updated_at\":\"2026-06-01T00:00:00Z\"}}\n",
+                id = SESSION_ID
+            ),
+        )
+        .await
+        .unwrap();
+
+        let sessions = adapter.sessions(project).await.unwrap();
+        assert_eq!(sessions.len(), 2);
+        assert_eq!(sessions[0].name, "Newer");
+        assert_eq!(sessions[1].name, "Older");
+    }
+
+    #[tokio::test]
+    async fn test_usage_aggregated_from_messages() {
+        let (adapter, _temp) = create_test_adapter();
+
+        // Legacy metadata with usage
+        let session_dir = adapter.session_dir("usage-session");
+        tokio::fs::create_dir_all(&session_dir).await.unwrap();
+        let metadata = serde_json::json!({
+            "name": "Usage Session",
+            "created_at": 1700000000i64,
+            "updated_at": 1700000100i64,
+            "total_usage": { "prompt_tokens": 500, "completion_tokens": 200 }
+        });
+        tokio::fs::write(
+            adapter.metadata_file("usage-session"),
+            metadata.to_string(),
+        )
+        .await
+        .unwrap();
+
+        let usage = adapter.usage("usage-session").await.unwrap();
+        assert!(usage.is_some());
+        let usage = usage.unwrap();
+        assert_eq!(usage.prompt_tokens, 500);
+        assert_eq!(usage.completion_tokens, 200);
+        assert_eq!(usage.total_tokens, 700);
     }
 }

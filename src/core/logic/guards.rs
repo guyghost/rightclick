@@ -382,9 +382,199 @@ mod tests {
             0,
         );
         let result = check_guard(&ctx);
+       assert!(matches!(
+           result,
+           GuardResult::Denied(GuardError::InvalidSelection { .. })
+       ));
+   }
+
+    // --- Diff guard ---
+
+    #[test]
+    fn test_diff_requires_selection() {
+        let ctx = action_context(ActionId::Diff, None, ViewMode::Status);
         assert!(matches!(
-            result,
-            GuardResult::Denied(GuardError::InvalidSelection { .. })
+            check_guard(&ctx),
+            GuardResult::Denied(GuardError::NoSelection)
         ));
+    }
+
+    #[test]
+    fn test_diff_requires_status_mode() {
+        let ctx = full_action_context(
+            ActionId::Diff,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Branches,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert!(matches!(
+            check_guard(&ctx),
+            GuardResult::Denied(GuardError::WrongViewMode { .. })
+        ));
+    }
+
+    #[test]
+    fn test_diff_authorized_when_valid() {
+        let ctx = full_action_context(
+            ActionId::Diff,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Status,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert_eq!(check_guard(&ctx), GuardResult::Authorized);
+    }
+
+    // --- Commit / Push / Pull ---
+
+    #[test]
+    fn test_commit_push_pull_always_authorized() {
+        for action in [ActionId::Commit, ActionId::Push, ActionId::Pull] {
+            let ctx = action_context(action, None, ViewMode::Status);
+            assert_eq!(check_guard(&ctx), GuardResult::Authorized);
+        }
+    }
+
+    // --- DeleteBranch ---
+
+    #[test]
+    fn test_delete_branch_requires_selection() {
+        let ctx = action_context(ActionId::DeleteBranch, None, ViewMode::Branches);
+        assert!(matches!(
+            check_guard(&ctx),
+            GuardResult::Denied(GuardError::NoSelection)
+        ));
+    }
+
+    #[test]
+    fn test_delete_branch_requires_branches_mode() {
+        let ctx = full_action_context(
+            ActionId::DeleteBranch,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Status,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert!(matches!(
+            check_guard(&ctx),
+            GuardResult::Denied(GuardError::WrongViewMode { .. })
+        ));
+    }
+
+    #[test]
+    fn test_delete_branch_authorized_in_branches() {
+        let ctx = full_action_context(
+            ActionId::DeleteBranch,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Branches,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert_eq!(check_guard(&ctx), GuardResult::Authorized);
+    }
+
+    // --- StashDrop ---
+
+    #[test]
+    fn test_stash_drop_requires_selection() {
+        let ctx = action_context(ActionId::StashDrop, None, ViewMode::Stash);
+        assert!(matches!(
+            check_guard(&ctx),
+            GuardResult::Denied(GuardError::NoSelection)
+        ));
+    }
+
+    #[test]
+    fn test_stash_drop_authorized_in_stash_mode() {
+        let ctx = full_action_context(
+            ActionId::StashDrop,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Stash,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert_eq!(check_guard(&ctx), GuardResult::Authorized);
+    }
+
+    // --- Cancel in various states ---
+
+    #[test]
+    fn test_cancel_denied_in_ready() {
+        let ctx = full_action_context(
+            ActionId::Cancel,
+            ViewState::Ready,
+            None,
+            ViewMode::Status,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert!(matches!(
+            check_guard(&ctx),
+            GuardResult::Denied(GuardError::InvalidState { .. })
+        ));
+    }
+
+    #[test]
+    fn test_cancel_authorized_in_editing() {
+        let ctx = full_action_context(
+            ActionId::Cancel,
+            ViewState::Editing { index: 0 },
+            None,
+            ViewMode::Status,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert_eq!(check_guard(&ctx), GuardResult::Authorized);
+    }
+
+    // --- Always-authorized actions ---
+
+    #[test]
+    fn test_select_back_switch_always_authorized() {
+        for action in [
+            ActionId::Select,
+            ActionId::Back,
+            ActionId::SwitchMode(ViewMode::History),
+        ] {
+            let ctx = action_context(action, None, ViewMode::Status);
+            assert_eq!(check_guard(&ctx), GuardResult::Authorized);
+        }
+    }
+
+    // --- Unstage edge cases ---
+
+    #[test]
+    fn test_unstage_requires_status_mode() {
+        let ctx = full_action_context(
+            ActionId::Unstage,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::History,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert!(matches!(
+            check_guard(&ctx),
+            GuardResult::Denied(GuardError::WrongViewMode { .. })
+        ));
+    }
+
+    #[test]
+    fn test_unstage_authorized_when_valid() {
+        let ctx = full_action_context(
+            ActionId::Unstage,
+            ViewState::ItemSelected { index: 0 },
+            Some(0),
+            ViewMode::Status,
+            FocusPane::Sidebar,
+            5,
+        );
+        assert_eq!(check_guard(&ctx), GuardResult::Authorized);
     }
 }

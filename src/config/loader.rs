@@ -182,8 +182,45 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let path = temp_dir.path().join("config.json");
 
-        fs::write(&path, "invalid json {{{").unwrap();
+       fs::write(&path, "invalid json {{{").unwrap();
 
+       assert!(load_from(&path).is_err());
+    }
+
+    #[test]
+    fn load_empty_object_fails_missing_version() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("config.json");
+
+        // {} lacks required field `version`
+        fs::write(&path, "{}").unwrap();
         assert!(load_from(&path).is_err());
+    }
+
+    #[test]
+    fn load_minimal_valid_config_fills_sub_defaults() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("config.json");
+
+        // Sub-structs use #[serde(default)] so {} fills them
+        let json = r#"{"version":1,"projects":{"list":[]},"plugins":{},"ui":{},"keymap":{}}"#;
+        fs::write(&path, json).unwrap();
+
+        let config = load_from(&path).unwrap();
+        assert_eq!(config.version, 1);
+        assert!(config.plugins.git_status.enabled);
+        assert!(config.ui.show_clock);
+    }
+
+    #[test]
+    fn migrate_from_version_0_via_load_from() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("config.json");
+
+        let json = r#"{"version":0,"projects":{"list":[]},"plugins":{},"ui":{},"keymap":{}}"#;
+        fs::write(&path, json).unwrap();
+
+        let config = load_from(&path).unwrap();
+        assert_eq!(config.version, CURRENT_CONFIG_VERSION);
     }
 }

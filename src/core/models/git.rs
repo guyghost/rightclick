@@ -493,11 +493,83 @@ mod tests {
     }
 
     #[test]
-    fn test_repo_status_default() {
-        let status = RepoStatus::default();
-        assert_eq!(status.branch, "main");
-        assert!(!status.is_dirty);
-        assert_eq!(status.ahead, 0);
-        assert_eq!(status.behind, 0);
+   fn test_repo_status_default() {
+       let status = RepoStatus::default();
+       assert_eq!(status.branch, "main");
+       assert!(!status.is_dirty);
+       assert_eq!(status.ahead, 0);
+       assert_eq!(status.behind, 0);
+    }
+
+    #[test]
+    fn test_file_status_display_all_variants() {
+        assert_eq!(FileStatus::Renamed.to_string(), "Renamed");
+        assert_eq!(FileStatus::Deleted.to_string(), "Deleted");
+        assert_eq!(FileStatus::Ignored.to_string(), "Ignored");
+        assert_eq!(FileStatus::Clean.to_string(), "Clean");
+        assert_eq!(FileStatus::Conflicted.to_string(), "Conflicted");
+        assert_eq!(FileStatus::TypeChanged.to_string(), "TypeChanged");
+    }
+
+    #[test]
+    fn test_file_change_serde_roundtrip() {
+        let change = FileChange::renamed("old_name.rs", "new_name.rs");
+        let json = serde_json::to_string(&change).unwrap();
+        let back: FileChange = serde_json::from_str(&json).unwrap();
+        assert_eq!(change, back);
+    }
+
+    #[test]
+    fn test_commit_serde_roundtrip() {
+        let commit = Commit::new(
+            "abcdef1234567890",
+            "feat: add tests",
+            "Alice",
+            Utc::now(),
+        );
+        let json = serde_json::to_string(&commit).unwrap();
+        let back: Commit = serde_json::from_str(&json).unwrap();
+        assert_eq!(commit, back);
+    }
+
+    #[test]
+    fn test_file_diff_total_changes() {
+        let mut diff = FileDiff::new("src/main.rs");
+        diff.additions = 10;
+        diff.deletions = 3;
+        assert_eq!(diff.total_changes(), 13);
+    }
+
+    #[test]
+    fn test_file_change_is_unstaged_variants() {
+        assert!(FileChange::new("a", FileStatus::Deleted).is_unstaged());
+        assert!(FileChange::new("a", FileStatus::Untracked).is_unstaged());
+        assert!(!FileChange::new("a", FileStatus::Staged).is_unstaged());
+        assert!(!FileChange::new("a", FileStatus::Clean).is_unstaged());
+    }
+
+    #[test]
+    fn test_file_change_is_staged_renamed() {
+        let renamed = FileChange::renamed("a", "b");
+        assert!(renamed.is_staged());
+    }
+
+    #[test]
+    fn test_repo_status_serde_roundtrip() {
+        let status = RepoStatus {
+            branch: "develop".to_string(),
+            head: "abc123".to_string(),
+            is_dirty: true,
+            staged: vec![FileChange::new("a.rs", FileStatus::Staged)],
+            unstaged: vec![FileChange::new("b.rs", FileStatus::Modified)],
+            untracked: vec![],
+            conflicted: vec![FileChange::new("c.rs", FileStatus::Conflicted)],
+            ahead: 2,
+            behind: 1,
+            state: Some(RepoState::Rebasing),
+        };
+        let json = serde_json::to_string(&status).unwrap();
+        let back: RepoStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(status, back);
     }
 }

@@ -763,7 +763,114 @@ mod tests {
 
         let messages = adapter.messages("legacy-session").await.unwrap();
         assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0].role, Role::User);
-        assert_eq!(messages[1].role, Role::Assistant);
+       assert_eq!(messages[0].role, Role::User);
+       assert_eq!(messages[1].role, Role::Assistant);
+    }
+
+    #[tokio::test]
+    async fn test_messages_corrupt_lines_skipped() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+        let transcript = r#"this is not json
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Hello"}]}}
+{"broken":}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]}}"#;
+        tokio::fs::write(project_dir.join("corrupt.jsonl"), transcript)
+            .await
+            .unwrap();
+
+        let messages = adapter.messages("corrupt").await.unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].content, "Hello");
+        assert_eq!(messages[1].content, "Hi!");
+    }
+
+    #[tokio::test]
+    async fn test_messages_tool_use_and_result_blocks() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+        let transcript = r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"tool-1","name":"edit_file","input":{"file":"main.rs"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tool-1","content":"File updated"}]}}"#;
+        tokio::fs::write(project_dir.join("tools.jsonl"), transcript)
+            .await
+            .unwrap();
+
+        let messages = adapter.messages("tools").await.unwrap();
+        assert_eq!(messages.len(), 2);
+        // tool_use block should map to ContentBlock::ToolUse
+        assert_eq!(messages[0].content_blocks.len(), 1);
+        assert!(matches!(
+            messages[0].content_blocks[0],
+            ContentBlock::ToolUse { .. }
+        ));
+        // tool_result block maps to ContentBlock::ToolResult
+        assert!(matches!(
+            messages[1].content_blocks[0],
+            ContentBlock::ToolResult { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_messages_thinking_block_becomes_markdown() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+        let transcript = r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Let me plan this."},{"type":"text","text":"Done."}]}}"#;
+        tokio::fs::write(project_dir.join("think.jsonl"), transcript)
+            .await
+            .unwrap();
+
+        let messages = adapter.messages("think").await.unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].content_blocks.len(), 2);
+        assert!(matches!(
+            messages[0].content_blocks[0],
+            ContentBlock::Markdown { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_sessions_multi_transcript_ordering() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+
+        // Write two transcripts; both have identical content for deterministic ordering
+        tokio::fs::write(project_dir.join("aaa.jsonl"), sample_transcript())
+            .await
+            .unwrap();
+        tokio::fs::write(project_dir.join("bbb.jsonl"), sample_transcript())
+            .await
+            .unwrap();
+
+        let sessions = adapter.sessions(project).await.unwrap();
+        assert_eq!(sessions.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_usage_aggregated_from_messages() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let project_dir = adapter.project_dir(project);
+        tokio::fs::create_dir_all(&project_dir).await.unwrap();
+        tokio::fs::write(project_dir.join("usage.jsonl"), sample_transcript())
+            .await
+            .unwrap();
+
+        let usage = adapter.usage("usage").await.unwrap();
+        assert!(usage.is_some());
+        // sample_transcript assistant has input_tokens:12, output_tokens:34
+        assert_eq!(usage.unwrap().total_tokens, 46);
     }
 }

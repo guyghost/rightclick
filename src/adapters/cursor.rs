@@ -527,6 +527,60 @@ mod tests {
         assert!(tokens.is_none());
         assert_eq!(blocks.len(), 2);
         assert!(matches!(blocks[0], ContentBlock::Text { .. }));
-        assert!(matches!(blocks[1], ContentBlock::Code { .. }));
+       assert!(matches!(blocks[1], ContentBlock::Code { .. }));
+    }
+
+    #[test]
+    fn test_parse_cursor_metadata_combined_usage_and_blocks() {
+        let metadata = r##"{
+            "usage": {"prompt_tokens": 50, "completion_tokens": 25},
+            "content_blocks": [
+                {"type": "markdown", "content": "# Heading"},
+                {"type": "image", "source": "/img.png", "alt": "diagram"}
+            ]
+        }"##;
+
+        let (tokens, blocks) = parse_cursor_metadata(metadata);
+        assert_eq!(tokens.unwrap().total_tokens, 75);
+        assert_eq!(blocks.len(), 2);
+        assert!(matches!(blocks[0], ContentBlock::Markdown { .. }));
+        assert!(matches!(blocks[1], ContentBlock::Image { .. }));
+    }
+
+    #[test]
+    fn test_parse_cursor_metadata_invalid_json_returns_defaults() {
+        let (tokens, blocks) = parse_cursor_metadata("not json at all");
+        assert!(tokens.is_none());
+        assert!(blocks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_messages_with_metadata_and_usage() {
+        let (adapter, _temp) = create_test_adapter();
+        let project = Path::new("/test/project");
+
+        let db_path = adapter.db_path(project);
+        tokio::fs::create_dir_all(db_path.parent().unwrap())
+            .await
+            .unwrap();
+
+        {
+            let conn = create_test_db(&db_path);
+            conn.execute(
+                "INSERT INTO conversations (id, title, created_at, updated_at) VALUES ('c1','T',1700000000,1700000100)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO messages (id, conversation_id, role, content, created_at, model, metadata) VALUES ('m1','c1','assistant','reply',1700000050,'gpt-4','{\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":20}}')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let messages = adapter.messages("c1").await.unwrap();
+        assert_eq!(messages.len(), 1);
+        let usage = messages[0].tokens.as_ref().expect("should have usage");
+        assert_eq!(usage.total_tokens, 30);
     }
 }

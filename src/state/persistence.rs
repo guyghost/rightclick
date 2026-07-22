@@ -225,6 +225,68 @@ mod tests {
             version: 999,
             ..State::default()
         };
-        assert!(migrate(bad_state).is_err());
+       assert!(migrate(bad_state).is_err());
+    }
+
+    #[test]
+    fn save_and_load_roundtrip_via_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("state.json");
+
+        let state = State::default();
+        let json = serde_json::to_string_pretty(&state).unwrap();
+        fs::write(&path, &json).unwrap();
+
+        // Parse back — simulates load behavior
+        let contents = fs::read_to_string(&path).unwrap();
+        let loaded: State = serde_json::from_str(&contents).unwrap();
+
+        assert_eq!(state, loaded);
+    }
+
+    #[test]
+    fn save_and_load_roundtrip_modified_state() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("state.json");
+
+        let mut state = State::default();
+        state.git_graph_enabled = false;
+        state.line_wrap_enabled = true;
+        state.active_plugins
+            .insert("/proj".to_string(), "gitstatus".to_string());
+
+        let json = serde_json::to_string_pretty(&state).unwrap();
+        fs::write(&path, &json).unwrap();
+
+        let contents = fs::read_to_string(&path).unwrap();
+        let loaded: State = serde_json::from_str(&contents).unwrap();
+
+        assert_eq!(state, loaded);
+        assert!(!loaded.git_graph_enabled);
+        assert!(loaded.line_wrap_enabled);
+        assert_eq!(
+            loaded.active_plugins.get("/proj"),
+            Some(&"gitstatus".to_string())
+        );
+    }
+
+    #[test]
+    fn migrate_current_version_is_noop() {
+        let state = State::default();
+        let migrated = migrate(state.clone()).unwrap();
+        assert_eq!(state, migrated);
+    }
+
+    #[test]
+    fn parse_invalid_json_fails() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path().join("state.json");
+        fs::write(&path, "not json {{{").unwrap();
+
+        let result: Result<State> = serde_json::from_str::<State>(
+            &fs::read_to_string(&path).unwrap(),
+        )
+        .map_err(|e| anyhow::anyhow!("{}", e));
+        assert!(result.is_err());
     }
 }

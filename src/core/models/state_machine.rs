@@ -452,8 +452,79 @@ mod tests {
 
     #[test]
     fn test_state_machine_can_execute() {
-        let sm = StateMachine::new();
-        assert!(sm.can_execute(ActionId::Refresh));
-        assert!(!sm.can_execute(ActionId::Stage));
+       let sm = StateMachine::new();
+       assert!(sm.can_execute(ActionId::Refresh));
+       assert!(!sm.can_execute(ActionId::Stage));
+    }
+
+    #[test]
+    fn test_view_state_modal_constructor() {
+        let modal = ViewState::modal(ViewState::Ready);
+        assert!(modal.is_modal());
+    }
+
+    #[test]
+    fn test_view_state_error_constructor() {
+        let error = ViewState::error("disk full", ViewState::Ready);
+        assert!(error.is_error());
+    }
+
+    #[test]
+    fn test_state_context_new() {
+        let ctx = StateContext::new();
+        assert_eq!(ctx.focus_pane, FocusPane::Sidebar);
+        assert_eq!(ctx.view_mode, ViewMode::Status);
+        assert_eq!(ctx.item_count, 0);
+    }
+
+    #[test]
+    fn test_state_machine_with_context() {
+        let ctx = StateContext::for_history(20);
+        let sm = StateMachine::with_context(ctx);
+        assert_eq!(sm.current, ViewState::Initial);
+        assert_eq!(sm.context.item_count, 20);
+        assert_eq!(sm.context.view_mode, ViewMode::History);
+    }
+
+    #[test]
+    fn test_view_mode_display() {
+        assert_eq!(ViewMode::Status.to_string(), "Status");
+        assert_eq!(ViewMode::Diff.to_string(), "Diff");
+        assert_eq!(ViewMode::History.to_string(), "History");
+        assert_eq!(ViewMode::Branches.to_string(), "Branches");
+        assert_eq!(ViewMode::Stash.to_string(), "Stash");
+    }
+
+    #[test]
+    fn test_focus_pane_display() {
+        assert_eq!(FocusPane::Sidebar.to_string(), "Sidebar");
+        assert_eq!(FocusPane::Main.to_string(), "Main");
+    }
+
+    #[test]
+    fn test_available_actions_editing_state() {
+        let mut sm = StateMachine::new();
+        sm.current = ViewState::editing(0);
+        let actions = sm.available_actions();
+        assert!(actions.contains(&ActionId::Confirm));
+        assert!(actions.contains(&ActionId::Cancel));
+    }
+
+    #[test]
+    fn test_available_actions_modal_state() {
+        let mut sm = StateMachine::new();
+        sm.current = ViewState::modal(ViewState::Ready);
+        let actions = sm.available_actions();
+        assert!(actions.contains(&ActionId::Confirm));
+        assert!(actions.contains(&ActionId::NavigateUp));
+    }
+
+    #[test]
+    fn test_available_actions_error_state() {
+        let mut sm = StateMachine::new();
+        sm.current = ViewState::error("boom", ViewState::Ready);
+        let actions = sm.available_actions();
+        assert!(actions.contains(&ActionId::Confirm));
+        assert!(actions.contains(&ActionId::Back));
     }
 }

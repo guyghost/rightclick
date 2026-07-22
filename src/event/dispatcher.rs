@@ -127,7 +127,77 @@ mod tests {
         dispatcher.publish(Topic::All, Event::RefreshNeeded);
 
         // Event should be received
+       let event = sub.receiver.recv().await;
+       assert!(matches!(event, Some(Event::RefreshNeeded)));
+   }
+
+    #[tokio::test]
+    async fn test_multiple_subscribers_all_receive() {
+        let dispatcher = Dispatcher::new();
+        let mut sub_a = dispatcher.subscribe(Topic::All);
+        let mut sub_b = dispatcher.subscribe(Topic::All);
+
+        assert_eq!(dispatcher.subscriber_count(), 2);
+
+        dispatcher.publish(Topic::All, Event::GitChanged);
+
+        let event_a = sub_a.receiver.recv().await;
+        let event_b = sub_b.receiver.recv().await;
+        assert_eq!(event_a, Some(Event::GitChanged));
+        assert_eq!(event_b, Some(Event::GitChanged));
+    }
+
+    #[tokio::test]
+    async fn test_publish_all_delivers_to_subscribers() {
+        let dispatcher = Dispatcher::new();
+        let mut sub = dispatcher.subscribe(Topic::FileChanges);
+
+        dispatcher.publish_all(Event::ConfigChanged);
+
         let event = sub.receiver.recv().await;
-        assert!(matches!(event, Some(Event::RefreshNeeded)));
+        assert_eq!(event, Some(Event::ConfigChanged));
+    }
+
+    #[tokio::test]
+    async fn test_try_recv_returns_none_when_empty() {
+        let dispatcher = Dispatcher::new();
+        let mut sub = dispatcher.subscribe(Topic::All);
+
+        let result = sub.try_recv();
+        assert!(matches!(result, Ok(None)));
+    }
+
+    #[tokio::test]
+    async fn test_try_recv_returns_event_after_publish() {
+        let dispatcher = Dispatcher::new();
+        let mut sub = dispatcher.subscribe(Topic::All);
+
+        dispatcher.publish(Topic::All, Event::GitChanged);
+
+        // Small yield to let the channel deliver
+        tokio::task::yield_now().await;
+
+        let result = sub.try_recv();
+        assert!(matches!(result, Ok(Some(Event::GitChanged))));
+    }
+
+    #[test]
+    fn test_close_clears_subscribers() {
+        let dispatcher = Dispatcher::new();
+        let _sub_a = dispatcher.subscribe(Topic::All);
+        let _sub_b = dispatcher.subscribe(Topic::All);
+        assert_eq!(dispatcher.subscriber_count(), 2);
+
+        dispatcher.close();
+        assert_eq!(dispatcher.subscriber_count(), 0);
+    }
+
+    #[test]
+    fn test_with_capacity_works_like_new() {
+        let dispatcher = Dispatcher::with_capacity(64);
+        assert_eq!(dispatcher.subscriber_count(), 0);
+
+        let _sub = dispatcher.subscribe(Topic::All);
+        assert_eq!(dispatcher.subscriber_count(), 1);
     }
 }
