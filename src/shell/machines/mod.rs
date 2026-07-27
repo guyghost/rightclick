@@ -40,7 +40,8 @@
 
 mod git_state_machine;
 
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 use crate::core::logic::guards::check_guard;
 use crate::core::logic::navigation::{apply_navigation, calculate_navigation};
@@ -181,7 +182,7 @@ impl StateMachineExecutor {
     ///
     /// Returns a clone of the current view state.
     pub fn current_state(&self) -> ViewState {
-        let machine = self.machine.lock().unwrap();
+        let machine = self.machine.lock();
         machine.current.clone()
     }
 
@@ -189,7 +190,7 @@ impl StateMachineExecutor {
     ///
     /// Returns a clone of the current state context.
     pub fn context(&self) -> StateContext {
-        let machine = self.machine.lock().unwrap();
+        let machine = self.machine.lock();
         machine.context.clone()
     }
 
@@ -212,7 +213,7 @@ impl StateMachineExecutor {
     where
         F: FnOnce(&mut StateContext),
     {
-        let mut machine = self.machine.lock().unwrap();
+        let mut machine = self.machine.lock();
         updater(&mut machine.context);
     }
 
@@ -225,7 +226,7 @@ impl StateMachineExecutor {
     /// # Arguments
     /// * `count` - New number of items available
     pub fn set_item_count(&self, count: usize) {
-        let mut machine = self.machine.lock().unwrap();
+        let mut machine = self.machine.lock();
         machine.context.item_count = count;
 
         // Validate selected index is still valid
@@ -248,7 +249,7 @@ impl StateMachineExecutor {
     /// # Arguments
     /// * `index` - New selection index, or None to clear selection
     pub fn set_selected_index(&self, index: Option<usize>) {
-        let mut machine = self.machine.lock().unwrap();
+        let mut machine = self.machine.lock();
         let old_state = machine.current.clone();
 
         machine.context.selected_index = index;
@@ -283,7 +284,7 @@ impl StateMachineExecutor {
     pub fn handle_navigation(&self, direction: NavDirection) -> NavigationResult {
         // Calculate navigation using core logic
         let (result, new_state, old_state, new_index) = {
-            let machine = self.machine.lock().unwrap();
+            let machine = self.machine.lock();
             let result = calculate_navigation(direction, &machine.context);
             let new_state = apply_navigation(machine.current.clone(), &result);
 
@@ -301,7 +302,7 @@ impl StateMachineExecutor {
         // Apply changes and trigger callback if state changed
         if new_state != old_state {
             {
-                let mut machine = self.machine.lock().unwrap();
+                let mut machine = self.machine.lock();
                 machine.current = new_state.clone();
 
                 // Update selected index from navigation result
@@ -337,7 +338,7 @@ impl StateMachineExecutor {
     pub fn execute_action(&self, action: ActionId) -> ActionResult {
         // Build action context and check guard
         let guard_result = {
-            let machine = self.machine.lock().unwrap();
+            let machine = self.machine.lock();
             let action_ctx =
                 ActionContext::new(action, machine.current.clone(), machine.context.clone());
             check_guard(&action_ctx)
@@ -364,7 +365,7 @@ impl StateMachineExecutor {
     /// Some actions cause state transitions (e.g., Select transitions to ItemSelected).
     fn update_state_after_action(&self, action: ActionId) {
         let (old_state, new_state) = {
-            let mut machine = self.machine.lock().unwrap();
+            let mut machine = self.machine.lock();
             let old_state = machine.current.clone();
 
             let new_state = match action {
@@ -416,7 +417,7 @@ impl StateMachineExecutor {
     /// # Returns
     /// true if the action is authorized, false otherwise
     pub fn can_execute(&self, action: ActionId) -> bool {
-        let machine = self.machine.lock().unwrap();
+        let machine = self.machine.lock();
         let action_ctx =
             ActionContext::new(action, machine.current.clone(), machine.context.clone());
 
@@ -428,7 +429,7 @@ impl StateMachineExecutor {
     /// Returns the list of actions that are available in the current
     /// view state (not accounting for guard checks).
     pub fn available_actions(&self) -> Vec<ActionId> {
-        let machine = self.machine.lock().unwrap();
+        let machine = self.machine.lock();
         machine.available_actions()
     }
 

@@ -303,9 +303,7 @@ pub fn build_intent_from_spec(
     spec_path: PathBuf,
     fallback_id: Option<String>,
 ) -> Result<Intent, IntentParseError> {
-    let title = extract_title(&doc.content)
-        .or_else(|| Some("Untitled Intent".to_string()))
-        .unwrap();
+    let title = extract_title(&doc.content).unwrap_or_else(|| "Untitled Intent".to_string());
 
     let description = extract_description(&doc.content).unwrap_or_default();
     let acceptance_criteria = extract_acceptance_criteria(&doc.content);
