@@ -58,6 +58,10 @@ pub struct Intent {
 impl Intent {
     /// Create a new intent with the given title and spec path.
     ///
+    /// `id` and `now` are injected by the caller (the Shell) to keep the Core
+    /// pure and deterministic. The Core never generates UUIDs or reads the
+    /// system clock.
+    ///
     /// # Examples
     ///
     /// ```
@@ -68,15 +72,22 @@ impl Intent {
     ///     "Add JWT authentication",
     ///     PathBuf::from(".rightclick/intents/auth-jwt.md"),
     ///     "2026-02-14T10:00:00Z",
+    ///     "intent-abc",
     /// );
     /// assert_eq!(intent.title, "Add JWT authentication");
+    /// assert_eq!(intent.id, "intent-abc");
     /// assert_eq!(intent.status.to_string(), "draft");
     /// ```
-    pub fn new(title: impl Into<String>, spec_path: PathBuf, now: impl Into<String>) -> Self {
+    pub fn new(
+        title: impl Into<String>,
+        spec_path: PathBuf,
+        now: impl Into<String>,
+        id: impl Into<String>,
+    ) -> Self {
         let title = title.into();
         let now = now.into();
         Self {
-            id: format!("intent-{}", uuid::Uuid::new_v4()),
+            id: id.into(),
             title,
             description: String::new(),
             status: IntentStatus::Draft,
@@ -282,6 +293,9 @@ pub struct Worker {
 impl Worker {
     /// Create a new worker.
     ///
+    /// `id` and `now` are injected by the caller (the Shell) to keep the Core
+    /// pure and deterministic.
+    ///
     /// # Examples
     ///
     /// ```
@@ -297,9 +311,11 @@ impl Worker {
     ///     "claude",
     ///     PathBuf::from("/repo/.rightclick/logs/auth.log"),
     ///     "2026-02-14T10:00:00Z",
+    ///     "worker-xyz",
     /// );
     /// assert_eq!(worker.worker_type, WorkerType::Investigator);
     /// assert_eq!(worker.status.to_string(), "pending");
+    /// assert_eq!(worker.id, "worker-xyz");
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -311,9 +327,10 @@ impl Worker {
         agent: impl Into<String>,
         output_log: PathBuf,
         now: impl Into<String>,
+        id: impl Into<String>,
     ) -> Self {
         Self {
-            id: format!("worker-{}", uuid::Uuid::new_v4()),
+            id: id.into(),
             name: name.into(),
             worker_type,
             status: WorkerStatus::Pending,
@@ -613,6 +630,7 @@ mod tests {
             "Test Intent",
             PathBuf::from("test.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id",
         );
         assert_eq!(intent.title, "Test Intent");
         assert_eq!(intent.status, IntentStatus::Draft);
@@ -621,7 +639,12 @@ mod tests {
 
     #[test]
     fn test_intent_completion_percentage() {
-        let mut intent = Intent::new("Test", PathBuf::from("test.md"), "2026-02-14T10:00:00Z");
+        let mut intent = Intent::new(
+            "Test",
+            PathBuf::from("test.md"),
+            "2026-02-14T10:00:00Z",
+            "test-intent-id",
+        );
         assert_eq!(intent.completion_percentage(), 0);
 
         intent
@@ -650,6 +673,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log1"),
             "2026-02-14T10:00:00Z",
+            "worker-id-1",
         );
 
         let worker2 = Worker::new(
@@ -661,6 +685,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log2"),
             "2026-02-14T10:00:00Z",
+            "worker-id-2",
         )
         .depends_on(worker1.id.clone());
 
@@ -679,6 +704,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log"),
             "2026-02-14T10:00:00Z",
+            "worker-id-test",
         );
 
         assert_eq!(worker.status, WorkerStatus::Pending);

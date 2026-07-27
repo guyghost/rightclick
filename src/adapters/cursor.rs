@@ -165,6 +165,7 @@ impl Adapter for CursorAdapter {
                 &id,
                 title.unwrap_or_else(|| "Untitled".to_string()),
                 "cursor",
+                created_at,
             );
             session.created_at = created_at;
             session.updated_at = updated_at;

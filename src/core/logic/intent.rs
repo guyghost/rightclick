@@ -291,14 +291,17 @@ fn parse_criterion_line(line: &str) -> Option<Criterion> {
 /// "#;
 ///
 /// let doc = parse_spec_document(content).unwrap();
-/// let intent = build_intent_from_spec(doc, PathBuf::from("auth.md")).unwrap();
+/// let intent = build_intent_from_spec(doc, PathBuf::from("auth.md"), Some("intent-abc".to_string())).unwrap();
 ///
 /// assert_eq!(intent.title, "Add JWT Authentication");
 /// assert_eq!(intent.acceptance_criteria.len(), 3);
+/// // Frontmatter id takes precedence over the caller-provided fallback.
+/// assert_eq!(intent.id, "intent-123");
 /// ```
 pub fn build_intent_from_spec(
     doc: SpecDocument,
     spec_path: PathBuf,
+    fallback_id: Option<String>,
 ) -> Result<Intent, IntentParseError> {
     let title = extract_title(&doc.content)
         .or_else(|| Some("Untitled Intent".to_string()))
@@ -314,11 +317,17 @@ pub fn build_intent_from_spec(
         .or_else(|| doc.frontmatter.created.clone())
         .unwrap_or_else(|| "2026-01-01T00:00:00Z".to_string());
 
+    // The id is resolved in priority order: frontmatter → caller-provided
+    // fallback → error. The Core never generates ids itself.
+    let id = doc
+        .frontmatter
+        .id
+        .clone()
+        .or(fallback_id)
+        .ok_or_else(|| IntentParseError::MissingField("id".to_string()))?;
+
     Ok(Intent {
-        id: doc
-            .frontmatter
-            .id
-            .unwrap_or_else(|| format!("intent-{}", uuid::Uuid::new_v4())),
+        id,
         title,
         description,
         status: doc.frontmatter.status.unwrap_or(IntentStatus::Draft),
@@ -348,12 +357,13 @@ pub fn build_intent_from_spec(
 /// ```
 /// use rightclick::core::logic::intent::generate_default_spec;
 ///
-/// let content = generate_default_spec("Add Feature X", "2026-02-14T10:00:00Z");
+/// let content = generate_default_spec("Add Feature X", "2026-02-14T10:00:00Z", "abc123");
 /// assert!(content.contains("Add Feature X"));
 /// assert!(content.contains("## Description"));
 /// assert!(content.contains("## Acceptance Criteria"));
+/// assert!(content.contains("id: intent-abc123"));
 /// ```
-pub fn generate_default_spec(title: &str, now: &str) -> String {
+pub fn generate_default_spec(title: &str, now: &str, id_suffix: &str) -> String {
     format!(
         r#"---
 id: intent-{id}
@@ -385,7 +395,7 @@ Describe what needs to be implemented...
 
 Additional notes and considerations...
 "#,
-        id = uuid::Uuid::new_v4(),
+        id = id_suffix,
         now = now,
         title = title
     )
@@ -607,7 +617,7 @@ More content.
 
     #[test]
     fn test_generate_default_spec() {
-        let spec = generate_default_spec("Test Feature", "2026-02-14T10:00:00Z");
+        let spec = generate_default_spec("Test Feature", "2026-02-14T10:00:00Z", "test-suffix");
 
         assert!(spec.contains("# Test Feature"));
         assert!(spec.contains("## Description"));

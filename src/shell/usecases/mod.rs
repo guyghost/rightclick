@@ -20,6 +20,9 @@ use std::path::Path;
 use std::sync::Arc;
 use tracing::{debug, info, instrument};
 
+use crate::core::logic::project::{
+    build_project_config, find_existing_project, validate_project_path,
+};
 use crate::core::models::config::ProjectConfig;
 use crate::shell::repositories::{ConfigRepository, StateRepository};
 use crate::shell::services::GitService;
@@ -154,49 +157,27 @@ impl AppUsecase {
     pub async fn load_project(&self, path: &Path) -> Result<Project> {
         info!("Loading project");
 
-        // Validate path
-        if !path.exists() {
-            anyhow::bail!("Path does not exist: {}", path.display());
-        }
-        if !path.is_dir() {
-            anyhow::bail!("Path is not a directory: {}", path.display());
-        }
+        // 1. Validation delegated to the Core (pure).
+        validate_project_path(path).map_err(|err| anyhow::anyhow!(err))?;
 
-        // Load config to check if project already exists
+        // 2. Load config (I/O).
         let config = self
             .config_repo
             .load()
             .await
             .context("Failed to load configuration")?;
 
-        // Check if project already exists by path
-        let existing_project = config.projects.list.iter().find(|p| {
-            let project_path = std::path::Path::new(&p.path);
-            project_path == path
-        });
-
-        let project_config = if let Some(existing) = existing_project {
-            debug!("Found existing project: {}", existing.id);
-            existing.clone()
-        } else {
-            // Create new project config
-            let project_name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unnamed")
-                .to_string();
-
-            let project_id = format!("{}", uuid::Uuid::new_v4());
-
-            ProjectConfig {
-                id: project_id,
-                name: project_name,
-                path: path.to_string_lossy().to_string(),
-                description: None,
-                favorite: false,
-                tags: Vec::new(),
-            }
-        };
+        // 3. Pure lookup for an existing project by path.
+        let project_config =
+            if let Some(existing) = find_existing_project(&config.projects.list, path) {
+                debug!("Found existing project: {}", existing.id);
+                existing.clone()
+            } else {
+                // 4. ID generation belongs to the Shell (non-determinism lives here);
+                //    building the config is delegated to the pure Core.
+                let project_id = format!("{}", uuid::Uuid::new_v4());
+                build_project_config(project_id, path)
+            };
 
         let project = Project::new(project_config);
 

@@ -197,7 +197,7 @@ impl CodexAdapter {
                 0
             };
 
-            let mut session = Session::new(&session_id, name, self.id());
+            let mut session = Session::new(&session_id, name, self.id(), created_at);
             session.created_at = created_at;
             session.updated_at = updated_at;
             session.message_count = message_count;
@@ -303,7 +303,7 @@ impl Adapter for CodexAdapter {
                 None => (updated_at, 0),
             };
 
-            let mut session = Session::new(&row.id, name, self.id());
+            let mut session = Session::new(&row.id, name, self.id(), created_at);
             session.created_at = created_at;
             session.updated_at = updated_at;
             session.message_count = message_count;

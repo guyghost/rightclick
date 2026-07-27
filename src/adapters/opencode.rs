@@ -305,7 +305,7 @@ impl Adapter for OpenCodeAdapter {
             // Count messages in the session
             let message_count = self.count_messages(&session_id).await.unwrap_or(0);
 
-            let mut session = Session::new(&session_id, session_id.clone(), self.id());
+            let mut session = Session::new(&session_id, session_id.clone(), self.id(), created_at);
             session.created_at = created_at;
             session.updated_at = updated_at;
             session.message_count = message_count;

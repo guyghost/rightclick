@@ -311,7 +311,7 @@ mod tests {
         let adapter = MockAdapter {
             adapter_type: AdapterType::ClaudeCode,
         };
-        let session = Session::new("test-id", "Test Session", "claude-code");
+        let session = Session::new("test-id", "Test Session", "claude-code", chrono::Utc::now());
 
         let line = format_session_line(&session, &adapter, false);
         assert!(line.contains("Test Session"));
@@ -326,7 +326,8 @@ mod tests {
         let adapter = MockAdapter {
             adapter_type: AdapterType::ClaudeCode,
         };
-        let mut session = Session::new("test-id", "Test Session", "claude-code");
+        let mut session =
+            Session::new("test-id", "Test Session", "claude-code", chrono::Utc::now());
         session.message_count = 1;
 
         let line = format_session_line(&session, &adapter, false);

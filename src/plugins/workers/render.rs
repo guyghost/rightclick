@@ -1013,6 +1013,7 @@ mod tests {
             "Worker status polish",
             PathBuf::from("intents/status-polish.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-3",
         ));
         let theme = Theme::default();
 
@@ -1043,6 +1044,7 @@ mod tests {
             "Remove stale worker intent",
             PathBuf::from("intents/remove-stale-worker-intent.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-4",
         ));
         state.selected_intent = Some(0);
         state.modal_state = ModalState::DeleteConfirm;
@@ -1194,6 +1196,7 @@ mod tests {
             "Improve worker empty states",
             PathBuf::from(".rightclick/intents/empty-states.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-5",
         ));
         empty_state.selected_intent = None;
         assert_hint(&output_empty_message(&empty_state, 80));
@@ -1304,6 +1307,7 @@ mod tests {
             "Improve worker UX",
             PathBuf::from(".rightclick/intents/worker-ux.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-6",
         ));
         state.selected_intent = Some(0);
 
@@ -1337,6 +1341,7 @@ mod tests {
             "Improve worker navigation",
             PathBuf::from(".rightclick/intents/worker-navigation.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-7",
         ));
         state.selected_intent = None;
 
@@ -1426,6 +1431,7 @@ mod tests {
             "Clarify criteria navigation",
             PathBuf::from(".rightclick/intents/criteria-navigation.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-8",
         ));
         state.selected_intent = None;
 
@@ -1463,6 +1469,7 @@ mod tests {
             "Clarify worker acceptance criteria",
             PathBuf::from(".rightclick/intents/criteria.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-9",
         ));
         state.selected_intent = Some(0);
 
@@ -1501,6 +1508,7 @@ mod tests {
             "Improve output UX",
             PathBuf::from(".rightclick/intents/output-ux.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-10",
         ));
         state.selected_intent = None;
         state.preview_tab = PreviewTab::Output;
@@ -1537,6 +1545,7 @@ mod tests {
             "Improve output run state",
             PathBuf::from(".rightclick/intents/output-run.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-11",
         ));
         state.selected_intent = Some(0);
         state.preview_tab = PreviewTab::Output;
@@ -1578,6 +1587,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log1"),
             "2026-02-14T10:00:00Z",
+            "test-worker-id-12",
         );
         // w1 is Pending by default
 
@@ -1590,6 +1600,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log2"),
             "2026-02-14T10:00:00Z",
+            "test-worker-id-13",
         );
         w2.mark_running();
 
@@ -1602,6 +1613,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log3"),
             "2026-02-14T10:00:00Z",
+            "test-worker-id-14",
         );
         w3.mark_completed("2026-02-14T11:00:00Z");
 
@@ -1646,6 +1658,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log1"),
             "échéance-2026-05-26",
+            "test-worker-id-15",
         );
         state
             .workers
