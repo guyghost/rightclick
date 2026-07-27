@@ -108,7 +108,7 @@ impl ClaudeCodeAdapter {
                 0
             };
 
-            let mut session = Session::new(&session_id, name, self.id());
+            let mut session = Session::new(&session_id, name, self.id(), created_at);
             session.created_at = created_at;
             session.updated_at = updated_at;
             session.message_count = message_count;
@@ -189,7 +189,7 @@ impl Adapter for ClaudeCodeAdapter {
                 let name = first_user_text.unwrap_or_else(|| id.clone());
                 let (created_at, updated_at) = file_times(&path).await;
 
-                let mut session = Session::new(&id, name, self.id());
+                let mut session = Session::new(&id, name, self.id(), created_at);
                 session.created_at = created_at;
                 session.updated_at = updated_at;
                 session.message_count = message_count;

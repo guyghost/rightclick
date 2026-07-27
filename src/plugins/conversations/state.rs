@@ -501,7 +501,7 @@ mod tests {
     use super::*;
 
     fn create_test_session(id: &str, name: &str) -> Session {
-        Session::new(id, name, "test-adapter")
+        Session::new(id, name, "test-adapter", chrono::Utc::now())
     }
 
     #[test]

@@ -578,16 +578,19 @@ mod tests {
             "Intent 1",
             PathBuf::from("i1.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-3",
         )));
         state.intents.push(IntentEntry::new(Intent::new(
             "Intent 2",
             PathBuf::from("i2.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-4",
         )));
         state.intents.push(IntentEntry::new(Intent::new(
             "Intent 3",
             PathBuf::from("i3.md"),
             "2026-02-14T10:00:00Z",
+            "test-intent-id-5",
         )));
 
         // Initially no selection
@@ -610,7 +613,12 @@ mod tests {
     fn test_add_and_remove_intent() {
         let mut state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
 
-        let intent = Intent::new("Test", PathBuf::from("test.md"), "2026-02-14T10:00:00Z");
+        let intent = Intent::new(
+            "Test",
+            PathBuf::from("test.md"),
+            "2026-02-14T10:00:00Z",
+            "test-intent-id-6",
+        );
         let id = intent.id.clone();
 
         state.add_intent(intent);
@@ -632,6 +640,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log"),
             "2026-02-14T10:00:00Z",
+            "test-worker-id-10",
         );
 
         let mut entry = WorkerEntry::new(worker);
@@ -649,13 +658,28 @@ mod tests {
     fn test_intent_groups() {
         let mut state = PluginState::new(PathBuf::from("intents"), PathBuf::from("logs"));
 
-        let mut intent1 = Intent::new("Draft", PathBuf::from("d.md"), "2026-02-14T10:00:00Z");
+        let mut intent1 = Intent::new(
+            "Draft",
+            PathBuf::from("d.md"),
+            "2026-02-14T10:00:00Z",
+            "test-intent-id-7",
+        );
         intent1.status = IntentStatus::Draft;
 
-        let mut intent2 = Intent::new("Ready", PathBuf::from("r.md"), "2026-02-14T10:00:00Z");
+        let mut intent2 = Intent::new(
+            "Ready",
+            PathBuf::from("r.md"),
+            "2026-02-14T10:00:00Z",
+            "test-intent-id-8",
+        );
         intent2.status = IntentStatus::Ready;
 
-        let mut intent3 = Intent::new("In Progress", PathBuf::from("p.md"), "2026-02-14T10:00:00Z");
+        let mut intent3 = Intent::new(
+            "In Progress",
+            PathBuf::from("p.md"),
+            "2026-02-14T10:00:00Z",
+            "test-intent-id-9",
+        );
         intent3.status = IntentStatus::InProgress;
 
         state.add_intent(intent1);

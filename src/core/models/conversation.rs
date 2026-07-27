@@ -34,13 +34,16 @@ pub struct Session {
 }
 
 impl Session {
-    /// Create a new session with the given name and adapter
+    /// Create a new session with the given name and adapter.
+    ///
+    /// `now` is injected by the caller (the Shell) to keep the Core pure and
+    /// deterministic. The Core never reads the system clock.
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
         adapter_id: impl Into<String>,
+        now: DateTime<Utc>,
     ) -> Self {
-        let now = Utc::now();
         Self {
             id: id.into(),
             name: name.into(),
@@ -56,9 +59,9 @@ impl Session {
         }
     }
 
-    /// Update the updated_at timestamp to now
-    pub fn touch(&mut self) {
-        self.updated_at = Utc::now();
+    /// Update the updated_at timestamp to `now` (provided by the Shell).
+    pub fn touch(&mut self, now: DateTime<Utc>) {
+        self.updated_at = now;
     }
 
     /// Add a tag to the session
@@ -101,13 +104,13 @@ pub struct Message {
 }
 
 impl Message {
-    /// Create a new user message
-    pub fn user(id: impl Into<String>, content: impl Into<String>) -> Self {
+    /// Create a new user message at `now` (injected by the Shell for purity).
+    pub fn user(id: impl Into<String>, content: impl Into<String>, now: DateTime<Utc>) -> Self {
         Self {
             id: id.into(),
             role: Role::User,
             content: content.into(),
-            timestamp: Utc::now(),
+            timestamp: now,
             model: None,
             tool_uses: Vec::new(),
             content_blocks: Vec::new(),
@@ -117,13 +120,17 @@ impl Message {
         }
     }
 
-    /// Create a new assistant message
-    pub fn assistant(id: impl Into<String>, content: impl Into<String>) -> Self {
+    /// Create a new assistant message at `now` (injected by the Shell for purity).
+    pub fn assistant(
+        id: impl Into<String>,
+        content: impl Into<String>,
+        now: DateTime<Utc>,
+    ) -> Self {
         Self {
             id: id.into(),
             role: Role::Assistant,
             content: content.into(),
-            timestamp: Utc::now(),
+            timestamp: now,
             model: None,
             tool_uses: Vec::new(),
             content_blocks: Vec::new(),
@@ -133,13 +140,13 @@ impl Message {
         }
     }
 
-    /// Create a new system message
-    pub fn system(id: impl Into<String>, content: impl Into<String>) -> Self {
+    /// Create a new system message at `now` (injected by the Shell for purity).
+    pub fn system(id: impl Into<String>, content: impl Into<String>, now: DateTime<Utc>) -> Self {
         Self {
             id: id.into(),
             role: Role::System,
             content: content.into(),
-            timestamp: Utc::now(),
+            timestamp: now,
             model: None,
             tool_uses: Vec::new(),
             content_blocks: Vec::new(),
@@ -207,8 +214,13 @@ pub struct ToolUse {
 }
 
 impl ToolUse {
-    /// Create a new pending tool use
-    pub fn new(id: impl Into<String>, name: impl Into<String>, input: impl Into<String>) -> Self {
+    /// Create a new pending tool use invoked at `now` (injected by the Shell).
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        input: impl Into<String>,
+        now: DateTime<Utc>,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
@@ -216,23 +228,23 @@ impl ToolUse {
             output: None,
             is_success: None,
             error: None,
-            invoked_at: Utc::now(),
+            invoked_at: now,
             completed_at: None,
         }
     }
 
-    /// Mark the tool use as completed successfully
-    pub fn complete(&mut self, output: impl Into<String>) {
+    /// Mark the tool use as completed successfully at `now`.
+    pub fn complete(&mut self, output: impl Into<String>, now: DateTime<Utc>) {
         self.output = Some(output.into());
         self.is_success = Some(true);
-        self.completed_at = Some(Utc::now());
+        self.completed_at = Some(now);
     }
 
-    /// Mark the tool use as failed
-    pub fn fail(&mut self, error: impl Into<String>) {
+    /// Mark the tool use as failed at `now`.
+    pub fn fail(&mut self, error: impl Into<String>, now: DateTime<Utc>) {
         self.error = Some(error.into());
         self.is_success = Some(false);
-        self.completed_at = Some(Utc::now());
+        self.completed_at = Some(now);
     }
 
     /// Check if the tool use is still pending
@@ -512,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_session_new() {
-        let session = Session::new("uuid-123", "Test Session", "claude");
+        let session = Session::new("uuid-123", "Test Session", "claude", chrono::Utc::now());
         assert_eq!(session.id, "uuid-123");
         assert_eq!(session.name, "Test Session");
         assert_eq!(session.adapter_id, "claude");
@@ -522,7 +534,7 @@ mod tests {
 
     #[test]
     fn test_session_tags() {
-        let mut session = Session::new("id", "name", "adapter");
+        let mut session = Session::new("id", "name", "adapter", chrono::Utc::now());
         session.add_tag("work");
         session.add_tag("urgent");
         assert_eq!(session.tags.len(), 2);
@@ -538,7 +550,7 @@ mod tests {
 
     #[test]
     fn test_message_user() {
-        let msg = Message::user("msg-1", "Hello, world!");
+        let msg = Message::user("msg-1", "Hello, world!", chrono::Utc::now());
         assert_eq!(msg.role, Role::User);
         assert_eq!(msg.content, "Hello, world!");
         assert!(!msg.has_tool_uses());
@@ -546,7 +558,7 @@ mod tests {
 
     #[test]
     fn test_message_assistant() {
-        let msg = Message::assistant("msg-2", "Hello! How can I help?");
+        let msg = Message::assistant("msg-2", "Hello! How can I help?", chrono::Utc::now());
         assert_eq!(msg.role, Role::Assistant);
         assert_eq!(msg.content, "Hello! How can I help?");
     }
@@ -560,18 +572,19 @@ mod tests {
 
     #[test]
     fn test_tool_use_lifecycle() {
-        let mut tool = ToolUse::new("tool-1", "read_file", r#"{"path": "main.rs"}"#);
+        let now = chrono::Utc::now();
+        let mut tool = ToolUse::new("tool-1", "read_file", r#"{"path": "main.rs"}"#, now);
         assert!(tool.is_pending());
         assert!(!tool.is_success());
 
-        tool.complete("file content here");
+        tool.complete("file content here", now);
         assert!(!tool.is_pending());
         assert!(tool.is_success());
         assert!(tool.output.is_some());
         assert!(tool.completed_at.is_some());
 
-        let mut failed_tool = ToolUse::new("tool-2", "write_file", r#"{}"#);
-        failed_tool.fail("permission denied");
+        let mut failed_tool = ToolUse::new("tool-2", "write_file", r#"{}"#, now);
+        failed_tool.fail("permission denied", now);
         assert!(!failed_tool.is_success());
         assert!(failed_tool.error.is_some());
     }

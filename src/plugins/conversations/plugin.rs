@@ -1141,6 +1141,7 @@ mod tests {
                 "session-1",
                 "Shortcut parity",
                 "test-adapter",
+                chrono::Utc::now(),
             ),
             &adapter,
         )]);
@@ -1235,8 +1236,12 @@ mod tests {
         let mut plugin = ConversationsPlugin::new(registry);
         plugin.state_mut().view = ConversationView::Conversation;
         plugin.state_mut().set_messages(vec![
-            crate::core::models::conversation::Message::user("msg-1", "First"),
-            crate::core::models::conversation::Message::assistant("msg-2", "Second"),
+            crate::core::models::conversation::Message::user("msg-1", "First", chrono::Utc::now()),
+            crate::core::models::conversation::Message::assistant(
+                "msg-2",
+                "Second",
+                chrono::Utc::now(),
+            ),
         ]);
         plugin.state_mut().expand_all_messages();
 
@@ -1272,6 +1277,7 @@ mod tests {
                 "session-1",
                 "Title polish",
                 "test-adapter",
+                chrono::Utc::now(),
             ),
             &adapter,
         )]);
@@ -1306,6 +1312,7 @@ mod tests {
                 "session-1",
                 "Investigate render bug",
                 "test-adapter",
+                chrono::Utc::now(),
             ),
             &adapter,
         )]);
@@ -1326,6 +1333,7 @@ mod tests {
             "session-1",
             "Single message",
             "test-adapter",
+            chrono::Utc::now(),
         );
         session.message_count = 1;
         session.total_tokens = Some(1);
@@ -1354,6 +1362,7 @@ mod tests {
                     "session-1",
                     "First",
                     "test-adapter",
+                    chrono::Utc::now(),
                 ),
                 &adapter,
             ),
@@ -1362,6 +1371,7 @@ mod tests {
                     "session-2",
                     "Second",
                     "test-adapter",
+                    chrono::Utc::now(),
                 ),
                 &adapter,
             ),
@@ -1392,12 +1402,14 @@ mod tests {
             "session-1",
             "Render bug",
             "test-adapter",
+            chrono::Utc::now(),
         );
         first.message_count = 3;
         let mut second = crate::core::models::conversation::Session::new(
             "session-2",
             "CLI polish",
             "test-adapter",
+            chrono::Utc::now(),
         );
         second.message_count = 5;
         let mut plugin = ConversationsPlugin::new(registry);
@@ -1420,11 +1432,19 @@ mod tests {
     fn test_status_line_names_adapter_filter() {
         let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
         let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
-        let mut first =
-            crate::core::models::conversation::Session::new("session-1", "Render bug", "codex");
+        let mut first = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Render bug",
+            "codex",
+            chrono::Utc::now(),
+        );
         first.message_count = 3;
-        let mut second =
-            crate::core::models::conversation::Session::new("session-2", "CLI polish", "codex");
+        let mut second = crate::core::models::conversation::Session::new(
+            "session-2",
+            "CLI polish",
+            "codex",
+            chrono::Utc::now(),
+        );
         second.message_count = 5;
         let mut plugin = ConversationsPlugin::new(registry);
         plugin.state_mut().set_sessions(vec![
@@ -1446,8 +1466,12 @@ mod tests {
     fn test_status_line_uses_singular_session_and_message_counts() {
         let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
         let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
-        let mut session =
-            crate::core::models::conversation::Session::new("session-1", "Render bug", "codex");
+        let mut session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Render bug",
+            "codex",
+            chrono::Utc::now(),
+        );
         session.message_count = 1;
         let mut plugin = ConversationsPlugin::new(registry);
         plugin
@@ -1464,8 +1488,12 @@ mod tests {
     fn test_status_line_omits_zero_message_count() {
         let registry = Arc::new(RwLock::new(AdapterRegistry::new()));
         let adapter: Arc<dyn Adapter> = Arc::new(TestAdapter);
-        let session =
-            crate::core::models::conversation::Session::new("session-1", "Render bug", "codex");
+        let session = crate::core::models::conversation::Session::new(
+            "session-1",
+            "Render bug",
+            "codex",
+            chrono::Utc::now(),
+        );
         let mut plugin = ConversationsPlugin::new(registry);
         plugin
             .state_mut()

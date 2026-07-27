@@ -106,7 +106,7 @@ impl Adapter for GeminiAdapter {
                 })
                 .unwrap_or_else(Utc::now);
 
-            let mut session = Session::new(&session_id, session_id.clone(), self.id());
+            let mut session = Session::new(&session_id, session_id.clone(), self.id(), created_at);
             session.created_at = created_at;
             session.updated_at = updated_at;
 

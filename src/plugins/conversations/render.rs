@@ -1110,6 +1110,7 @@ mod tests {
             "session-1",
             "Render polish",
             "test-adapter",
+            chrono::Utc::now(),
         );
         session.message_count = 2;
         state.set_sessions(vec![SessionInfo {
@@ -1141,6 +1142,7 @@ mod tests {
             "session-1",
             "Token polish",
             "test-adapter",
+            chrono::Utc::now(),
         );
         session.message_count = 1;
         session.total_tokens = Some(999);
@@ -1173,6 +1175,7 @@ mod tests {
             "session-1",
             "Stats polish",
             "test-adapter",
+            chrono::Utc::now(),
         );
         session.message_count = 1;
         state.set_sessions(vec![SessionInfo {
@@ -1231,6 +1234,7 @@ mod tests {
             "session-1",
             "Sidebar polish",
             "test-adapter",
+            chrono::Utc::now(),
         );
         state.set_sessions(vec![SessionInfo {
             session,
@@ -1261,6 +1265,7 @@ mod tests {
             "session-1",
             "Search polish",
             "test-adapter",
+            chrono::Utc::now(),
         );
         state.set_sessions(vec![SessionInfo {
             session,
@@ -1349,6 +1354,7 @@ mod tests {
             "session-1",
             "Render polish",
             "test-adapter",
+            chrono::Utc::now(),
         );
         state.set_sessions(vec![SessionInfo {
             session,
@@ -1359,8 +1365,12 @@ mod tests {
         state.selected_session = Some(0);
         state.view = ConversationView::Conversation;
         state.messages = vec![
-            crate::core::models::conversation::Message::user("msg-1", "First"),
-            crate::core::models::conversation::Message::assistant("msg-2", "Second"),
+            crate::core::models::conversation::Message::user("msg-1", "First", chrono::Utc::now()),
+            crate::core::models::conversation::Message::assistant(
+                "msg-2",
+                "Second",
+                chrono::Utc::now(),
+            ),
         ];
         let theme = Theme::default();
         let area = Rect::new(0, 0, 120, 30);

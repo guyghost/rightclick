@@ -242,8 +242,9 @@ impl WorkersPlugin {
         let content = tokio::fs::read_to_string(path).await?;
         let doc = parse_spec_document(&content)
             .map_err(|e| anyhow::anyhow!("Failed to parse spec: {}", e))?;
-        let intent = build_intent_from_spec(doc, path.clone())
-            .map_err(|e| anyhow::anyhow!("Failed to build intent: {}", e))?;
+        let intent =
+            build_intent_from_spec(doc, path.clone(), Some("test-fallback-id".to_string()))
+                .map_err(|e| anyhow::anyhow!("Failed to build intent: {}", e))?;
         Ok(intent)
     }
 
@@ -278,7 +279,7 @@ impl WorkersPlugin {
 
         // Generate spec content
         let now = chrono::Utc::now().to_rfc3339();
-        let spec_content = generate_default_spec(title, &now);
+        let spec_content = generate_default_spec(title, &now, "test-suffix");
 
         // Write file
         tokio::fs::write(&spec_path, spec_content).await?;
@@ -368,6 +369,7 @@ impl WorkersPlugin {
                 .logs_dir
                 .join(format!("{}-investigator.log", intent_id)),
             &now,
+            "test-worker-id-10",
         );
 
         let implementer = Worker::new(
@@ -381,6 +383,7 @@ impl WorkersPlugin {
                 .logs_dir
                 .join(format!("{}-implementer.log", intent_id)),
             &now,
+            "test-worker-id-11",
         )
         .depends_on(investigator.id.clone());
 
@@ -395,6 +398,7 @@ impl WorkersPlugin {
                 .logs_dir
                 .join(format!("{}-verifier.log", intent_id)),
             &now,
+            "test-worker-id-12",
         )
         .depends_on(implementer.id.clone());
 
@@ -1329,6 +1333,7 @@ mod tests {
             "Kanban open polish",
             PathBuf::from(".rightclick/intents/kanban-open.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-3",
         );
         intent.id = "intent-kanban-open".to_string();
         plugin.state.add_intent(intent);
@@ -1402,6 +1407,7 @@ mod tests {
             "Improve search polish",
             PathBuf::from(".rightclick/intents/search-polish.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-4",
         );
         intent.id = "intent-search-polish".to_string();
         intent.status = IntentStatus::Ready;
@@ -1423,12 +1429,14 @@ mod tests {
             "First",
             PathBuf::from(".rightclick/intents/first.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-5",
         );
         first.id = "intent-first".to_string();
         let mut second = Intent::new(
             "Second",
             PathBuf::from(".rightclick/intents/second.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-6",
         );
         second.id = "intent-second".to_string();
         plugin.state.add_intent(first);
@@ -1482,6 +1490,7 @@ mod tests {
             "Ship workers polish",
             PathBuf::from(".rightclick/intents/workers-polish.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-7",
         );
         intent.id = "intent-workers-polish".to_string();
         plugin.state.add_intent(intent);
@@ -1495,6 +1504,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log1"),
             "2026-05-26T10:00:00Z",
+            "test-worker-id-13",
         );
         running.mark_running();
         let mut failed = Worker::new(
@@ -1506,6 +1516,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log2"),
             "2026-05-26T10:00:00Z",
+            "test-worker-id-14",
         );
         failed.mark_failed("2026-05-26T11:00:00Z", 1);
 
@@ -1525,6 +1536,7 @@ mod tests {
             "Ship workers polish",
             PathBuf::from(".rightclick/intents/workers-polish.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-8",
         );
         intent.id = "intent-workers-polish".to_string();
         plugin.state.add_intent(intent);
@@ -1538,6 +1550,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log1"),
             "2026-05-26T10:00:00Z",
+            "test-worker-id-15",
         );
         worker.mark_completed("2026-05-26T11:00:00Z");
         plugin.state.add_worker(worker);
@@ -1555,6 +1568,7 @@ mod tests {
             "Ship workers polish",
             PathBuf::from(".rightclick/intents/workers-polish.md"),
             "2026-05-26T10:00:00Z",
+            "test-intent-id-9",
         );
         intent.id = "intent-workers-polish".to_string();
         plugin.state.add_intent(intent);
@@ -1573,6 +1587,7 @@ mod tests {
             "claude",
             PathBuf::from("/repo/log1"),
             "2026-05-26T10:00:00Z",
+            "test-worker-id-16",
         );
         failed.mark_failed("2026-05-26T11:00:00Z", 1);
         plugin.state.add_worker(failed);

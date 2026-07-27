@@ -76,8 +76,8 @@ mod tests {
             favorite: false,
             tags: vec![],
         };
-        let _: Session = Session::new("id", "name", "adapter");
-        let _: Message = Message::user("id", "content");
+        let _: Session = Session::new("id", "name", "adapter", chrono::Utc::now());
+        let _: Message = Message::user("id", "content", chrono::Utc::now());
         let _: FileStatus = FileStatus::Modified;
         let _: Role = Role::User;
     }

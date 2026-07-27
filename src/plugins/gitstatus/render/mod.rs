@@ -12,20 +12,22 @@ use ratatui::{
 };
 
 use crate::core::models::Theme;
-use crate::core::models::{ChangeType, Diff, FileChange, FileDiff, FileStatus};
+use crate::core::models::{ChangeType, Diff, FileDiff};
 use crate::theme::{UiElement, style_for_git_status, style_for_ui_element};
-use crate::ui::{count_label, global_hint_message, nonzero_count_label, truncate_display};
+use crate::ui::{count_label, nonzero_count_label};
 
 use super::state::{FocusPane, PluginState, ViewMode};
 
-const GIT_DELETE_BRANCH_MODAL_HINT: &str = "Enter/D: Delete  |  Esc: Cancel";
-const GIT_DROP_STASH_MODAL_HINT: &str = "Enter/D: Drop  |  Esc: Cancel";
-const GIT_CANCEL_MODAL_HINT: &str = "Esc: Cancel";
-const GIT_ERROR_MODAL_HINT: &str = "Esc: Close";
-const GIT_MODAL_WIDTH: u16 = 50;
-const GIT_MODAL_HEIGHT: u16 = 7;
-const MIN_GIT_MODAL_WIDTH: u16 = 20;
-const MIN_GIT_MODAL_HEIGHT: u16 = 5;
+mod empty_messages;
+mod lines;
+mod modals;
+mod time_fmt;
+
+use empty_messages::*;
+use lines::{build_commit_line, build_file_line, build_section_header};
+use modals::*;
+use time_fmt::{count_title, format_relative_time};
+
 /// Render the git status plugin
 pub fn render_git_status(
     state: &PluginState,
@@ -476,42 +478,6 @@ fn render_commit_list(
 }
 
 /// Format relative time (e.g., "18 mins ago")
-fn format_relative_time(date: &chrono::DateTime<chrono::Utc>) -> String {
-    let now = chrono::Utc::now();
-    let duration = now.signed_duration_since(*date);
-
-    if duration.num_minutes() < 1 {
-        "just now".to_string()
-    } else if duration.num_minutes() < 60 {
-        relative_time_label(duration.num_minutes(), "min", "mins")
-    } else if duration.num_hours() < 24 {
-        relative_time_label(duration.num_hours(), "hour", "hours")
-    } else if duration.num_days() < 7 {
-        relative_time_label(duration.num_days(), "day", "days")
-    } else {
-        date.format("%Y-%m-%d").to_string()
-    }
-}
-
-fn relative_time_label(count: i64, singular: &str, plural: &str) -> String {
-    format!("{} ago", count_label(count as usize, singular, plural))
-}
-
-fn count_title(
-    singular: &str,
-    plural: &str,
-    count: usize,
-    unit_singular: &str,
-    unit_plural: &str,
-) -> String {
-    let title = if count == 1 { singular } else { plural };
-    format!(
-        " {} ({}) ",
-        title,
-        count_label(count, unit_singular, unit_plural)
-    )
-}
-
 /// Render commit details panel
 fn render_commit_details(
     state: &PluginState,
@@ -724,101 +690,7 @@ fn render_commit_details(
 }
 
 /// Build a section header line
-fn build_section_header<'a>(name: &'a str, _theme: &'a Theme, color: &'a str) -> Line<'a> {
-    use ratatui::style::Color;
-    use std::str::FromStr;
-
-    let color = Color::from_str(color).unwrap_or(ratatui::style::Color::Gray);
-    let style = Style::default().fg(color).add_modifier(Modifier::BOLD);
-
-    Line::from(vec![Span::styled(
-        format!("{} ({})", name, name.to_lowercase()),
-        style,
-    )])
-}
-
 /// Build a line for a file entry
-fn build_file_line<'a>(file: &'a FileChange, is_selected: bool, theme: &'a Theme) -> Line<'a> {
-    let status_char = match file.status {
-        FileStatus::Staged => "S",
-        FileStatus::Modified => "M",
-        FileStatus::Untracked => "?",
-        FileStatus::Deleted => "D",
-        FileStatus::Renamed => "R",
-        FileStatus::Conflicted => "!",
-        _ => " ",
-    };
-
-    let status_style = match file.status {
-        FileStatus::Staged => style_for_git_status(theme, "staged"),
-        FileStatus::Modified => style_for_git_status(theme, "modified"),
-        FileStatus::Untracked => style_for_git_status(theme, "untracked"),
-        FileStatus::Deleted => style_for_git_status(theme, "deleted"),
-        FileStatus::Renamed => style_for_git_status(theme, "modified"),
-        FileStatus::Conflicted => style_for_ui_element(theme, UiElement::Error),
-        _ => style_for_ui_element(theme, UiElement::Text),
-    };
-
-    let path_style = if is_selected {
-        style_for_ui_element(theme, UiElement::ActiveItem)
-    } else {
-        style_for_ui_element(theme, UiElement::Text)
-    };
-
-    let mut spans = vec![
-        Span::styled(format!(" {} ", status_char), status_style),
-        Span::styled(file.path.clone(), path_style),
-    ];
-
-    // Add change counts if available
-    if let (Some(adds), Some(dels)) = (file.additions, file.deletions) {
-        if adds > 0 || dels > 0 {
-            spans.push(Span::raw(" "));
-            if adds > 0 {
-                spans.push(Span::styled(
-                    format!("+{}", adds),
-                    style_for_git_status(theme, "added"),
-                ));
-            }
-            if dels > 0 {
-                spans.push(Span::styled(
-                    format!("-{}", dels),
-                    style_for_git_status(theme, "deleted"),
-                ));
-            }
-        }
-    }
-
-    Line::from(spans)
-}
-
-fn build_commit_line<'a>(
-    hash: &'a str,
-    subject: &'a str,
-    is_selected: bool,
-    theme: &'a Theme,
-) -> Line<'a> {
-    let hash_style = if is_selected {
-        style_for_ui_element(theme, UiElement::ActiveItem)
-    } else {
-        style_for_ui_element(theme, UiElement::Secondary)
-    };
-
-    let subject_style = if is_selected {
-        style_for_ui_element(theme, UiElement::ActiveItem)
-    } else {
-        style_for_ui_element(theme, UiElement::Text)
-    };
-
-    let arrow = if is_selected { "▸ " } else { "  " };
-
-    Line::from(vec![
-        Span::styled(arrow, hash_style),
-        Span::styled(format!("{} ", hash), hash_style),
-        Span::styled(subject.to_string(), subject_style),
-    ])
-}
-
 /// Calculate scroll offset to keep selection visible
 fn calculate_scroll_offset(
     total_lines: usize,
@@ -1134,131 +1006,6 @@ fn render_stash_details(
 }
 
 /// Render a modal overlay
-fn render_modal_overlay(state: &PluginState, area: Rect, buf: &mut Buffer, theme: &Theme) {
-    let Some(ref modal) = state.active_modal else {
-        return;
-    };
-
-    let Some(modal_area) = git_modal_area(area) else {
-        return;
-    };
-
-    // Clear the area
-    for row in modal_area.top()..modal_area.bottom() {
-        for col in modal_area.left()..modal_area.right() {
-            if let Some(cell) = buf.cell_mut((col, row)) {
-                cell.set_char(' ');
-                cell.set_style(Style::default());
-            }
-        }
-    }
-
-    let (title, body) = match modal {
-        super::state::GitModal::CommitMessage => ("Commit", "Enter commit message..."),
-        super::state::GitModal::CreateBranch => ("Create Branch", "Enter branch name..."),
-        super::state::GitModal::DeleteBranch { name } => {
-            // Can't return a reference to a temporary, so handle inline
-            let block = Block::default()
-                .title(" Delete Branch ")
-                .borders(Borders::ALL)
-                .border_style(style_for_ui_element(theme, UiElement::Error));
-            let inner = block.inner(modal_area);
-            block.render(modal_area, buf);
-
-            let text = Paragraph::new(vec![
-                Line::styled(
-                    format!("Delete branch '{}'?", name),
-                    style_for_ui_element(theme, UiElement::Text),
-                ),
-                Line::raw(""),
-                Line::styled(
-                    GIT_DELETE_BRANCH_MODAL_HINT,
-                    style_for_ui_element(theme, UiElement::MutedText),
-                ),
-            ]);
-            text.render(inner, buf);
-            return;
-        }
-        super::state::GitModal::DropStash { index } => {
-            let block = Block::default()
-                .title(" Drop Stash ")
-                .borders(Borders::ALL)
-                .border_style(style_for_ui_element(theme, UiElement::Error));
-            let inner = block.inner(modal_area);
-            block.render(modal_area, buf);
-
-            let text = Paragraph::new(vec![
-                Line::styled(
-                    format!("Drop stash@{{{}}}?", index),
-                    style_for_ui_element(theme, UiElement::Text),
-                ),
-                Line::raw(""),
-                Line::styled(
-                    GIT_DROP_STASH_MODAL_HINT,
-                    style_for_ui_element(theme, UiElement::MutedText),
-                ),
-            ]);
-            text.render(inner, buf);
-            return;
-        }
-        super::state::GitModal::Error { message } => {
-            let block = Block::default()
-                .title(" Error ")
-                .borders(Borders::ALL)
-                .border_style(style_for_ui_element(theme, UiElement::Error));
-            let inner = block.inner(modal_area);
-            block.render(modal_area, buf);
-
-            let text = Paragraph::new(vec![
-                Line::styled(
-                    message.clone(),
-                    style_for_ui_element(theme, UiElement::Error),
-                ),
-                Line::raw(""),
-                Line::styled(
-                    GIT_ERROR_MODAL_HINT,
-                    style_for_ui_element(theme, UiElement::MutedText),
-                ),
-            ])
-            .wrap(ratatui::widgets::Wrap { trim: false });
-            text.render(inner, buf);
-            return;
-        }
-    };
-
-    let block = Block::default()
-        .title(format!(" {} ", title))
-        .borders(Borders::ALL)
-        .border_style(style_for_ui_element(theme, UiElement::Primary));
-    let inner = block.inner(modal_area);
-    block.render(modal_area, buf);
-
-    let text = Paragraph::new(vec![
-        Line::styled(body, style_for_ui_element(theme, UiElement::Text)),
-        Line::raw(""),
-        Line::styled(
-            GIT_CANCEL_MODAL_HINT,
-            style_for_ui_element(theme, UiElement::MutedText),
-        ),
-    ]);
-    text.render(inner, buf);
-}
-
-fn git_modal_area(area: Rect) -> Option<Rect> {
-    if area.width < MIN_GIT_MODAL_WIDTH || area.height < MIN_GIT_MODAL_HEIGHT {
-        return None;
-    }
-
-    let width = GIT_MODAL_WIDTH.min(area.width);
-    let height = GIT_MODAL_HEIGHT.min(area.height);
-    let x = area.x.saturating_add(area.width.saturating_sub(width) / 2);
-    let y = area
-        .y
-        .saturating_add(area.height.saturating_sub(height) / 2);
-
-    Some(Rect::new(x, y, width, height))
-}
-
 /// Render the status bar info
 pub fn render_status_info(state: &PluginState) -> String {
     let mut parts = Vec::new();
@@ -1304,216 +1051,11 @@ pub fn render_status_info(state: &PluginState) -> String {
     parts.join(" | ")
 }
 
-fn git_changes_empty_message(state: &PluginState, width: u16) -> String {
-    if state.branch.is_empty() {
-        git_empty_message(
-            vec![
-                "Git status not loaded yet".to_string(),
-                String::new(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    } else {
-        git_empty_message(
-            vec![
-                "Working tree clean".to_string(),
-                String::new(),
-                "B: Branches".to_string(),
-                "H: History".to_string(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    }
-}
-
-fn git_diff_empty_message(state: &PluginState, width: u16) -> String {
-    if state.branch.is_empty() {
-        git_empty_message(
-            vec![
-                "Git status not loaded yet".to_string(),
-                String::new(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    } else if state.files.is_empty() {
-        git_empty_message(
-            vec![
-                "Working tree clean".to_string(),
-                String::new(),
-                "H: History".to_string(),
-                "B: Branches".to_string(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    } else {
-        git_empty_message(
-            vec![
-                "No file selected".to_string(),
-                String::new(),
-                "j/k: Navigate files".to_string(),
-                "Tab/Shift+Tab: Switch pane".to_string(),
-                "S: Status".to_string(),
-                "H: History".to_string(),
-                "B: Branches".to_string(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    }
-}
-
-fn git_file_no_diff_message(file: &FileChange, width: u16) -> String {
-    git_empty_message(
-        vec![
-            format!(
-                "Diff not loaded yet for {}",
-                truncate_display(&file.path, 48)
-            ),
-            String::new(),
-            "j/k: Navigate files".to_string(),
-            "s: Stage".to_string(),
-            "u: Unstage".to_string(),
-            "c: Commit".to_string(),
-            "r: Refresh git status".to_string(),
-        ],
-        width,
-    )
-}
-
-fn git_sidebar_empty_message(state: &PluginState, width: u16) -> String {
-    if state.branch.is_empty() {
-        git_empty_message(
-            vec![
-                "Git status not loaded yet".to_string(),
-                String::new(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    } else {
-        git_empty_message(
-            vec![
-                "Working tree clean".to_string(),
-                String::new(),
-                "B: Branches".to_string(),
-                "H: History".to_string(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    }
-}
-
-fn git_commits_empty_message(width: u16) -> String {
-    git_empty_message(
-        vec![
-            "No commits".to_string(),
-            String::new(),
-            "S: Status".to_string(),
-            "B: Branches".to_string(),
-            "r: Refresh git status".to_string(),
-        ],
-        width,
-    )
-}
-
-fn git_commit_details_empty_message(state: &PluginState, width: u16) -> String {
-    if state.commits.is_empty() {
-        git_commits_empty_message(width)
-    } else {
-        git_empty_message(
-            vec![
-                "No commit selected".to_string(),
-                String::new(),
-                "j/k: Navigate commits".to_string(),
-                "Tab/Shift+Tab: Switch pane".to_string(),
-                "S: Status".to_string(),
-                "B: Branches".to_string(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    }
-}
-
-fn git_branches_empty_message(width: u16) -> String {
-    git_empty_message(
-        vec![
-            "No branches".to_string(),
-            String::new(),
-            "S: Status".to_string(),
-            "H: History".to_string(),
-            "r: Refresh git status".to_string(),
-        ],
-        width,
-    )
-}
-
-fn git_branch_details_empty_message(state: &PluginState, width: u16) -> String {
-    if state.branches.is_empty() {
-        git_branches_empty_message(width)
-    } else {
-        git_empty_message(
-            vec![
-                "No branch selected".to_string(),
-                String::new(),
-                "j/k: Navigate branches".to_string(),
-                "Tab/Shift+Tab: Switch pane".to_string(),
-                "n: New branch".to_string(),
-                "S: Status".to_string(),
-                "H: History".to_string(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    }
-}
-
-fn git_stashes_empty_message(width: u16) -> String {
-    git_empty_message(
-        vec![
-            "No stashes".to_string(),
-            String::new(),
-            "s: Save stash".to_string(),
-            "S: Status".to_string(),
-            "B: Branches".to_string(),
-            "r: Refresh git status".to_string(),
-        ],
-        width,
-    )
-}
-
-fn git_stash_details_empty_message(state: &PluginState, width: u16) -> String {
-    if state.stashes.is_empty() {
-        git_stashes_empty_message(width)
-    } else {
-        git_empty_message(
-            vec![
-                "No stash selected".to_string(),
-                String::new(),
-                "j/k: Navigate stashes".to_string(),
-                "Tab/Shift+Tab: Switch pane".to_string(),
-                "s: Save stash".to_string(),
-                "S: Status".to_string(),
-                "B: Branches".to_string(),
-                "r: Refresh git status".to_string(),
-            ],
-            width,
-        )
-    }
-}
-
-fn git_empty_message(lines: Vec<String>, width: u16) -> String {
-    global_hint_message(lines, width)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::models::{FileChange, FileStatus};
+    use crate::ui::truncate_display;
 
     #[test]
     fn test_build_file_line() {
