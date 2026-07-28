@@ -264,6 +264,12 @@ pub struct UIConfig {
     /// Compact mode (reduces padding).
     #[serde(default)]
     pub compact_mode: bool,
+    /// Reduce motion: render spinners and progress animations as a static
+    /// glyph instead of advancing frames. Accessibility affordance — see
+    /// PRODUCT.md "Full inclusion" and DESIGN.md "Do … provide a calm or
+    /// static fallback for every spinner or transition under reduced-motion."
+    #[serde(default)]
+    pub reduced_motion: bool,
 }
 
 impl Default for UIConfig {
@@ -274,6 +280,7 @@ impl Default for UIConfig {
             nerd_fonts_enabled: true,
             accent_color: "blue".to_string(),
             compact_mode: false,
+            reduced_motion: false,
         }
     }
 }
@@ -388,5 +395,14 @@ mod tests {
         let config: Config = serde_json::from_str(json).unwrap();
         assert_eq!(config.version, 1);
         assert!(config.ui.show_clock);
+        // Backward compatibility: a config serialized before `reduced_motion`
+        // existed must still deserialize, defaulting the field to false.
+        assert!(!config.ui.reduced_motion);
+    }
+
+    #[test]
+    fn test_default_ui_config_reduced_motion_is_false() {
+        let config = Config::default();
+        assert!(!config.ui.reduced_motion);
     }
 }

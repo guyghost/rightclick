@@ -29,6 +29,9 @@ pub struct Spinner {
     frame_duration: Duration,
     /// Optional label to display next to the spinner
     label: Option<String>,
+    /// When true, the spinner never advances frames (reduced-motion).
+    /// `tick()` and `next_frame()` become no-ops; render draws a frozen glyph.
+    reduced_motion: bool,
 }
 
 impl Spinner {
@@ -65,6 +68,7 @@ impl Spinner {
             last_update: Instant::now(),
             frame_duration: Duration::from_millis(80),
             label: None,
+            reduced_motion: false,
         }
     }
 
@@ -86,6 +90,7 @@ impl Spinner {
             last_update: Instant::now(),
             frame_duration: Duration::from_millis(100),
             label: None,
+            reduced_motion: false,
         }
     }
 
@@ -107,6 +112,7 @@ impl Spinner {
             last_update: Instant::now(),
             frame_duration: Duration::from_millis(80),
             label: None,
+            reduced_motion: false,
         }
     }
 
@@ -128,6 +134,7 @@ impl Spinner {
             last_update: Instant::now(),
             frame_duration: Duration::from_millis(100),
             label: None,
+            reduced_motion: false,
         }
     }
 
@@ -158,6 +165,7 @@ impl Spinner {
             last_update: Instant::now(),
             frame_duration: Duration::from_millis(100),
             label: None,
+            reduced_motion: false,
         }
     }
 
@@ -179,6 +187,7 @@ impl Spinner {
             last_update: Instant::now(),
             frame_duration: Duration::from_millis(150),
             label: None,
+            reduced_motion: false,
         }
     }
 
@@ -202,6 +211,7 @@ impl Spinner {
             last_update: Instant::now(),
             frame_duration: Duration::from_millis(100),
             label: None,
+            reduced_motion: false,
         }
     }
 
@@ -242,6 +252,26 @@ impl Spinner {
         self
     }
 
+    /// Enable or disable reduced-motion mode.
+    ///
+    /// When enabled, `tick()` and `next_frame()` become no-ops (the frame is
+    /// frozen at its current index) and `is_running()` returns `false`, so
+    /// render loops stop driving animation. The rendered glyph stays stable —
+    /// an accessibility affordance, not a different visual identity.
+    ///
+    /// Call sites should thread this from `UIConfig.reduced_motion`:
+    ///
+    /// ```rust
+    /// use rightclick::ui::Spinner;
+    ///
+    /// let spinner = Spinner::new().with_reduced_motion(true);
+    /// assert!(!spinner.is_running());
+    /// ```
+    pub fn with_reduced_motion(mut self, reduced: bool) -> Self {
+        self.reduced_motion = reduced;
+        self
+    }
+
     /// Advance to the next frame if enough time has elapsed
     ///
     /// Returns the current frame symbol.
@@ -255,6 +285,9 @@ impl Spinner {
     /// let frame = spinner.tick();
     /// ```
     pub fn tick(&mut self) -> &str {
+        if self.reduced_motion {
+            return self.current_frame();
+        }
         let now = Instant::now();
         if now.duration_since(self.last_update) >= self.frame_duration {
             self.frame_index = (self.frame_index + 1) % self.frames.len();
@@ -276,6 +309,9 @@ impl Spinner {
     /// let frame = spinner.next_frame();
     /// ```
     pub fn next_frame(&mut self) -> &str {
+        if self.reduced_motion {
+            return self.current_frame();
+        }
         self.frame_index = (self.frame_index + 1) % self.frames.len();
         self.last_update = Instant::now();
         self.current_frame()
@@ -306,7 +342,7 @@ impl Spinner {
     /// assert!(spinner.is_running());
     /// ```
     pub fn is_running(&self) -> bool {
-        self.frames.len() > 1
+        self.frames.len() > 1 && !self.reduced_motion
     }
 
     /// Reset the spinner to the first frame
@@ -553,6 +589,94 @@ mod tests {
     fn test_spinner_is_running() {
         let spinner = Spinner::new();
         assert!(spinner.is_running());
+    }
+
+    #[test]
+    fn test_reduced_motion_builder_sets_field() {
+        let spinner = Spinner::line();
+        assert!(!spinner.reduced_motion);
+
+        let spinner = Spinner::line().with_reduced_motion(true);
+        assert!(spinner.reduced_motion);
+
+        let spinner = Spinner::line().with_reduced_motion(false);
+        assert!(!spinner.reduced_motion);
+    }
+
+    #[test]
+    fn test_reduced_motion_is_running_returns_false() {
+        let spinner = Spinner::new().with_reduced_motion(true);
+        assert!(
+            !spinner.is_running(),
+            "reduced-motion spinner must not report as running"
+        );
+    }
+
+    #[test]
+    fn test_reduced_motion_tick_is_noop() {
+        let mut spinner = Spinner::line().with_reduced_motion(true);
+        // Force enough elapsed time that a normal spinner would advance.
+        spinner.last_update = Instant::now() - Duration::from_millis(500);
+        let before = spinner.frame_index;
+        let frame = spinner.tick().to_string();
+        assert_eq!(
+            spinner.frame_index, before,
+            "frame_index must not advance under reduced-motion"
+        );
+        assert_eq!(
+            frame,
+            spinner.current_frame(),
+            "tick must still return the frozen frame"
+        );
+    }
+
+    #[test]
+    fn test_reduced_motion_next_frame_is_noop() {
+        let mut spinner = Spinner::line().with_reduced_motion(true);
+        let before = spinner.frame_index;
+        let frame = spinner.next_frame().to_string();
+        assert_eq!(
+            spinner.frame_index, before,
+            "next_frame must not advance under reduced-motion"
+        );
+        assert_eq!(frame, spinner.current_frame());
+    }
+
+    #[test]
+    fn test_reduced_motion_render_is_stable_across_ticks() {
+        let mut spinner = Spinner::dots().with_reduced_motion(true);
+        let theme = Theme::default();
+        let area = Rect::new(0, 0, 5, 1);
+        let mut buf_a = Buffer::empty(area);
+        let mut buf_b = Buffer::empty(area);
+
+        // Simulate several render cycles with elapsed time between them.
+        spinner.last_update = Instant::now() - Duration::from_millis(500);
+        let _ = spinner.tick();
+        spinner.render(area, &mut buf_a, &theme);
+
+        spinner.last_update = Instant::now() - Duration::from_millis(500);
+        let _ = spinner.tick();
+        spinner.render(area, &mut buf_b, &theme);
+
+        let glyph_a = buf_a.cell((0, 0)).unwrap().symbol();
+        let glyph_b = buf_b.cell((0, 0)).unwrap().symbol();
+        assert_eq!(
+            glyph_a, glyph_b,
+            "rendered glyph must be identical across ticks under reduced-motion"
+        );
+    }
+
+    #[test]
+    fn test_default_spinner_still_animates_regression() {
+        // Regression contract: reduced_motion defaults to false and the
+        // nominal animation path is unchanged.
+        let mut spinner = Spinner::line();
+        assert!(!spinner.reduced_motion);
+        assert!(spinner.is_running());
+        spinner.last_update = Instant::now() - Duration::from_millis(200);
+        let _ = spinner.tick();
+        assert_ne!(spinner.frame_index, 0, "nominal spinner must still advance");
     }
 
     #[test]

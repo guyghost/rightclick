@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-28T13:04:02+02:00",
+  "title": "Design System: RightClick",
+  "extensions": {
+    "colorMeta": {
+      "primary":      { "role": "primary",   "displayName": "Soft Blue",          "canonical": "#7aa2f7", "oklch": "oklch(71.9% 0.132 264.2)", "tonalRamp": ["oklch(20.0% 0.132 264.2)","oklch(30.7% 0.124 264.2)","oklch(41.4% 0.115 264.2)","oklch(52.1% 0.107 264.2)","oklch(62.9% 0.098 264.2)","oklch(73.6% 0.090 264.2)","oklch(84.3% 0.081 264.2)","oklch(95.0% 0.073 264.2)"] },
+      "secondary":    { "role": "secondary", "displayName": "Soft Purple",         "canonical": "#bb9af7", "oklch": "oklch(75.1% 0.134 299.5)", "tonalRamp": ["oklch(20.0% 0.134 299.5)","oklch(30.7% 0.126 299.5)","oklch(41.4% 0.117 299.5)","oklch(52.1% 0.109 299.5)","oklch(62.9% 0.100 299.5)","oklch(73.6% 0.091 299.5)","oklch(84.3% 0.083 299.5)","oklch(95.0% 0.074 299.5)"] },
+      "success":      { "role": "tertiary",  "displayName": "Soft Green / Added",  "canonical": "#9ece6a", "oklch": "oklch(79.5% 0.139 130.1)", "tonalRamp": ["oklch(20.0% 0.139 130.1)","oklch(30.7% 0.131 130.1)","oklch(41.4% 0.122 130.1)","oklch(52.1% 0.113 130.1)","oklch(62.9% 0.104 130.1)","oklch(73.6% 0.095 130.1)","oklch(84.3% 0.086 130.1)","oklch(95.0% 0.077 130.1)"] },
+      "warning":      { "role": "tertiary",  "displayName": "Soft Amber / Modified","canonical": "#e0af68", "oklch": "oklch(78.4% 0.106 75.4)",  "tonalRamp": ["oklch(20.0% 0.106 75.4)","oklch(30.7% 0.099 75.4)","oklch(41.4% 0.092 75.4)","oklch(52.1% 0.085 75.4)","oklch(62.9% 0.079 75.4)","oklch(73.6% 0.072 75.4)","oklch(84.3% 0.065 75.4)","oklch(95.0% 0.058 75.4)"] },
+      "error":        { "role": "tertiary",  "displayName": "Soft Red / Removed",  "canonical": "#f7768e", "oklch": "oklch(72.3% 0.159 10.3)",  "tonalRamp": ["oklch(20.0% 0.159 10.3)","oklch(30.7% 0.149 10.3)","oklch(41.4% 0.138 10.3)","oklch(52.1% 0.128 10.3)","oklch(62.9% 0.118 10.3)","oklch(73.6% 0.108 10.3)","oklch(84.3% 0.098 10.3)","oklch(95.0% 0.087 10.3)"] },
+      "info":         { "role": "tertiary",  "displayName": "Cyan",               "canonical": "#7dcfff", "oklch": "oklch(82.0% 0.105 235.7)", "tonalRamp": ["oklch(20.0% 0.105 235.7)","oklch(30.7% 0.098 235.7)","oklch(41.4% 0.092 235.7)","oklch(52.1% 0.085 235.7)","oklch(62.9% 0.078 235.7)","oklch(73.6% 0.071 235.7)","oklch(84.3% 0.065 235.7)","oklch(95.0% 0.058 235.7)"] },
+      "background":   { "role": "neutral",   "displayName": "Canvas",             "canonical": "#1a1b26", "oklch": "oklch(22.6% 0.021 280.5)", "tonalRamp": ["oklch(20.0% 0.021 280.5)","oklch(30.7% 0.020 280.5)","oklch(41.4% 0.019 280.5)","oklch(52.1% 0.017 280.5)","oklch(62.9% 0.016 280.5)","oklch(73.6% 0.015 280.5)","oklch(84.3% 0.013 280.5)","oklch(95.0% 0.012 280.5)"] },
+      "foreground":   { "role": "neutral",   "displayName": "Ink",                 "canonical": "#c0caf5", "oklch": "oklch(84.6% 0.061 274.8)", "tonalRamp": ["oklch(20.0% 0.061 274.8)","oklch(30.7% 0.057 274.8)","oklch(41.4% 0.053 274.8)","oklch(52.1% 0.049 274.8)","oklch(62.9% 0.045 274.8)","oklch(73.6% 0.041 274.8)","oklch(84.3% 0.038 274.8)","oklch(95.0% 0.034 274.8)"] },
+      "muted":        { "role": "neutral",   "displayName": "Muted",              "canonical": "#565f89", "oklch": "oklch(49.6% 0.068 274.4)", "tonalRamp": ["oklch(20.0% 0.068 274.4)","oklch(30.7% 0.064 274.4)","oklch(41.4% 0.059 274.4)","oklch(52.1% 0.055 274.4)","oklch(62.9% 0.051 274.4)","oklch(73.6% 0.046 274.4)","oklch(84.3% 0.042 274.4)","oklch(95.0% 0.038 274.4)"] },
+      "border":       { "role": "neutral",   "displayName": "Chrome",             "canonical": "#414868", "oklch": "oklch(40.9% 0.055 274.3)", "tonalRamp": ["oklch(20.0% 0.055 274.3)","oklch(30.7% 0.051 274.3)","oklch(41.4% 0.048 274.3)","oklch(52.1% 0.044 274.3)","oklch(62.9% 0.041 274.3)","oklch(73.6% 0.037 274.3)","oklch(84.3% 0.034 274.3)","oklch(95.0% 0.030 274.3)"] },
+      "highlight":    { "role": "neutral",   "displayName": "Selection",          "canonical": "#283457", "oklch": "oklch(33.2% 0.064 268.4)", "tonalRamp": ["oklch(20.0% 0.064 268.4)","oklch(30.7% 0.060 268.4)","oklch(41.4% 0.056 268.4)","oklch(52.1% 0.052 268.4)","oklch(62.9% 0.048 268.4)","oklch(73.6% 0.044 268.4)","oklch(84.3% 0.039 268.4)","oklch(95.0% 0.035 268.4)"] },
+      "git-added":    { "role": "tertiary",  "displayName": "Added Green",        "canonical": "#9ece6a", "oklch": "oklch(79.5% 0.139 130.1)", "tonalRamp": ["oklch(20.0% 0.139 130.1)","oklch(30.7% 0.131 130.1)","oklch(41.4% 0.122 130.1)","oklch(52.1% 0.113 130.1)","oklch(62.9% 0.104 130.1)","oklch(73.6% 0.095 130.1)","oklch(84.3% 0.086 130.1)","oklch(95.0% 0.077 130.1)"] },
+      "git-removed":  { "role": "tertiary",  "displayName": "Removed Red",        "canonical": "#f7768e", "oklch": "oklch(72.3% 0.159 10.3)",  "tonalRamp": ["oklch(20.0% 0.159 10.3)","oklch(30.7% 0.149 10.3)","oklch(41.4% 0.138 10.3)","oklch(52.1% 0.128 10.3)","oklch(62.9% 0.118 10.3)","oklch(73.6% 0.108 10.3)","oklch(84.3% 0.098 10.3)","oklch(95.0% 0.087 10.3)"] },
+      "git-modified": { "role": "tertiary",  "displayName": "Modified Amber",     "canonical": "#e0af68", "oklch": "oklch(78.4% 0.106 75.4)",  "tonalRamp": ["oklch(20.0% 0.106 75.4)","oklch(30.7% 0.099 75.4)","oklch(41.4% 0.092 75.4)","oklch(52.1% 0.085 75.4)","oklch(62.9% 0.079 75.4)","oklch(73.6% 0.072 75.4)","oklch(84.3% 0.065 75.4)","oklch(95.0% 0.058 75.4)"] },
+      "git-untracked":{ "role": "tertiary",  "displayName": "Untracked Blue",     "canonical": "#7aa2f7", "oklch": "oklch(71.9% 0.132 264.2)", "tonalRamp": ["oklch(20.0% 0.132 264.2)","oklch(30.7% 0.124 264.2)","oklch(41.4% 0.115 264.2)","oklch(52.1% 0.107 264.2)","oklch(62.9% 0.098 264.2)","oklch(73.6% 0.090 264.2)","oklch(84.3% 0.081 264.2)","oklch(95.0% 0.073 264.2)"] }
+    },
+    "typographyMeta": {
+      "display":  { "displayName": "Display",  "purpose": "Top-level surface title; at most one per surface. Bold." },
+      "headline": { "displayName": "Headline", "purpose": "Section / pane titles within a surface. Bold." },
+      "title":    { "displayName": "Title",    "purpose": "List headings, dialog titles, column headers. Semibold." },
+      "body":     { "displayName": "Body",     "purpose": "Default: lists, file names, conversation lines, diffs. Regular." },
+      "label":    { "displayName": "Label",    "purpose": "Keybindings, status-bar segments, short affordances. Semibold." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "reduced-motion", "value": "prefers-reduced-motion: reduce", "purpose": "Every spinner, transition, and animation must resolve to a static or crossfade state. Non-negotiable." },
+      { "name": "state-only", "value": "opacity/character-cell swap, 120-160ms, ease-out", "purpose": "Motion conveys state (spinner, focus shift), never decoration. No choreographed entrances." }
+    ],
+    "breakpoints": [
+      { "name": "min",    "value": "80x24 cells",  "purpose": "Minimum usable terminal size; layout must remain functional." },
+      { "name": "compact","value": "120x40 cells", "purpose": "Default working size; two-pane layouts become comfortable." },
+      { "name": "wide",   "value": "200x50+ cells","purpose": "Multi-pane + side preview; full density available." }
+    ]
+  },
+  "components": [
+    {
+      "name": "List Item (active)",
+      "kind": "custom",
+      "refersTo": "list-item-active",
+      "description": "Focused row in any list (files, sessions, commands). Selection fill + accent marker. Web stand-in for the TUI list cell.",
+      "html": "<div class=\"ds-list-item\"><span class=\"ds-marker\">▶</span><span class=\"ds-name\">src/main.rs</span><span class=\"ds-meta\">M</span></div>",
+      "css": ".ds-list-item { font-family: monospace; background: #283457; color: #c0caf5; padding: 4px 12px; display: flex; align-items: center; gap: 8px; border: 1px solid #414868; } .ds-marker { color: #7aa2f7; } .ds-name { flex: 1; } .ds-meta { color: #e0af68; font-weight: 600; }"
+    },
+    {
+      "name": "Popup / Overlay",
+      "kind": "card",
+      "refersTo": "popup",
+      "description": "Centered dialog or search overlay: canvas bg, plain chrome border, 1-cell padding. Esc closes.",
+      "html": "<div class=\"ds-popup\"><div class=\"ds-popup-title\">Global Search</div><div class=\"ds-popup-body\">Type to search files, commands, sessions…</div></div>",
+      "css": ".ds-popup { font-family: monospace; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; padding: 12px 16px; max-width: 360px; } .ds-popup-title { font-weight: 700; color: #c0caf5; margin-bottom: 8px; } .ds-popup-body { color: #565f89; font-size: 13px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text input: raised fill (lighter than canvas), plain chrome border, muted placeholder that stays contrast-safe.",
+      "html": "<input class=\"ds-input\" placeholder=\"Filter files…\" />",
+      "css": ".ds-input { font-family: monospace; background: #24283b; color: #c0caf5; border: 1px solid #414868; padding: 6px 12px; outline: none; width: 100%; box-sizing: border-box; } .ds-input::placeholder { color: #565f89; } .ds-input:focus { border-color: #7aa2f7; }"
+    },
+    {
+      "name": "Status Bar",
+      "kind": "nav",
+      "refersTo": "status-bar",
+      "description": "Lowest visual layer: recessed bg (darker than canvas), status fg, label-weight key hints.",
+      "html": "<div class=\"ds-statusbar\"><span class=\"ds-tab\">GIT</span><span class=\"ds-spacer\"></span><span class=\"ds-key\">q</span><span class=\"ds-hint\">quit</span><span class=\"ds-key\">/</span><span class=\"ds-hint\">search</span></div>",
+      "css": ".ds-statusbar { font-family: monospace; background: #16161e; color: #a9b1d6; padding: 4px 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #414868; font-size: 12px; } .ds-tab { color: #7aa2f7; font-weight: 700; } .ds-spacer { flex: 1; } .ds-key { color: #c0caf5; font-weight: 700; } .ds-hint { color: #565f89; }"
+    },
+    {
+      "name": "Git Status Row (signature)",
+      "kind": "custom",
+      "refersTo": "git-status",
+      "description": "Color + glyph together, never color alone. The signature component; accessibility-critical.",
+      "html": "<div class=\"ds-git\"><span class=\"ds-g ds-add\">+ added.rs</span><span class=\"ds-g ds-mod\">~ modified.rs</span><span class=\"ds-g ds-rem\">- removed.rs</span><span class=\"ds-g ds-unt\">? untracked.rs</span></div>",
+      "css": ".ds-git { font-family: monospace; background: #1a1b26; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #414868; } .ds-g { font-weight: 600; } .ds-add { color: #9ece6a; } .ds-mod { color: #e0af68; } .ds-rem { color: #f7768e; } .ds-unt { color: #7aa2f7; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Operator's Console",
+    "overview": "RightClick is a terminal UI — a focused cockpit an operator sits in for hours. Everything present, nothing competing, the pilot in control. The aesthetic is the medium: character cells, contrast, and density, never transplanted web effects. There is no CSS here, no drop-shadows, no blur, no gradient text. Depth comes from tone and border, hierarchy comes from weight and position, and the single accent arrives rarely enough that when it does, it means something.\n\nThe operator is an expert. The screen is read at a glance and trusted under long sessions, so information density is a feature, not a problem — but density is disciplined: one clear focus per surface, supporting context receding through the muted token, never shouting.\n\nThis system explicitly rejects noisy, glossy SaaS dashboards: no gradients, no glassmorphism, no marketing polish. Anything that exists to look impressive rather than to convey state or afford action is a defect.",
+    "keyCharacteristics": [
+      "Terminal-native. Monospace grid, box-drawing chrome, no web effects.",
+      "Dark, low-glare. Deep blue-black canvas with soft off-white ink.",
+      "One accent, used sparingly. Soft blue carries focus.",
+      "Flat and tonal. No shadows; depth via background tone and plain borders.",
+      "Semantic, never decorative. Color encodes state and is reinforced by glyph."
+    ],
+    "rules": [
+      { "name": "The One Console Rule",       "body": "The primary accent covers a small fraction of any screen. If two equally-bright accents compete, demote one to muted or neutral.", "section": "colors" },
+      { "name": "The Never-Color-Only Rule",  "body": "Git status and semantic state are never encoded by color alone. Always pair with a glyph or position.", "section": "colors" },
+      { "name": "The Chrome Recedes Rule",    "body": "Status bars and sidebars use a background darker than the content canvas; inputs use a background lighter than it. Depth is tonal, never shadowed.", "section": "elevation" },
+      { "name": "The Weight-Is-Hierarchy Rule","body": "For emphasis, change weight or apply the muted modifier. Do not invent size scales or a second typeface.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule",   "body": "Never simulate shadows, glow, or blur. If a surface needs elevation, raise its background tone one step or border it.", "section": "elevation" },
+      { "name": "The Plain-Border Rule",      "body": "Borders are single-line and plain (Borders::ALL, BorderType::Plain). No rounded, double, or thick borders.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do design against the Default theme tokens first; treat the other three themes as palette swaps of the same roles.",
+      "Do reinforce every semantic color with a glyph or position (The Never-Color-Only Rule).",
+      "Do convey depth through tone: recessed chrome (#16161e), raised inputs (#24283b), plain borders (#414868).",
+      "Do keep body and placeholder text contrast-checked against the canvas.",
+      "Do use weight and the muted modifier for hierarchy; preserve monospace column alignment.",
+      "Do provide a calm or static fallback for every spinner or transition under reduced-motion."
+    ],
+    "donts": [
+      "Don't introduce gradients, glassmorphism, drop-shadows, glow, or any marketing polish transplanted from the web.",
+      "Don't encode git status or semantic state by color alone.",
+      "Don't use rounded, double, or thick borders — single-line plain borders only.",
+      "Don't let the primary accent cover more than a small fraction of a screen, and never let two equally-bright accents compete.",
+      "Don't invent pixel font sizes, a second typeface, or proportional spacing.",
+      "Don't ship a spinner or animation without a reduced-motion fallback."
+    ]
+  }
+}
