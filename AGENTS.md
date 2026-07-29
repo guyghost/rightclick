@@ -2,6 +2,25 @@
 
 RightClick is a TUI dashboard for AI coding agents. This document provides context for AI agents working on the codebase.
 
+## Design Context
+
+Before touching anything user-visible (`src/ui/`, `src/theme/`, `src/plugins/`, `src/modal/`, `src/palette/`), read these two files first:
+
+- **`PRODUCT.md`** — register, users, purpose, brand personality, anti-references, accessibility commitments. The *why*.
+- **`DESIGN.md`** — the design system: canonical color tokens, typography, elevation, components, and the six named rules that govern all UI decisions. The *how*. Machine-readable tokens also live in `.impeccable/design.json`.
+
+The design north star is **"The Operator's Console"**: a focused cockpit — everything present, nothing competing, the pilot in control. Terminal-native by medium (character cells, monospace, plain borders); dark and low-glare; one accent used sparingly; depth through tone, never shadows.
+
+**Non-negotiable UI rules** (full detail in `DESIGN.md`):
+1. *The One Console Rule* — the primary accent covers a small fraction of any screen.
+2. *The Never-Color-Only Rule* — git/semantic state is always color **+** glyph/position.
+3. *The Chrome Recedes Rule* — chrome darker than canvas; inputs lighter. Depth is tonal.
+4. *The Weight-Is-Hierarchy Rule* — emphasize via weight or the muted modifier, never new sizes/typefaces.
+5. *The Flat-By-Default Rule* — no simulated shadows, glow, or blur.
+6. *The Plain-Border Rule* — `Borders::ALL` + `BorderType::Plain` only.
+
+Token discipline: route colors through `src/theme/styles.rs` (`style_for_ui_element`, `style_for_token`, `style_for_git_status`). Do not hardcode `Color::Rgb`/hex literals in UI code — they bypass theming and break the four shipped themes.
+
 ## Architecture: Functional Core & Imperative Shell
 
 This project follows the **Functional Core & Imperative Shell** (FC&IS) architecture pattern:
