@@ -272,6 +272,30 @@ impl Spinner {
         self
     }
 
+    /// Build a spinner from the application's UI config, automatically
+    /// honoring the user's `reduced_motion` preference.
+    ///
+    /// This is the recommended constructor for live surfaces that consume a
+    /// loaded [`Config`](crate::core::models::Config): it threads the
+    /// accessibility preference in one place so call sites cannot forget it.
+    /// For custom styles or test code, use a named constructor (e.g.
+    /// [`Spinner::line()`](Self::line)) and chain
+    /// [`.with_reduced_motion()`](Self::with_reduced_motion) explicitly.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use rightclick::core::models::UIConfig;
+    /// use rightclick::ui::Spinner;
+    ///
+    /// let ui = UIConfig { reduced_motion: true, ..UIConfig::default() };
+    /// let spinner = Spinner::from_ui_config(&ui);
+    /// assert!(!spinner.is_running());
+    /// ```
+    pub fn from_ui_config(ui_config: &crate::core::models::UIConfig) -> Self {
+        Self::new().with_reduced_motion(ui_config.reduced_motion)
+    }
+
     /// Advance to the next frame if enough time has elapsed
     ///
     /// Returns the current frame symbol.
@@ -331,7 +355,10 @@ impl Spinner {
         self.frames.get(self.frame_index).copied().unwrap_or(" ")
     }
 
-    /// Check if the spinner is running (has multiple frames)
+    /// Check if the spinner is running (actively animating)
+    ///
+    /// Returns true only when the spinner has multiple frames AND
+    /// reduced-motion mode is disabled.
     ///
     /// # Example
     ///
@@ -339,7 +366,7 @@ impl Spinner {
     /// use rightclick::ui::Spinner;
     ///
     /// let spinner = Spinner::new();
-    /// assert!(spinner.is_running());
+    /// assert!(spinner.is_running()); // new spinner: multi-frame, reduced_motion=false
     /// ```
     pub fn is_running(&self) -> bool {
         self.frames.len() > 1 && !self.reduced_motion
@@ -677,6 +704,28 @@ mod tests {
         spinner.last_update = Instant::now() - Duration::from_millis(200);
         let _ = spinner.tick();
         assert_ne!(spinner.frame_index, 0, "nominal spinner must still advance");
+    }
+
+    #[test]
+    fn test_from_ui_config_honors_reduced_motion() {
+        use crate::core::models::UIConfig;
+
+        let ui = UIConfig::default();
+        assert!(!ui.reduced_motion);
+        let spinner = Spinner::from_ui_config(&ui);
+        assert!(
+            !spinner.reduced_motion,
+            "default config must produce an animating spinner"
+        );
+        assert!(spinner.is_running());
+
+        let ui = UIConfig {
+            reduced_motion: true,
+            ..UIConfig::default()
+        };
+        let spinner = Spinner::from_ui_config(&ui);
+        assert!(spinner.reduced_motion);
+        assert!(!spinner.is_running());
     }
 
     #[test]

@@ -264,8 +264,8 @@ visual consistency across panes.
 ### Buttons (rare in a TUI)
 
 - **Primary:** `{colors.button-bg}` fill with `{colors.button-fg}` (dark) text.
-- **Hover:** swaps to the secondary accent
-  (`{colors.button-hover-bg}` ≈ `#bb9af7`).
+- **Hover:** swaps to `{colors.secondary}` (`#bb9af7`) - the rare secondary
+  accent reserved for hover states.
 - **Note:** most "actions" in RightClick are keybindings, not buttons; reach
   for a button only when no keybinding exists.
 

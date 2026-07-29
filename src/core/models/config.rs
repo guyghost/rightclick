@@ -264,9 +264,9 @@ pub struct UIConfig {
     /// Compact mode (reduces padding).
     #[serde(default)]
     pub compact_mode: bool,
-    /// Reduce motion: render spinners and progress animations as a static
-    /// glyph instead of advancing frames. Accessibility affordance — see
-    /// PRODUCT.md "Full inclusion" and DESIGN.md "Do … provide a calm or
+    /// Reduce motion: freeze frame-based animations (spinners) at a stable
+    /// glyph instead of advancing frames. Accessibility affordance - see
+    /// PRODUCT.md "Full inclusion" and DESIGN.md "Do ... provide a calm or
     /// static fallback for every spinner or transition under reduced-motion."
     #[serde(default)]
     pub reduced_motion: bool,
