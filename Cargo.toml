@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rc-text",
+    "crates/rc-buffer",
+    "crates/rc-scope",
+    "crates/rc-editor",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/guyghost/rightclick"
+
+[workspace.dependencies]
+ropey = "1.6"
+
+[profile.release]
+lto = "thin"
+strip = true

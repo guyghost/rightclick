@@ -1,0 +1,9 @@
+[package]
+name = "rc-text"
+description = "Text primitives: newlines, classification, indentation (modern port of TextMate's text/ framework)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]

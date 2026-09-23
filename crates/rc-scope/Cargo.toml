@@ -1,0 +1,9 @@
+[package]
+name = "rc-scope"
+description = "Scopes and selectors for syntax highlighting (modern port of TextMate's scope/ framework)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]

@@ -1,0 +1,13 @@
+[package]
+name = "rc-editor"
+description = "RightClick — the editor shell (iced GUI over the rc-* core crates)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+rc-buffer = { path = "../rc-buffer" }
+rc-text = { path = "../rc-text" }
+iced = "0.13"
+rfd = "0.15"
