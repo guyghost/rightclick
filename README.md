@@ -22,7 +22,7 @@ L'équivalent Rust de la stratification TextMate :
 │                     rc-layout (à venir)                          │
 │   Soft wrap · folds · rendu vers cible graphique                 │
 ├──────────────────────────────────────────────────────────────────┤
-│              rc-parse (à venir) · rc-scope (✅ phase 1)          │
+│              rc-parse (✅ phase 2b) · rc-scope (✅ phase 1)    │
 │   Grammar engine · selectors · scopes (compat .tmLanguage)       │
 ├──────────────────────────────────────────────────────────────────┤
 │                       rc-buffer (✅ phase 1)                     │
@@ -52,25 +52,33 @@ L'équivalent Rust de la stratification TextMate :
 * `line(idx)` / `char_to_line` / `line_to_char` : **O(log N)**
 * Révision incrémentée à chaque mutation → invalidation propre du parsing asynchrone
 
-## État : phase 2a — document
+## État : phase 2b — grammaires
 
-- [x] Workspace Cargo (5 crates)
+- [x] Workspace Cargo (6 crates)
 - [x] `rc-text` : fins de ligne, `is_word_char`, unité d'indentation
 - [x] `rc-buffer` : rope, navigation lignes, révisions (tests incl. 100k lignes)
 - [x] `rc-scope` : scopes + sélecteurs (sémantique TextMate)
 - [x] `rc-document` : caret, undo/redo par records coalescés, propreté,
       encodages (BOM UTF-8/UTF-16, UTF-16 sans BOM, Windows-1252)
+- [x] `rc-parse` : chargement `.tmLanguage` (plist XML/binaire + JSON),
+      moteur oniguruma (`\G` ancré), begin/end multi-ligne, captures,
+      repository/`$self`, parsing incrémental (arrêt sur pile stable)
 - [x] `rc-editor` : fenêtre, ouverture/enregistrement, barre d'état
       (détection d'encodage à l'ouverture)
 - [ ] `rc-document` : watch filesystem, normalisation fins de ligne à l'enregistrement
+- [ ] `rc-parse` : règles `while`, parsing asynchrone sur threads
 - [ ] `rc-layout` : wrap, folds, rendu custom piloté par `rc-buffer`
-- [ ] `rc-parse` : grammar engine + parsing incrémental sur threads
+      (coloration par scopes via rc-parse)
 
-## Lancer
+## Démo
 
 ```sh
-cargo run -p rc-editor -- chemin/vers/fichier.txt
+cargo run -p rc-parse --example highlight -- chemin/vers/fichier.txt
 ```
+
+Le moteur de grammaires est visible dans le terminal : commentaires,
+chaînes (avec échappements), mots-clés, nombres — colorisés depuis les
+scopes émis par `rc-parse` (grammaire embarquée `source.rcd`).
 
 ## Tester
 
