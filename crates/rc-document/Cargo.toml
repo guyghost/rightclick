@@ -1,0 +1,10 @@
+[package]
+name = "rc-document"
+description = "Document model: buffer + caret + undo/redo + encodings (modern port of TextMate's ng::document_t)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+rc-buffer = { path = "../rc-buffer" }

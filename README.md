@@ -16,8 +16,8 @@ L'équivalent Rust de la stratification TextMate :
 │                    rc-editor (coquille GUI, iced)                │
 │   Surface de frappe · dialogues · barre d'état · thème           │
 ├──────────────────────────────────────────────────────────────────┤
-│                     rc-document (à venir)                        │
-│   Modèle document · undo/redo · encodages · I/O asynchrone       │
+│                     rc-document (✅ phase 2a)                    │
+│   Modèle document · caret · undo/redo · encodages               │
 ├──────────────────────────────────────────────────────────────────┤
 │                     rc-layout (à venir)                          │
 │   Soft wrap · folds · rendu vers cible graphique                 │
@@ -52,14 +52,17 @@ L'équivalent Rust de la stratification TextMate :
 * `line(idx)` / `char_to_line` / `line_to_char` : **O(log N)**
 * Révision incrémentée à chaque mutation → invalidation propre du parsing asynchrone
 
-## État : phase 1 — socle
+## État : phase 2a — document
 
-- [x] Workspace Cargo (4 crates)
+- [x] Workspace Cargo (5 crates)
 - [x] `rc-text` : fins de ligne, `is_word_char`, unité d'indentation
 - [x] `rc-buffer` : rope, navigation lignes, révisions (tests incl. 100k lignes)
 - [x] `rc-scope` : scopes + sélecteurs (sémantique TextMate)
+- [x] `rc-document` : caret, undo/redo par records coalescés, propreté,
+      encodages (BOM UTF-8/UTF-16, UTF-16 sans BOM, Windows-1252)
 - [x] `rc-editor` : fenêtre, ouverture/enregistrement, barre d'état
-- [ ] `rc-document` : undo/redo, encodages, watch filesystem
+      (détection d'encodage à l'ouverture)
+- [ ] `rc-document` : watch filesystem, normalisation fins de ligne à l'enregistrement
 - [ ] `rc-layout` : wrap, folds, rendu custom piloté par `rc-buffer`
 - [ ] `rc-parse` : grammar engine + parsing incrémental sur threads
 

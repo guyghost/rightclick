@@ -4,6 +4,7 @@ members = [
     "crates/rc-text",
     "crates/rc-buffer",
     "crates/rc-scope",
+    "crates/rc-document",
     "crates/rc-editor",
 ]
 

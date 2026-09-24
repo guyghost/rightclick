@@ -62,6 +62,16 @@ impl Buffer {
         self.rope.to_string()
     }
 
+    /// Le texte de la plage `range` (en caractères), sans la modifier.
+    ///
+    /// Sert aux layers supérieurs (undo/redo, parsing) pour capturer le
+    /// texte remplacé avant une mutation — équivalent du `operator[]`
+    /// par plage de `ng::storage_t` dans TextMate.
+    pub fn slice(&self, range: Range<usize>) -> String {
+        assert!(range.end <= self.len_chars(), "slice range out of bounds");
+        self.rope.slice(range).to_string()
+    }
+
     /// Insère `text` à la position `char_idx` (en caractères).
     ///
     /// Panique si `char_idx` dépasse la fin du buffer.

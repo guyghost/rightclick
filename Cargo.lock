@@ -2827,11 +2827,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rc-document"
+version = "0.1.0"
+dependencies = [
+ "rc-buffer",
+]
+
+[[package]]
 name = "rc-editor"
 version = "0.1.0"
 dependencies = [
  "iced",
  "rc-buffer",
+ "rc-document",
  "rc-text",
  "rfd",
 ]

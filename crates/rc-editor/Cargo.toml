@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 rc-buffer = { path = "../rc-buffer" }
+rc-document = { path = "../rc-document" }
 rc-text = { path = "../rc-text" }
 iced = "0.13"
 rfd = "0.15"

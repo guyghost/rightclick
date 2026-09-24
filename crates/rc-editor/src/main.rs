@@ -12,6 +12,7 @@ use iced::widget::{button, column, row, text, text_editor};
 use iced::{Center, Element, Fill, Font, Task, Theme};
 
 use rc_buffer::Buffer;
+use rc_document::Document;
 use rc_text::Newline;
 
 fn main() -> iced::Result {
@@ -158,9 +159,12 @@ async fn open_dialog() -> Result<(PathBuf, String), Error> {
 }
 
 async fn load_file(path: PathBuf) -> Result<(PathBuf, String), Error> {
-    // Le cœur fournit une lecture robuste (ropey gère les gros fichiers)
-    let buffer = Buffer::from_file(&path).map_err(|e| Error(e.to_string()))?;
-    Ok((path, buffer.text()))
+    // Le cœur détecte l'encodage (BOM UTF-8/UTF-16, heuristique UTF-16 sans
+    // BOM, repli Windows-1252) et décode — les fichiers non-UTF-8 s'ouvrent
+    // au lieu d'échouer (phase 2a : rc-document).
+    let bytes = std::fs::read(&path).map_err(|e| Error(e.to_string()))?;
+    let document = Document::from_bytes(&bytes);
+    Ok((path, document.text()))
 }
 
 async fn save_file(path: PathBuf, contents: String) -> Result<PathBuf, Error> {
