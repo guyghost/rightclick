@@ -12,3 +12,4 @@ rc-document = { path = "../rc-document" }
 rc-text = { path = "../rc-text" }
 iced = "0.13"
 rfd = "0.15"
+notify-debouncer-mini = "0.7.0"

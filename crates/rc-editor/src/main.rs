@@ -15,6 +15,9 @@ use rc_buffer::Buffer;
 use rc_document::Document;
 use rc_text::Newline;
 
+#[allow(dead_code)] // Used by the editor integration in Task 5.
+mod file_watcher;
+
 fn main() -> iced::Result {
     iced::application("RightClick", RightClick::update, RightClick::view)
         .theme(|_: &RightClick| Theme::Dark)
