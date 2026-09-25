@@ -17,7 +17,8 @@ use std::ops::Range;
 
 use rc_buffer::Buffer;
 
-use crate::encoding::{self, Encoding};
+use crate::encoding::Encoding;
+use crate::format::FileFormat;
 
 /// Nombre maximal de records par groupe d'undo (garde-fou anti-paluche).
 pub const DEFAULT_GROUP_CAP: usize = 512;
@@ -27,7 +28,7 @@ pub const DEFAULT_GROUP_CAP: usize = 512;
 pub struct Document {
     buffer: Buffer,
     caret: usize,
-    encoding: Encoding,
+    format: FileFormat,
     undo_stack: Vec<Step>,
     redo_stack: Vec<Step>,
     clean_hash: Option<u64>,
@@ -66,7 +67,7 @@ impl Document {
         Self {
             buffer: Buffer::new(),
             caret: 0,
-            encoding: Encoding::Utf8,
+            format: FileFormat::for_text(""),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             clean_hash: None,
@@ -80,16 +81,16 @@ impl Document {
     pub fn from_text(text: &str) -> Self {
         let mut doc = Self::new();
         doc.buffer = Buffer::from_str(text);
+        doc.format = FileFormat::for_text(text);
         doc
     }
 
     /// Un document depuis des octets : l'encodage est détecté (BOM +
     /// heuristiques, voir [`encoding::detect`]) puis le contenu décodé.
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let encoding = encoding::detect(bytes);
-        let text = encoding::decode(bytes, encoding);
+        let (text, format) = FileFormat::decode(bytes);
         let mut doc = Self::from_text(&text);
-        doc.encoding = encoding;
+        doc.format = format;
         doc
     }
 
@@ -124,7 +125,12 @@ impl Document {
 
     /// L'encodage détecté / utilisé pour la prochaine sauvegarde.
     pub fn encoding(&self) -> Encoding {
-        self.encoding
+        self.format.encoding()
+    }
+
+    /// Encodage et style de fin de ligne conservés pour ce document.
+    pub fn format(&self) -> FileFormat {
+        self.format
     }
 
     /// Le numéro de révision du buffer (voir [`Buffer::revision`]).
@@ -270,7 +276,7 @@ impl Document {
     /// Le contenu ré-encodé dans l'encodage du document (BOM compris),
     /// prêt à être écrit sur disque par la couche I/O.
     pub fn save_bytes(&self) -> Vec<u8> {
-        encoding::encode(&self.buffer.text(), self.encoding)
+        self.format.encode_text(&self.buffer.text())
     }
 
     // =====================
@@ -375,9 +381,43 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encoding;
 
     fn doc(s: &str) -> Document {
         Document::from_text(s)
+    }
+
+    #[test]
+    fn save_bytes_normalizes_mixed_newlines_and_keeps_the_loaded_encoding() {
+        let original = encoding::encode("a\r\nb\n", Encoding::Utf8Bom);
+        let document = Document::from_bytes(&original);
+
+        assert_eq!(document.format().newline().as_str(), "\r\n");
+        assert_eq!(
+            document.save_bytes(),
+            encoding::encode("a\r\nb\r\n", Encoding::Utf8Bom)
+        );
+    }
+
+    #[test]
+    fn from_text_uses_lf_for_newlines_inserted_into_a_single_line() {
+        let mut document = Document::from_text("single line");
+        document.set_caret(document.len_chars());
+        document.insert("\nsecond line");
+
+        assert_eq!(document.save_bytes(), b"single line\nsecond line");
+    }
+
+    #[test]
+    fn save_bytes_keeps_utf16_and_windows_1252_encodings_while_normalizing() {
+        for encoding in [Encoding::Utf16Le, Encoding::Utf16Be, Encoding::Windows1252] {
+            let original = encoding::encode("café\r\nb\n", encoding);
+            let document = Document::from_bytes(&original);
+            assert_eq!(
+                document.save_bytes(),
+                encoding::encode("café\r\nb\r\n", encoding)
+            );
+        }
     }
 
     #[test]

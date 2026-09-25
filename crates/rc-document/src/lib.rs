@@ -19,6 +19,8 @@
 
 pub mod document;
 pub mod encoding;
+pub mod format;
 
 pub use document::Document;
 pub use encoding::Encoding;
+pub use format::FileFormat;

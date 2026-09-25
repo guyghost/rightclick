@@ -2996,6 +2996,7 @@ name = "rc-document"
 version = "0.1.0"
 dependencies = [
  "rc-buffer",
+ "rc-text",
 ]
 
 [[package]]
