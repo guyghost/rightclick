@@ -65,7 +65,7 @@ L'équivalent Rust de la stratification TextMate :
       repository/`$self`, parsing incrémental (arrêt sur pile stable)
 - [x] `rc-editor` : fenêtre, ouverture/enregistrement, barre d'état
       (détection d'encodage à l'ouverture)
-- [ ] `rc-document` : watch filesystem, normalisation fins de ligne à l'enregistrement
+- [x] `rc-document` : watch filesystem, rechargement propre, conflits, conservation de l'encodage et normalisation des fins de ligne
 - [ ] `rc-parse` : règles `while`, parsing asynchrone sur threads
 - [ ] `rc-layout` : wrap, folds, rendu custom piloté par `rc-buffer`
       (coloration par scopes via rc-parse)
