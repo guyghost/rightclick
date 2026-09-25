@@ -17,6 +17,8 @@ use rc_text::Newline;
 
 #[allow(dead_code)] // Used by the editor integration in Task 5.
 mod file_watcher;
+#[allow(dead_code)] // Used by the editor integration in Task 5.
+mod file_state;
 
 fn main() -> iced::Result {
     iced::application("RightClick", RightClick::update, RightClick::view)
