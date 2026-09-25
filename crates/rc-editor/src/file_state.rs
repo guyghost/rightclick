@@ -81,6 +81,10 @@ pub(crate) fn fingerprint(bytes: &[u8]) -> u64 {
     })
 }
 
+pub(crate) fn generation_is_current(event_generation: u64, active_generation: u64) -> bool {
+    event_generation == active_generation
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,5 +153,39 @@ mod tests {
         state.mark_saved("written during save".into(), 20);
         assert!(state.is_clean("written during save"));
         assert!(!state.is_clean("typed while save ran"));
+    }
+
+    #[test]
+    fn identical_decoded_text_with_new_disk_bytes_requests_reload() {
+        let mut state = FileSyncState::new("same text".into(), 10);
+        assert_eq!(state.observe("same text", Ok(Some(11))), FileChange::Reload);
+    }
+
+    #[test]
+    fn stale_generation_does_not_match_the_active_document() {
+        assert!(!generation_is_current(4, 5));
+        assert!(generation_is_current(5, 5));
+    }
+
+    #[test]
+    fn watcher_event_for_own_save_is_ignored() {
+        let mut state = FileSyncState::new("before save".into(), 10);
+        state.mark_saved("written text".into(), 20);
+        assert_eq!(
+            state.observe("written text", Ok(Some(20))),
+            FileChange::Unchanged
+        );
+    }
+
+    #[test]
+    fn reload_replaces_the_saved_baseline_and_clears_conflict() {
+        let mut state = FileSyncState::new("saved".into(), 10);
+        assert_eq!(
+            state.observe("local edit", Ok(Some(20))),
+            FileChange::Conflict
+        );
+        state.mark_reloaded("disk version".into(), 20);
+        assert!(!state.is_conflicted());
+        assert!(state.is_clean("disk version"));
     }
 }

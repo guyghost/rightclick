@@ -11,10 +11,7 @@ pub(crate) enum WatchSignal {
     Unavailable { generation: u64, message: String },
 }
 
-pub(crate) fn subscription(
-    path: PathBuf,
-    generation: u64,
-) -> iced::Subscription<WatchSignal> {
+pub(crate) fn subscription(path: PathBuf, generation: u64) -> iced::Subscription<WatchSignal> {
     let identity = (path.clone(), generation);
 
     iced::Subscription::run_with_id(
@@ -111,10 +108,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = std::env::temp_dir().join(format!(
-            "rightclick-watch-{}-{nanos}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("rightclick-watch-{}-{nanos}", std::process::id()));
         fs::create_dir_all(&path).unwrap();
         path
     }
