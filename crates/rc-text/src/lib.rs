@@ -42,6 +42,31 @@ impl Newline {
     }
 }
 
+/// Remplace chaque séparateur CRLF, CR ou LF par le style demandé.
+pub fn normalize_newlines(text: &str, style: Newline) -> String {
+    let target = match style {
+        Newline::None => Newline::Lf.as_str(),
+        style => style.as_str(),
+    };
+    let mut output = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\r' => {
+                if chars.peek() == Some(&'\n') {
+                    chars.next();
+                }
+                output.push_str(target);
+            }
+            '\n' => output.push_str(target),
+            other => output.push(other),
+        }
+    }
+
+    output
+}
+
 /// Un caractère fait-il partie d'un « mot » ?
 ///
 /// Utilisé pour le double-clic, la navigation par mot (⌥←/⌥→) et le classement
@@ -108,6 +133,23 @@ mod tests {
         assert_eq!(Newline::detect(""), Newline::None);
         // La première fin de ligne fait foi
         assert_eq!(Newline::detect("a\r\nb\n"), Newline::Crlf);
+    }
+
+    #[test]
+    fn normalizes_mixed_newlines_to_the_selected_style() {
+        assert_eq!(
+            normalize_newlines("a\r\nb\rc\n", Newline::Crlf),
+            "a\r\nb\r\nc\r\n"
+        );
+        assert_eq!(normalize_newlines("a\rb", Newline::Lf), "a\nb");
+        assert_eq!(normalize_newlines("a\rb\n", Newline::Cr), "a\rb\r");
+        assert_eq!(normalize_newlines("a\r\r\nb", Newline::Lf), "a\n\nb");
+    }
+
+    #[test]
+    fn none_uses_lf_without_adding_a_final_newline() {
+        assert_eq!(normalize_newlines("single line", Newline::None), "single line");
+        assert_eq!(normalize_newlines("a\rb", Newline::None), "a\nb");
     }
 
     #[test]
